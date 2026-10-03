@@ -297,6 +297,12 @@ From the 6.0.1 SDK source and the release notes:
   - `LibraryGetHash` works (v5 answers "Unknown command");
   - volume uses the long float format (`-20.00000000000000000`), range −60 to 0;
   - `ConfigurationList` with none saved: the same "path doesn't exist" error as v5.
+  - `Status` gains `process_speed`, `track_serial`, `transport_serial` and
+    `filter_junk`. `process_speed` may be HQPlayer's own real-time measure, which
+    could replace the position fit behind "Processing" on v6; unverified, since it
+    needs playback.
+  - Like v5, a restart (here a VM reboot) brings back the *saved* settings: changes
+    made over the control API, volume included, are lost (volume returned to −3 dB).
   - Not measured: playback (no output device), and Embedded's web UI (port 8088).
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
