@@ -301,7 +301,7 @@ From the 6.0.1 SDK source and the release notes:
     `filter_junk`. `process_speed` may be HQPlayer's own real-time measure, which
     could replace the position fit behind "Processing" on v6; unverified, since it
     needs playback.
-  - Like v5, a restart (here a VM reboot) brings back the *saved* settings: changes
+  - Like v5, a restart (here a VM reboot) brings back the _saved_ settings: changes
     made over the control API, volume included, are lost (volume returned to −3 dB).
   - Not measured: playback (no output device), and Embedded's web UI (port 8088).
 
