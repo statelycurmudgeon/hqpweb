@@ -65,9 +65,11 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 
 ## Install
 
-You need **Docker** (with Compose) on a machine that can reach HQPlayer on TCP 4321.
+You need **Docker** on a machine that can reach HQPlayer on TCP 4321.
 The image runs on amd64 and arm64 (e.g. a Raspberry Pi 4/5, an ARM NAS, Apple
 Silicon).
+
+**With Docker Compose** (recommended):
 
 ```sh
 mkdir hqpweb && cd hqpweb
@@ -75,21 +77,35 @@ curl -fsSLO https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/dock
 docker compose up -d
 ```
 
-Open `http://<this machine's IP>:4380`, then **Settings → General → Add** your
+Update: `docker compose pull && docker compose up -d`.
+
+**With `docker run`** (e.g. for Synology, Unraid or Portainer):
+
+```sh
+docker run -d --name hqpweb --restart unless-stopped --init \
+  -p 4380:4380 -v hqpweb_config:/config \
+  ghcr.io/statelycurmudgeon/hqpweb:latest
+```
+
+Update: `docker pull ghcr.io/statelycurmudgeon/hqpweb:latest`, then
+`docker rm -f hqpweb` and run the same command again. Settings live in the
+`hqpweb_config` volume (the same one Compose uses), so they're kept.
+
+Then open `http://<this machine's IP>:4380` and **Settings → General → Add** your
 HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Add to
 Home Screen" makes it a full-screen app.
 
-**Update:** read [CHANGELOG.md](CHANGELOG.md), then
-`docker compose pull && docker compose up -d`. Your instances and presets are kept.
-Settings → About shows the version and commit you're running; an open app offers to
-reload when the server has been updated.
+Before updating, skim [CHANGELOG.md](CHANGELOG.md). Settings → About shows the version
+and commit you're running; an open app offers to reload when the server has been
+updated.
 
 **From source** instead: clone the repository and run
 `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
 
 ## Options
 
-Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`.
+Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`;
+with `docker run`, pass them as `-e NAME=value`.
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
