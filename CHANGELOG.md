@@ -5,7 +5,10 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
-## 0.1.0-alpha.3 — a published image
+## 0.1.0-beta.1 — first beta, and a published image
+
+Beta: the feature set is settled for now, and updates keep your settings (instances,
+presets, learned failures). Bugs and rough edges are still expected.
 
 **Update:** `docker compose pull && docker compose up -d`. Settings are kept.
 

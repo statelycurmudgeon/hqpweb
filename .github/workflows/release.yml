@@ -1,6 +1,6 @@
 name: release
 
-# Publishes the container image when a version tag (vX.Y.Z or vX.Y.Z-alpha.N) is pushed:
+# Publishes the container image when a version tag (vX.Y.Z, or a pre-release like vX.Y.Z-beta.N) is pushed:
 # ghcr.io/<owner>/hqpweb:<version> and :latest, for amd64 and arm64.
 on:
   push:

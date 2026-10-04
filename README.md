@@ -5,7 +5,7 @@
 **A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
 rate from any phone or browser, and see whether HQPlayer is keeping up.
 
-**Status: alpha (0.1.0-alpha.3).** Works with HQPlayer Desktop 5 and HQPlayer 6
+**Status: beta (0.1.0-beta.1).** Works with HQPlayer Desktop 5 and HQPlayer 6
 Embedded. Desktop 6 and Windows are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
@@ -88,7 +88,7 @@ Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-alpha.3` to stay on a release.                                      |
+| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.1` to stay on a release.                                       |
 | `PORT`          | `4380`    | Port the app listens on.                                                                              |
 | `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
 | `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
