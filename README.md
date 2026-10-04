@@ -69,15 +69,29 @@ You need **Docker** on a machine that can reach HQPlayer on TCP 4321.
 The image runs on amd64 and arm64 (e.g. a Raspberry Pi 4/5, an ARM NAS, Apple
 Silicon).
 
-**With Docker Compose** (recommended):
+**With Docker Compose** (recommended): save this as `docker-compose.yml` in a new
+folder, then run `docker compose up -d` there.
 
-```sh
-mkdir hqpweb && cd hqpweb
-curl -fsSLO https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/docker-compose.yml
-docker compose up -d
+```yaml
+name: hqpweb
+services:
+  controller:
+    image: ghcr.io/statelycurmudgeon/hqpweb:latest
+    container_name: hqpweb
+    restart: unless-stopped
+    init: true
+    ports:
+      - "4380:4380"
+    volumes:
+      - config:/config # your instances, presets and settings
+volumes:
+  config:
 ```
 
-Update: `docker compose pull && docker compose up -d`.
+Update: `docker compose pull && docker compose up -d`. (The repository's
+[docker-compose.yml](docker-compose.yml) is the same, plus the optional settings
+below; `curl -fsSLO https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/docker-compose.yml`
+fetches it.)
 
 **With `docker run`** (e.g. for Synology, Unraid or Portainer):
 
@@ -104,8 +118,11 @@ updated.
 
 ## Options
 
-Set these in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`;
-with `docker run`, pass them as `-e NAME=value`.
+The repository's [docker-compose.yml](docker-compose.yml) reads these from a `.env`
+file next to it (then `docker compose up -d`). With the short example or `docker run`:
+pick the version in the image name (`hqpweb:0.1.0-beta.1`), the address and port in
+the port mapping (`127.0.0.1:8080:4380`), and set `ALLOWED_HOSTS` as an environment
+variable (`environment:` or `-e`).
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
