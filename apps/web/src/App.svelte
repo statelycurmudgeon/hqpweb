@@ -95,8 +95,10 @@
 
   const APOD_TITLE =
     "HQPlayer's apodization counter: problems in the recording that an apodizing filter corrects. HQPlayer's manual suggests one once it passes 10 in a track.";
-  // Apod: seen climbing past 150 on one track and back to 5 on the next (5.17.2, Linux),
-  // so it counts per track. Clips: inferred from the name; never seen above 0.
+  // Apod counts problems detected in the recording (manual §2.6), per track: seen past
+  // 150 on one track, 5 on the next, and still climbing after switching to an
+  // apodizing filter, which corrects them without stopping the count (5.17.2, Linux).
+  // Clips: inferred from the name; never seen above 0.
   const CLIPS_TITLE = "HQPlayer's clip counter (likely samples it had to clip). Lowering the volume gives it headroom.";
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
