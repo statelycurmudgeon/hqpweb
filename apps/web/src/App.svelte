@@ -247,7 +247,7 @@
           source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined,
           warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
         ),
-        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText, fromHqp: info.fromHqp } : {}),
+        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
       };
     });
   const shaperItems = $derived(
