@@ -27,6 +27,7 @@ import { LearnedStore, type Combo, type Failure } from "./learned.ts";
 import { DEFAULT_TIMING, MAJOR_TIMING, watchPlayback, type Verdict, type WatchTiming } from "./watch.ts";
 import { decideVolume, VOLUME_EPS } from "./volume.ts";
 import { MODE_BOUND, previewOne, type PresetPreview } from "./preset-preview.ts";
+import { settingsOf } from "./settings.ts";
 
 export class HttpError extends Error {
   readonly status: number;
@@ -147,40 +148,6 @@ export interface Snapshot {
    * so this is how the app spots one. Absent while playing or when Roon feeds it.
    */
   queuedRate?: number | null;
-}
-
-/** Every setting this engine manages, by name. */
-export interface Settings {
-  mode: string;
-  rate: number;
-  filterNx: string;
-  filter1x: string;
-  shaper: string;
-  volume: number;
-  invert: boolean;
-  filter20k: boolean;
-  adaptive: boolean;
-  convolution: boolean;
-  matrixProfile: string;
-}
-
-const nameOf = <T extends { index: number; name: string }>(list: T[], i: number) =>
-  list.find((x) => x.index === i)?.name ?? `#${i}`;
-
-function settingsOf(caps: Capabilities, s: State): Settings {
-  return {
-    mode: caps.mode.name,
-    rate: caps.rates.find((r) => r.index === s.rate)?.rate ?? 0,
-    filterNx: nameOf(caps.filters, s.filterNx),
-    filter1x: nameOf(caps.filters, s.filter1x),
-    shaper: nameOf(caps.shapers, s.shaper),
-    volume: s.volume,
-    invert: s.invert,
-    filter20k: s.filter20k,
-    adaptive: s.adaptive,
-    convolution: s.convolution,
-    matrixProfile: s.matrixProfile,
-  };
 }
 
 export interface InstanceOptions {

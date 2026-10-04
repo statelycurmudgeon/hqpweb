@@ -1,7 +1,8 @@
 // How a preset relates to an instance right now: what differs, what this instance can't
 // take, and whether a rule says the result won't play. Pure; Instance.previewPresets reads.
 import { filterSlot, predictedStop, type Hint, type Status } from "@app/protocol";
-import type { Capabilities, Change, Field, Settings } from "./instance.ts";
+import type { Capabilities, Change, Field } from "./instance.ts";
+import type { Settings } from "./settings.ts";
 import { VOLUME_EPS } from "./volume.ts";
 
 /** Settings whose meaning depends on the mode they were chosen in. */
