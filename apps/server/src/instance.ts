@@ -173,7 +173,14 @@ function previewOne(p: Change, caps: Capabilities, cur: Settings, status: Status
   let predicted: Hint | undefined;
   if (source && rate) {
     const filter = filterSlot(source) === "1x" ? (p.filter1x ?? cur.filter1x) : (p.filterNx ?? cur.filterNx);
-    predicted = predictedStop({ mode: cur.mode, filter, shaper: p.shaper ?? cur.shaper, sourceRate: source, outputRate: rate });
+    predicted = predictedStop({
+      mode: cur.mode,
+      filter,
+      shaper: p.shaper ?? cur.shaper,
+      sourceRate: source,
+      outputRate: rate,
+      filterDescription: caps.filters.find((f) => f.name === filter)?.description,
+    });
   }
   return { kind, differs, missing, unchecked: false, ...(predicted ? { predicted } : {}) };
 }
@@ -629,7 +636,14 @@ export class Instance {
     if (!source) return undefined;
     const s = settingsOf(caps, state);
     const filter = filterSlot(source) === "1x" ? s.filter1x : s.filterNx;
-    return predictedStop({ mode: s.mode, filter, shaper: s.shaper, sourceRate: source, outputRate: status.activeRate });
+    return predictedStop({
+      mode: s.mode,
+      filter,
+      shaper: s.shaper,
+      sourceRate: source,
+      outputRate: status.activeRate,
+      filterDescription: caps.filters.find((f) => f.name === filter)?.description,
+    });
   }
 
   private async recordFailure(reason: string) {

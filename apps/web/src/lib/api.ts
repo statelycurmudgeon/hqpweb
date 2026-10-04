@@ -12,7 +12,8 @@ export type Inst = {
   product?: string;
   engine?: string;
 };
-export type Named = { index: number; name: string };
+/** description: HQPlayer 6 only (filters: "5/5 timbre ⥮ Any"; modulators: "Gen8"). */
+export type Named = { index: number; name: string; description?: string };
 export type State = {
   mode: number;
   rate: number;

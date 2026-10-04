@@ -234,6 +234,15 @@
         {/each}
       </div>
 
+      <h4>Filter lists</h4>
+      <div class="seg" role="radiogroup" aria-label="Filter list order">
+        <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
+          >HQPlayer's order</button
+        >
+        <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button>
+      </div>
+      <p class="help">Ratings come from HQPlayer 6; with older versions the list keeps HQPlayer's order.</p>
+
       <label class="row">
         <span>Open “Advanced” by default</span>
         <input

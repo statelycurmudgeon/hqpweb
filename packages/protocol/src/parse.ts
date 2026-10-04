@@ -171,11 +171,15 @@ export interface Filter {
    * have arg=1 (measured). Kept for later investigation against the SDK source.
    */
   arg: number;
+  /** HQPlayer 6: a short description meant for control apps, e.g. "5/5 timbre ⥮ Any". */
+  description?: string;
 }
 export interface Shaper {
   index: number;
   name: string;
   value: number;
+  /** HQPlayer 6, SDM modulators: the design generation, e.g. "Gen8". */
+  description?: string;
 }
 export interface Rate {
   index: number;
@@ -194,10 +198,16 @@ export const parseFilters = (el: Element): Filter[] =>
     name: c.attrs.name ?? "",
     value: num(c, "value"),
     arg: Number(c.attrs.arg ?? 0),
+    ...(c.attrs.description ? { description: c.attrs.description } : {}),
   }));
 
 export const parseShapers = (el: Element): Shaper[] =>
-  kids(el, "ShapersItem").map((c) => ({ index: num(c, "index"), name: c.attrs.name ?? "", value: num(c, "value") }));
+  kids(el, "ShapersItem").map((c) => ({
+    index: num(c, "index"),
+    name: c.attrs.name ?? "",
+    value: num(c, "value"),
+    ...(c.attrs.description ? { description: c.attrs.description } : {}),
+  }));
 
 export const parseRates = (el: Element): Rate[] =>
   kids(el, "RatesItem").map((c) => ({ index: num(c, "index"), rate: num(c, "rate") }));

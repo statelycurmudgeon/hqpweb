@@ -3,6 +3,18 @@
 Versions follow [semantic versioning](https://semver.org). Before 1.0, any release
 may change behaviour; upgrade notes say what you need to do.
 
+## Unreleased
+
+- **Filter and modulator descriptions (HQPlayer 6):** each filter shows HQPlayer's
+  own rating (stars); tap ⓘ for what it favours (transients, timbre, space) and the
+  ratios it works with. Chips narrow the list (5/5, a focus, "works here"), and
+  Settings can group the list by rating. Modulators show their generation (Gen1–8).
+- **Ratio warnings use HQPlayer's own rule** when it gives one. Fixed: the sinc-S/M/L
+  family needs a power-of-two upsampling ratio (we had "whole-number"); FFT and
+  closed-form-16M allow power-of-two either way; ext2 variants now covered.
+- **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
+- **Seek** within files HQPlayer plays itself.
+
 ## 0.1.0-alpha.1 — first public release
 
 **Install:** see the README. **Update:** `git pull && docker compose up -d --build`.

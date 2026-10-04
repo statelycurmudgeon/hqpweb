@@ -6,8 +6,11 @@
 // Unknown names get no prediction: the engine (5.32+) has filters the 5.13
 // manual doesn't list, and guessing would be worse than silence.
 
-/** §4.6 "Ratio" column: which conversion ratios a filter can do. */
-export type RatioClass = "any" | "integer" | "integer-up" | "pow2-up" | "1:1";
+/**
+ * Which conversion ratios a filter can do: from the manual's §4.6 "Ratio" column,
+ * and from HQPlayer 6's own filter descriptions where they differ (those win).
+ */
+export type RatioClass = "any" | "any-up" | "integer" | "integer-up" | "pow2" | "pow2-up" | "1:1";
 
 const RATIO: Record<string, RatioClass> = {
   none: "1:1",
@@ -16,7 +19,7 @@ const RATIO: Record<string, RatioClass> = {
   FIR: "integer",
   asymFIR: "integer",
   minphaseFIR: "integer",
-  FFT: "pow2-up",
+  FFT: "pow2", // HQPlayer 6 says "2^x" (either direction)
   "poly-sinc-lp": "any",
   "poly-sinc-mp": "any",
   "poly-sinc-short-lp": "any",
@@ -31,6 +34,16 @@ const RATIO: Record<string, RatioClass> = {
   "poly-sinc-hb-l": "any",
   "poly-sinc-ext": "integer",
   "poly-sinc-ext2": "any",
+  // Not in the 5.13 manual; from HQPlayer 6's descriptions.
+  "poly-sinc-ext2-short": "integer-up",
+  "poly-sinc-ext2-medium": "any",
+  "poly-sinc-ext2-long": "any",
+  "poly-sinc-ext2-xla": "any",
+  "poly-sinc-ext2-xl": "any",
+  "poly-sinc-ext2-hires-lp": "any",
+  "poly-sinc-ext2-hires-ip": "any",
+  "poly-sinc-ext2-hires-mp": "any",
+  "poly-sinc-gauss-medium": "any",
   "poly-sinc-ext3": "any",
   // PCM: integer up; SDM: any (§4.6).
   "poly-sinc-mqa/mp3-lp": "integer-up",
@@ -57,20 +70,22 @@ const RATIO: Record<string, RatioClass> = {
   "closed-form": "pow2-up",
   "closed-form-fast": "pow2-up",
   "closed-form-M": "pow2-up",
-  "closed-form-16M": "pow2-up",
-  "sinc-S": "integer",
-  "sinc-M": "integer",
-  "sinc-Mx": "integer",
-  "sinc-MG": "integer",
-  "sinc-MGa": "integer",
-  "sinc-L": "integer",
-  "sinc-Ls": "integer",
-  "sinc-Lm": "integer",
-  "sinc-Ll": "integer",
-  "sinc-Lh": "integer",
-  "sinc-short": "any",
-  "sinc-medium": "any",
-  "sinc-long": "any",
+  "closed-form-16M": "pow2",
+  // HQPlayer 6's descriptions say power-of-two upsampling only (the 5.13 manual
+  // reads as whole-number); matches what we saw (sinc-M at a non-2^x ratio).
+  "sinc-S": "pow2-up",
+  "sinc-M": "pow2-up",
+  "sinc-Mx": "pow2-up",
+  "sinc-MG": "pow2-up",
+  "sinc-MGa": "pow2-up",
+  "sinc-L": "pow2-up",
+  "sinc-Ls": "pow2-up",
+  "sinc-Lm": "pow2-up",
+  "sinc-Ll": "pow2-up",
+  "sinc-Lh": "pow2-up",
+  "sinc-short": "any-up",
+  "sinc-medium": "any-up",
+  "sinc-long": "any-up",
   "sinc-long-h": "any",
 };
 
@@ -91,8 +106,15 @@ const khz = (hz: number) => (hz >= 1_000_000 ? `${+(hz / 1_000_000).toFixed(4)} 
 const isPow2 = (n: number) => Number.isInteger(n) && n >= 1 && (n & (n - 1)) === 0;
 
 /** Can `filter` convert `sourceRate` to `outputRate`? Undefined when unknown. */
-export function ratioHint(filter: string, sourceRate: number, outputRate: number, sdm = false): Hint | undefined {
-  const cls = ratioClass(filter);
+export function ratioHint(
+  filter: string,
+  sourceRate: number,
+  outputRate: number,
+  sdm = false,
+  /** HQPlayer's own class for this filter (from its description), when it gives one. */
+  given?: RatioClass,
+): Hint | undefined {
+  const cls = given ?? ratioClass(filter);
   if (!cls || !sourceRate || !outputRate) return undefined;
   const r = outputRate / sourceRate;
   const ratio = Number.isInteger(r) ? `${r}×` : `${r.toFixed(2)}×`;
@@ -103,6 +125,8 @@ export function ratioHint(filter: string, sourceRate: number, outputRate: number
   switch (cls) {
     case "any":
       return undefined;
+    case "any-up":
+      return r >= 1 ? undefined : why("upsampling (it can't convert down)");
     case "1:1":
       return r === 1 ? undefined : why("the output rate to equal the source rate");
     case "integer":
@@ -110,6 +134,8 @@ export function ratioHint(filter: string, sourceRate: number, outputRate: number
     case "integer-up":
       if (sdm && filter.startsWith("poly-sinc-mqa")) return undefined; // any ratio for SDM (§4.6)
       return Number.isInteger(r) && r >= 1 ? undefined : why("a whole-number upsampling ratio");
+    case "pow2":
+      return isPow2(r) || isPow2(1 / r) ? undefined : why("a power-of-two ratio");
     case "pow2-up":
       return isPow2(r) ? undefined : why("a power-of-two upsampling ratio");
   }
@@ -168,10 +194,60 @@ export function predictedStop(c: {
   shaper: string;
   sourceRate: number;
   outputRate: number;
+  /** HQPlayer 6's description of the filter, if it gave one: its ratio rule wins. */
+  filterDescription?: string;
 }): Hint | undefined {
   const sdm = c.mode.startsWith("SDM");
-  const r = ratioHint(c.filter, c.sourceRate, c.outputRate, sdm);
+  const r = ratioHint(c.filter, c.sourceRate, c.outputRate, sdm, parseFilterDescription(c.filterDescription)?.ratio);
   if (r?.level === "hard") return r;
   const m = sdm ? modulatorHint(c.shaper, c.outputRate) : undefined;
   return m?.level === "hard" ? m : undefined;
 }
+
+/**
+ * HQPlayer 6's filter description, e.g. "5/5 transients, timbre ⥮ Any up":
+ * a rating out of 5, what the filter favours, and its ratio rule. Measured on
+ * engine 6.2.3: all 84 filters follow this shape. The arrow is ⥮ for most and
+ * ⥣ for the two-stage (-2s) filters; its meaning isn't documented, so it's kept raw.
+ */
+export interface FilterInfo {
+  rating: number;
+  tags: string[];
+  ratio?: RatioClass;
+  /** The ratio rule as HQPlayer words it, e.g. "2^x up". */
+  ratioText: string;
+  arrow: string;
+}
+
+const RATIO_TEXT: Record<string, RatioClass> = {
+  Any: "any",
+  "Any up": "any-up",
+  Int: "integer",
+  "Int up": "integer-up",
+  "2^x": "pow2",
+  "2^x up": "pow2-up",
+  "1:1": "1:1",
+};
+
+export function parseFilterDescription(d: string | undefined): FilterInfo | undefined {
+  const m = d ? /^(\d)\/5\s*(.*?)\s*([⥣⥮])\s*(Any|Int|2\^x|1:1)(\s+up)?\s*$/u.exec(d) : null;
+  if (!m) return undefined;
+  const ratioText = `${m[4]}${m[5] ? " up" : ""}`;
+  const ratio = RATIO_TEXT[ratioText];
+  return {
+    rating: Number(m[1]),
+    tags: m[2]!
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+    ...(ratio ? { ratio } : {}),
+    ratioText,
+    arrow: m[3]!,
+  };
+}
+
+/** HQPlayer 6's modulator description, "Gen8" → 8. */
+export const modulatorGeneration = (d: string | undefined): number | undefined => {
+  const m = d ? /^Gen(\d+)$/.exec(d) : null;
+  return m ? Number(m[1]) : undefined;
+};

@@ -6,7 +6,16 @@
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
-  import { RECOMMENDED_MAX_VOLUME_DB, ditherHint, filterSlot, modulatorHint, ratioHint, type Hint } from "@app/protocol/compat";
+  import {
+    RECOMMENDED_MAX_VOLUME_DB,
+    ditherHint,
+    filterSlot,
+    modulatorGeneration,
+    modulatorHint,
+    parseFilterDescription,
+    ratioHint,
+    type Hint,
+  } from "@app/protocol/compat";
   import {
     api,
     formatRate,
@@ -223,18 +232,25 @@
   const outRate = $derived(snap?.status.activeRate ?? 0);
   /** Rate is fixed (not auto): only then can a filter choice make the ratio impossible. */
   const fixedRate = $derived((snap?.state.rate ?? 0) !== 0);
+  // HQPlayer 6 describes each filter (rating, focus, ratio rule); its ratio rule
+  // wins over our table from the manual.
   const filterItems = (slot: "1x" | "Nx") =>
-    (caps?.filters ?? []).map((f) =>
-      decorate(
-        f,
-        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm) : undefined,
-        warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
-      ),
-    );
+    (caps?.filters ?? []).map((f) => {
+      const info = parseFilterDescription(f.description);
+      return {
+        ...decorate(
+          f,
+          source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined,
+          warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
+        ),
+        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
+      };
+    });
   const shaperItems = $derived(
-    (caps?.shapers ?? []).map((s) =>
-      decorate(s, isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate), warnFor("shaper", s.name)),
-    ),
+    (caps?.shapers ?? []).map((s) => ({
+      ...decorate(s, isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate), warnFor("shaper", s.name)),
+      ...(modulatorGeneration(s.description) !== undefined ? { gen: modulatorGeneration(s.description)! } : {}),
+    })),
   );
   const inUseFilter = $derived(
     caps && snap && source ? nameAt(caps.filters, filterSlot(source) === "1x" ? snap.state.filter1x : snap.state.filterNx) : "",
@@ -242,7 +258,8 @@
   const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
   const rateItems = $derived(
     (caps?.rates ?? []).map((r) => {
-      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm) : undefined;
+      const inUseRatio = parseFilterDescription(caps?.filters.find((f) => f.name === inUseFilter)?.description)?.ratio;
+      const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm, inUseRatio) : undefined;
       const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
       const rule = ratio?.level === "hard" ? ratio : mod;
       return {
@@ -643,6 +660,7 @@
           hint={inUse === "1x" ? "in use" : ""}
           active={takenFor("1x", nameAt(caps.filters, snap.state.filter1x))}
           items={filterItems("1x")}
+          groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
           onpick={(i) => apply({ filter1x: i.name })}
@@ -652,6 +670,7 @@
           hint={inUse === "Nx" ? "in use" : ""}
           active={takenFor("Nx", nameAt(caps.filters, snap.state.filterNx))}
           items={filterItems("Nx")}
+          groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
           onpick={(i) => apply({ filterNx: i.name })}
