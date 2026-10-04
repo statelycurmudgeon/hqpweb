@@ -26,6 +26,15 @@ presets, learned failures). Bugs and rough edges are still expected.
   version.
 - **Discovery tries harder:** each scan sends its query three times, so a lost UDP
   packet no longer means "nothing found" (a tester's first scans failed several times).
+- **Settings carry a format number,** and CI loads a set of settings files as
+  earlier versions wrote them, so an update can't silently drop your instances,
+  presets, learned failures or Roon pairing. A file from a newer hqpweb loads with a
+  warning.
+- **README screenshots.**
+
+### Fixed
+
+- "Apod 23· your filter handles this" now has its space.
 
 ## 0.1.0-alpha.2 — filter guide, compatible filters, safety signals
 
