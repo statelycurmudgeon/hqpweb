@@ -26,7 +26,7 @@ may change behaviour; upgrade notes say what you need to do.
   rates the next album might use.
 - **Volume jumps are flagged.** If HQPlayer's volume rises 10 dB or more without
   hqpweb (a restart brings it back at its saved level; v6 at −3 dB, measured), the Now
-  card says so, with "Back to −44 dB" and Dismiss.
+  card says so, with a button to go back to the previous level, and Dismiss.
 - **"HQPlayer didn't start."** HQPlayer replies OK to Play even when nothing can start.
   After a Play from hqpweb, if nothing starts within a few seconds, the app says so,
   and why when a rule explains it; otherwise it points at the output (an NAA in use
