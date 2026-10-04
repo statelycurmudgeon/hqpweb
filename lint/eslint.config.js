@@ -30,14 +30,16 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.browser },
     },
     plugins: { "@typescript-eslint": tseslint.plugin },
-    linterOptions: { reportUnusedDisableDirectives: "error" },
+    // No eslint-disable comments: an exception goes in this file, where review sees it.
+    linterOptions: { noInlineConfig: true },
     rules: {
       // Promises nobody waits for: errors vanish and ordering breaks.
       "@typescript-eslint/no-floating-promises": "error",
       // Promises passed where they don't belong (an async handler where a plain one is expected).
       "@typescript-eslint/no-misused-promises": "error",
-      // A new mode, state or field that a switch silently ignores.
-      "@typescript-eslint/switch-exhaustiveness-check": ["error", { considerDefaultExhaustiveForUnions: true }],
+      // A new mode, state or field that a switch silently ignores. A `default:` doesn't
+      // count as handling it: that's how a new case gets swallowed.
+      "@typescript-eslint/switch-exhaustiveness-check": ["error", { considerDefaultExhaustiveForUnions: false }],
       // Unused code. A leading _ marks a deliberately unused argument.
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", caughtErrors: "none" }],
       // Reported, not yet blocking (the plan: fails above 60 lines or a complexity of 15, later).
