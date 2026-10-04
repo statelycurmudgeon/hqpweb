@@ -93,7 +93,7 @@
     "1:1": "no rate conversion",
   };
 
-  function open() {
+  export function open() {
     query = "";
     openInfo = null;
     compatOnly = true;

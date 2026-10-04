@@ -140,6 +140,19 @@ export interface Status {
   source: { sampleRate: number; bits: number; channels: number; song: string } | null;
 }
 
+/**
+ * Sample rate of the track HQPlayer would play next from its own playlist: the
+ * current entry (Status `track`, 1-based) or else the first. Measured on 6.2.3:
+ * a track that can't start leaves Status with state 0, track 0 and no metadata,
+ * while PlaylistGet still lists it with its rate. Null when the playlist is empty.
+ */
+export function queuedRate(el: Element, track: number): number | null {
+  const items = el.children.filter((c) => c.name === "PlaylistItem");
+  const it = items.find((c) => Number(c.attrs.index) === track) ?? items[0];
+  const r = it ? Number(it.attrs.rate) : NaN;
+  return Number.isFinite(r) && r > 0 ? r : null;
+}
+
 export function parseStatus(el: Element): Status {
   return {
     state: playback(el),

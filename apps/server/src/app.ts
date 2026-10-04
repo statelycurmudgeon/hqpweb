@@ -38,6 +38,8 @@ export interface AppOptions {
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Live playback-speed window (default 30 s). */
   speedWindowMs?: number;
+  /** Playlist re-read interval while stopped (default 5 s). */
+  queueEveryMs?: number;
   /** Optional Roon link. Default: off, in memory only. */
   roon?: RoonLink;
 }
@@ -174,6 +176,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         learned,
         ...(opts.timing ? { timing: opts.timing } : {}),
         ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
+        ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
       }),
   });
   const roon = opts.roon ?? new RoonLink(null);

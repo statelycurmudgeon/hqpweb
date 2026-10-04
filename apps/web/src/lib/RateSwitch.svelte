@@ -4,7 +4,14 @@
   // applying anyway. Warn, never refuse (design: users own their choices).
   export type RateOption = { label: string; rate: number; nearest?: boolean };
   export type RateSwitchRequest = {
+    /** pick: the user chose an incompatible filter. wedge: the queued track can't start. */
+    kind: "pick" | "wedge";
+    title: string;
     filter: string;
+    /** Whether something is playing (so the change can be checked). */
+    playing: boolean;
+    /** wedge: a way out other than the rate, e.g. "Choose another filter". */
+    alternative?: string;
     /** Why it can't, e.g. "sinc-M needs a power-of-two ratio; 44.1k → 192k is 4.35×". */
     reason: string;
     options: RateOption[];
@@ -14,11 +21,14 @@
   let {
     request,
     onchoose,
+    onalternative,
     oncancel,
   }: {
     request: RateSwitchRequest | null;
     /** A rate in Hz (0 = Auto), or null to apply the filter without changing the rate. */
     onchoose: (rate: number | null) => void;
+    /** The alternative was chosen; the sheet closes first. */
+    onalternative: () => void;
     oncancel: () => void;
   } = $props();
 
@@ -27,6 +37,10 @@
     if (request && !dialog.open) dialog.showModal();
     if (!request && dialog.open) dialog.close();
   });
+  const alternative = () => {
+    dialog.close();
+    onalternative();
+  };
   const choose = (rate: number | null) => {
     dialog.close();
     onchoose(rate);
@@ -37,7 +51,7 @@
   {#if request}
     <div class="sheet">
       <header>
-        <h3>{request.filter} can't play at this rate</h3>
+        <h3>{request.title}</h3>
         <button class="close" onclick={() => dialog.close()} aria-label="Cancel"
           ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
         >
@@ -58,9 +72,19 @@
       {:else}
         <p class="reason">None of this instance's output rates fit this filter from the current source.</p>
       {/if}
-      <p class="note">Playback restarts briefly. If it doesn't recover, the change is rolled back.</p>
+      {#if request.kind === "wedge"}
+        <p class="note">Then press Play.</p>
+      {:else if request.playing}
+        <p class="note">Playback restarts briefly. If it doesn't recover, the change is rolled back.</p>
+      {:else}
+        <p class="note">Nothing's playing, so this can't be checked. If it doesn't fit, the next track won't start.</p>
+      {/if}
       <div class="actions">
-        <button class="plain" onclick={() => choose(null)}>Apply anyway</button>
+        {#if request.kind === "wedge"}
+          {#if request.alternative}<button class="plain" onclick={alternative}>{request.alternative}</button>{/if}
+        {:else}
+          <button class="plain" onclick={() => choose(null)}>Apply anyway</button>
+        {/if}
         <button class="plain" onclick={() => dialog.close()}>Cancel</button>
       </div>
     </div>

@@ -45,6 +45,8 @@ export type Snapshot = {
   state: State;
   /** speed: position fit over 30 s; processSpeed: HQPlayer's own figure (×real time, 3 s average) when reported. */
   health?: { latencyMs: number; speed: number | null; processSpeed?: number | null };
+  /** While stopped: the rate of the track HQPlayer's playlist would play next (null if none known). */
+  queuedRate?: number | null;
 };
 export type Failure = {
   mode: string;

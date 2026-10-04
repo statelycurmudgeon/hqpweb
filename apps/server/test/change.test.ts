@@ -406,6 +406,50 @@ describe("live health in the status stream", () => {
     expect(d?.health.processSpeed).toBe(25);
   });
 
+  it("while stopped, reports the queued track's rate (a track that can't start leaves Status blank)", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    fake.playback = 0;
+    fake.feeder = "playlist";
+    fake.playlist = ["/music/Example Artist/First Album/01 - Opening.flac"];
+    fake.setSource(96_000);
+    await fake.listen();
+    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50 });
+    base = await app.listen(0, "127.0.0.1");
+    const d = await events(20, (x) => x.queuedRate !== undefined);
+    expect(d?.status.source).toBeNull();
+    expect(d?.queuedRate).toBe(96_000);
+  });
+
+  it("doesn't trust HQPlayer's playlist after Roon was the source", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    fake.playlist = ["/music/Example Artist/First Album/01 - Opening.flac"];
+    await fake.listen(); // playing, fed by Roon
+    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50 });
+    base = await app.listen(0, "127.0.0.1");
+    await events(20, (x) => x.status.source?.song === "Roon");
+    fake.playback = 0;
+    const d = await events(40, (x) => x.status.state === 0 && x.queuedRate !== undefined);
+    expect(d?.queuedRate).toBeNull();
+  });
+
+  it("trusts the playlist again once something new is queued after Roon", async () => {
+    fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
+    fake.playlist = ["/music/Example Artist/First Album/01 - Opening.flac"];
+    await fake.listen();
+    app = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+      { pollMs: 50, queueEveryMs: 100 },
+    );
+    base = await app.listen(0, "127.0.0.1");
+    await events(20, (x) => x.status.source?.song === "Roon");
+    fake.playback = 0;
+    await events(40, (x) => x.status.state === 0 && x.queuedRate === null);
+    fake.playlist = ["/music/Example Artist/Second Album/01 - Intro.flac"];
+    fake.setSource(88_200);
+    const d = await events(400, (x) => x.queuedRate === 88_200);
+    expect(d?.queuedRate).toBe(88_200);
+  });
+
   it("shows an overloaded machine's processing speed below 1×", async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, speed: () => 0.6 });
     await fake.listen();

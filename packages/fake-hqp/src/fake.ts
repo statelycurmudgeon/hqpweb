@@ -488,6 +488,19 @@ export class FakeHqp {
       if (req.attrs.start === "1") this.feeder = "playlist";
       return this.ok("PlaylistAdd");
     },
+    // Measured (6.2.3): items carry the track's rate even when it can't start. The
+    // fake's tracks all play at sourceRate.
+    PlaylistGet: () =>
+      this.doc(
+        "PlaylistGet",
+        { album: 0 },
+        undefined,
+        this.playlist
+          .map((uri, i) =>
+            element("PlaylistItem", { index: i + 1, rate: this.sourceRate, length: 300, song: uri.split("/").pop() ?? "" }),
+          )
+          .join(""),
+      ),
     PlaylistClear: () => {
       this.playlist = [];
       return this.ok("PlaylistClear");

@@ -8,6 +8,7 @@
 import {
   HqpClient,
   cmd,
+  queuedRate,
   filterSlot,
   predictedStop,
   type Hint,
@@ -188,6 +189,12 @@ function previewOne(p: Change, caps: Capabilities, cur: Settings, status: Status
 export interface Snapshot {
   status: Status;
   state: State;
+  /**
+   * While stopped: the sample rate of the track HQPlayer's own playlist would play
+   * next, if known. Status says nothing about a track that can't start (measured),
+   * so this is how the app spots one. Absent while playing or when Roon feeds it.
+   */
+  queuedRate?: number | null;
 }
 
 /** Every setting this engine manages, by name. */
@@ -230,6 +237,8 @@ export interface InstanceOptions {
   timing?: { quick: WatchTiming; major: WatchTiming };
   /** Window for the live playback-speed health signal. Default 30 s; tests shorten it. */
   speedWindowMs?: number;
+  /** How often to re-read the playlist while stopped. Default 5 s; tests shorten it. */
+  queueEveryMs?: number;
 }
 
 export class Instance {
@@ -238,6 +247,7 @@ export class Instance {
   private readonly learned: LearnedStore;
   private readonly timing: { quick: WatchTiming; major: WatchTiming };
   private readonly speedWindowMs: number;
+  private readonly queueEveryMs: number;
   private caps: { key: string; value: Capabilities } | null = null;
   /** Writes to one instance run one at a time. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -253,6 +263,7 @@ export class Instance {
     this.learned = opts.learned ?? new LearnedStore(null);
     this.timing = opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING };
     this.speedWindowMs = opts.speedWindowMs ?? 30_000;
+    this.queueEveryMs = opts.queueEveryMs ?? 5000;
   }
 
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -688,6 +699,40 @@ export class Instance {
     const avg = this.processTrail.reduce((a, p) => a + p.v, 0) / this.processTrail.length;
     return Math.round(avg * 100) / 100;
   }
+  // The queued track's rate, read from the playlist at most every queueEveryMs while stopped.
+  private queued: { at: number; rate: number | null; list: string } | null = null;
+  /**
+   * After Roon was the source, HQPlayer's own playlist is left over and isn't what
+   * plays next: ignore it until it changes (someone queued something in HQPlayer).
+   * A track that can't start never shows as a source, so "changed" is the signal.
+   */
+  private stalePlaylist: string | null | undefined;
+  private async queuedRateFor(status: Status): Promise<number | null | undefined> {
+    if (status.source) {
+      this.stalePlaylist = status.source.song === "Roon" ? null : undefined;
+      this.queued = null;
+      return undefined;
+    }
+    if (status.state === 2) return undefined;
+    const now = Date.now();
+    if (!this.queued || now - this.queued.at > this.queueEveryMs) {
+      const el = await this.client.request(cmd.playlistGet()).catch(() => null);
+      const list = el
+        ? el.children
+            .filter((c) => c.name === "PlaylistItem")
+            .map((c) => `${c.attrs.uri ?? c.attrs.song ?? ""}@${c.attrs.rate ?? ""}`)
+            .join("|")
+        : "";
+      this.queued = { at: now, rate: el ? queuedRate(el, status.track) : null, list };
+    }
+    if (this.stalePlaylist === null) this.stalePlaylist = this.queued.list; // first look after Roon
+    if (this.stalePlaylist !== undefined) {
+      if (this.queued.list === this.stalePlaylist) return null;
+      this.stalePlaylist = undefined; // the playlist changed: it's HQPlayer's queue again
+    }
+    return this.queued.rate;
+  }
+
   /** Bumped whenever polling starts or stops, so an in-flight tick from an old chain can't restart it. */
   private pollGen = 0;
 
@@ -702,8 +747,9 @@ export class Instance {
         try {
           const [status, state] = await Promise.all([this.client.status(), this.client.state()]);
           const latencyMs = Date.now() - t0;
+          const queuedRate = await this.queuedRateFor(status);
           event = {
-            snapshot: { status, state },
+            snapshot: { status, state, ...(queuedRate !== undefined ? { queuedRate } : {}) },
             health: { latencyMs, speed: this.trackSpeed(status), processSpeed: this.averageProcessSpeed(status) },
           };
           // Inferred threshold: normal replies take ~1 ms on a kept-open connection (measured).

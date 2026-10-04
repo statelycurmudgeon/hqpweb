@@ -326,6 +326,13 @@ From the 6.0.1 SDK source and the release notes:
   So v5's sinc-M needs a power-of-two ratio either way: neither the v5.13 manual's
   "whole-number" nor v6's PCM "2^x up" describes v5. The rest of the sinc-S/M/L
   family is assumed to match (inferred). v6's own rule in PCM is untested.
+- **A track that can't start (measured on Embedded 6.2.3, PCM, fixed 192k, sinc-M,
+  44.1k file):** `Play` replies OK, and `Status` looks exactly like idle: state 0,
+  `track="0"`, no `<metadata>`, so no source rate. `PlaylistGet` still lists the track
+  with `rate="44100"`, which is how hqpweb spots it. Changing only the rate to 176.4k
+  does not start it; a `Play` after that does. (Unlike a stall during playback, which
+  resumes by itself once the combination is valid, §2.3.) Not measured: the same
+  situation with Roon as the source.
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
 `(instance, engine version, mode)`. Nothing is hard-coded except the command names.

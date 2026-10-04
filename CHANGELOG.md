@@ -19,6 +19,11 @@ may change behaviour; upgrade notes say what you need to do.
   the current conversion ratio are hidden by a "compatible" chip (on by default; "Show
   all" lists them struck through). Picking one offers the output rates that fit, marks
   the closest, offers Auto, or applies anyway; the filter and rate change together.
+- **"The next track won't start."** When HQPlayer is stopped and the track queued in
+  its playlist can't play with the current filter and fixed rate, the Now card says
+  why, with a fix: rates that fit, Auto, or another filter. (HQPlayer itself just
+  ignores Play.) With a fixed rate, a note under the filters also warns about source
+  rates the next album might use.
 - **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
 - **Seek** within files HQPlayer plays itself.
 
