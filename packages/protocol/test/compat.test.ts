@@ -89,6 +89,11 @@ describe("HQPlayer 6 descriptions", () => {
     expect(parseFilterDescription("1/5 ⥮ 1:1")?.ratio).toBe("1:1");
     expect(parseFilterDescription(undefined)).toBeUndefined();
     expect(parseFilterDescription("something new")).toBeUndefined();
+    // Hostile input is rejected quickly (CodeQL: polynomial regex).
+    const t0 = performance.now();
+    expect(parseFilterDescription("9/5" + " ".repeat(150) + "x")).toBeUndefined();
+    expect(parseFilterDescription("9/5" + " ".repeat(50_000))).toBeUndefined();
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 
   it("lets HQPlayer's own ratio rule override ours", async () => {

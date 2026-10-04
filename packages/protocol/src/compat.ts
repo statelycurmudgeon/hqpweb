@@ -234,7 +234,9 @@ const RATIO_TEXT: Record<string, RatioClass> = {
 };
 
 export function parseFilterDescription(d: string | undefined): FilterInfo | undefined {
-  const m = d ? /^(\d)\/5\s*(.*?)\s*([⥣⥮])\s*(Any|Int|2\^x|1:1)(\s+up)?\s*$/u.exec(d) : null;
+  // Real descriptions are ~40 characters. The tags are "anything but the arrow",
+  // so no two parts of the pattern compete for the same text (no backtracking blow-up).
+  const m = d && d.length <= 200 ? /^(\d)\/5([^⥣⥮]*)([⥣⥮]) *(Any|Int|2\^x|1:1)( +up)? *$/u.exec(d.trim()) : null;
   if (!m) return undefined;
   const ratioText = `${m[4]}${m[5] ? " up" : ""}`;
   const ratio = RATIO_TEXT[ratioText];
