@@ -5,6 +5,25 @@ may change behaviour; upgrade notes say what you need to do.
 
 ## Unreleased
 
+## 0.1.0-alpha.3 — a published image
+
+**Update:** `docker compose pull && docker compose up -d`. Settings are kept.
+
+### Upgrade notes
+
+- **The compose file now runs the published image** (`ghcr.io/statelycurmudgeon/hqpweb`,
+  amd64 and arm64) instead of building. If you installed from a clone and want to keep
+  building from source, use
+  `docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
+  Either way the settings volume is the same.
+
+### Added
+
+- **Published image** for each release, with build provenance; `HQPWEB_TAG` pins a
+  version.
+- **Discovery tries harder:** each scan sends its query three times, so a lost UDP
+  packet no longer means "nothing found" (a tester's first scans failed several times).
+
 ## 0.1.0-alpha.2 — filter guide, compatible filters, safety signals
 
 **Update:** `git pull && docker compose up -d --build`. No settings change.
