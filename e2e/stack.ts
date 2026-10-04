@@ -5,7 +5,7 @@
 // Each flow gets its own instance, so flows can't disturb each other.
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import { FakeHqp, loadProfile, type ProfileId } from "@app/fake-hqp";
+import { FakeHqp, loadProfile, type FakeOptions, type ProfileId } from "@app/fake-hqp";
 import { buildApp } from "../apps/server/src/app.ts";
 import type { InstanceConfig } from "../apps/server/src/config.ts";
 import type { WatchTiming } from "../apps/server/src/watch.ts";
@@ -30,12 +30,20 @@ interface Flow {
   name: string;
   profile: ProfileId;
   setup?: (fake: FakeHqp) => void;
+  /** Simulated machine speed (1 = real time), e.g. a filter this machine can't keep up with. */
+  speed?: FakeOptions["speed"];
 }
 
 // Keyed by instance id; the tests select an instance by id.
 const FLOWS: Record<string, Flow> = {
   // SDM at auto rate, playing from Roon: every filter fits.
   pick: { name: "Pick a filter", profile: "desktop5-mac-sdm" },
+  // Playing, on a machine that runs poly-sinc-gauss-long at half real time: picking it is rolled back.
+  rollback: {
+    name: "Rollback",
+    profile: "desktop5-mac-sdm",
+    speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1),
+  },
   // PCM fixed at 192k, playing 44.1k: power-of-two filters (FFT) can't convert 4.35×.
   ratio: {
     name: "Ratio",
@@ -86,7 +94,7 @@ export async function startStack() {
   const fakes = new Map<string, FakeHqp>();
   const instances: InstanceConfig[] = [];
   for (const [id, flow] of Object.entries(FLOWS)) {
-    const fake = new FakeHqp(loadProfile(flow.profile), { timeScale: 0 });
+    const fake = new FakeHqp(loadProfile(flow.profile), { timeScale: 0, ...(flow.speed ? { speed: flow.speed } : {}) });
     flow.setup?.(fake);
     await fake.listen();
     fakes.set(id, fake);

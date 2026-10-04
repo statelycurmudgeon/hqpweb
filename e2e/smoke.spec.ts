@@ -44,6 +44,24 @@ test("pick a filter, see it confirmed, undo it", async ({ page }) => {
   await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");
 });
 
+test("a filter this machine can't keep up with is rolled back, and flagged next time", async ({ page }) => {
+  await openOn(page, "rollback");
+  await row(page, "1x filter").click();
+  await sheet(page)
+    .getByRole("button", { name: /^poly-sinc-gauss-long/ })
+    .click();
+
+  await expect(footer(page)).toContainText("Rolled back:", { timeout: 10_000 });
+  await expect(footer(page)).toContainText("1x filter back to poly-sinc-gauss-xla");
+  await expect(footer(page)).toContainText("Playback resumed.");
+  await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");
+  await shot(page, "rollback-1-rolled-back");
+
+  await row(page, "1x filter").click();
+  await expect(sheet(page).getByRole("button", { name: /^poly-sinc-gauss-long/ })).toContainText("failed here before");
+  await shot(page, "rollback-2-flagged");
+});
+
 test("a filter that can't convert this ratio is hidden, and picking it offers rates that fit", async ({ page }) => {
   await openOn(page, "ratio");
   await row(page, "1x filter").click();
@@ -83,6 +101,11 @@ test("a queued track that can't start is explained, and Fix offers rates that fi
 
   await expect(footer(page)).toContainText("✓ Output rate → 176.4 kHz");
   await expect(banner).toBeHidden();
+
+  // The sheet leaves Play to the listener: no surprise playback.
+  await expect(page.locator(".headline .state")).toHaveText("Stopped");
+  await page.getByRole("button", { name: "Play" }).click();
+  await expect(page.locator(".headline .state")).toHaveText("Playing");
 });
 
 test("a volume jump hqpweb didn't make is flagged, and can be put back", async ({ page }) => {
