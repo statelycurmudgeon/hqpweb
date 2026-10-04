@@ -35,7 +35,7 @@ may change behaviour; upgrade notes say what you need to do.
   0 (amber; red past 10, where HQPlayer's manual suggests an apodizing filter, with a
   link that opens the filter list narrowed to apodizing filters). The clip counter
   appears once above 0, with a hint to lower the volume. Filters carry an "apodizing"
-  chip, from the v5 manual's table.
+  chip, from HQPlayer 6's own filter table (yes, no or partly).
 - **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
 - **Seek** within files HQPlayer plays itself.
 

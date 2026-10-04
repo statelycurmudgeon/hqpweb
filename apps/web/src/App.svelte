@@ -356,7 +356,7 @@
   }
 
   // ---- HQPlayer's apodization and clip counters ---------------------------------
-  // The v5 manual (§4.6): use an apodizing filter once the counter passes 10 in a track.
+  // HQPlayer's manual and filter table: an apodizing filter suits a track whose counter passes 10.
   const apod = $derived(snap?.status.apod ?? 0);
   const clips = $derived(snap?.status.clips ?? 0);
   function suggestApodizing() {

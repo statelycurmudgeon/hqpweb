@@ -20,8 +20,8 @@
     gen?: number;
     /** Why it can't do the current ratio, e.g. "needs a power-of-two ratio; … is 4.35×". */
     blocked?: string;
-    /** Apodizing (manual §4.6); undefined when unknown. */
-    apodizing?: boolean;
+    /** Apodizing per HQPlayer's table: true, false, or "partial" (½); undefined when unknown. */
+    apodizing?: boolean | "partial";
   };
   let {
     label,
@@ -58,7 +58,7 @@
   const rated = $derived(items.some((i) => i.rating !== undefined));
   const tagChips = $derived([...new Set(items.flatMap((i) => i.tags ?? []))].sort());
   const anyWarn = $derived(items.some((i) => i.warn || i.disabled));
-  const anyApodizing = $derived(items.some((i) => i.apodizing));
+  const anyApodizing = $derived(items.some((i) => i.apodizing === true));
   const blockedCount = $derived(items.filter((i) => i.blocked && i.name !== current).length);
   const toggle = (c: string) => {
     const next = new Set(chips);
@@ -228,7 +228,7 @@
               <p class="details">
                 {#if item.tags?.length}Favours {item.tags.join(", ")}.{/if}
                 {#if item.ratioText}Works with {RATIO_WORDS[item.ratioText] ?? item.ratioText}.{/if}
-                {#if item.apodizing}Apodizing.{/if}
+                {#if item.apodizing === true}Apodizing.{:else if item.apodizing === "partial"}Partly apodizing.{/if}
               </p>
             {/if}
           </li>

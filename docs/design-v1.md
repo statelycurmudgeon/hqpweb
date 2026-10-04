@@ -333,6 +333,13 @@ From the 6.0.1 SDK source and the release notes:
   does not start it; a `Play` after that does. (Unlike a stall during playback, which
   resumes by itself once the combination is valid, §2.3.) Not measured: the same
   situation with Roon as the source.
+- **HQPlayer 6's own filter table** ships in Embedded's settings page (6.2.3): per
+  filter, focus and quality, genre, ratio and **Apodizing (Y, N or ½)**. hqpweb uses
+  the Apodizing column (names and marks only). Its Ratio column still says "Integer"
+  for the sinc-S/M family, which disagrees with v6's own API descriptions ("2^x") and
+  with the measurement above, so it isn't used for ratios. Its help also defines the
+  Apod counter's use: material is "highest technical quality" when Apod stays below
+  10 for a whole track.
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
 `(instance, engine version, mode)`. Nothing is hard-coded except the command names.
