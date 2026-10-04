@@ -24,6 +24,18 @@ may change behaviour; upgrade notes say what you need to do.
   why, with a fix: rates that fit, Auto, or another filter. (HQPlayer itself just
   ignores Play.) With a fixed rate, a note under the filters also warns about source
   rates the next album might use.
+- **Volume jumps are flagged.** If HQPlayer's volume rises 10 dB or more without
+  hqpweb (a restart brings it back at its saved level; v6 at −3 dB, measured), the Now
+  card says so, with "Back to −44 dB" and Dismiss.
+- **"HQPlayer didn't start."** HQPlayer replies OK to Play even when nothing can start.
+  After a Play from hqpweb, if nothing starts within a few seconds, the app says so,
+  and why when a rule explains it; otherwise it points at the output (an NAA in use
+  elsewhere, a DAC that's off).
+- **Apod and clip counters.** HQPlayer's apodization counter appears once it's above
+  0 (amber; red past 10, where HQPlayer's manual suggests an apodizing filter, with a
+  link that opens the filter list narrowed to apodizing filters). The clip counter
+  appears once above 0, with a hint to lower the volume. Filters carry an "apodizing"
+  chip, from the v5 manual's table.
 - **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
 - **Seek** within files HQPlayer plays itself.
 

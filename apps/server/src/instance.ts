@@ -186,9 +186,19 @@ function previewOne(p: Change, caps: Capabilities, cur: Settings, status: Status
   return { kind, differs, missing, unchecked: false, ...(predicted ? { predicted } : {}) };
 }
 
+export interface VolumeJump {
+  from: number;
+  to: number;
+  at: string;
+  /** The connection dropped shortly before: HQPlayer most likely restarted. */
+  restarted: boolean;
+}
+
 export interface Snapshot {
   status: Status;
   state: State;
+  /** The volume rose sharply without hqpweb (e.g. HQPlayer restarted at its saved level). */
+  volumeJump?: VolumeJump;
   /**
    * While stopped: the sample rate of the track HQPlayer's own playlist would play
    * next, if known. Status says nothing about a track that can't start (measured),
@@ -239,6 +249,8 @@ export interface InstanceOptions {
   speedWindowMs?: number;
   /** How often to re-read the playlist while stopped. Default 5 s; tests shorten it. */
   queueEveryMs?: number;
+  /** How long to wait for Play to take before saying it didn't. Default 5 s. */
+  playWaitMs?: number;
 }
 
 export class Instance {
@@ -248,6 +260,7 @@ export class Instance {
   private readonly timing: { quick: WatchTiming; major: WatchTiming };
   private readonly speedWindowMs: number;
   private readonly queueEveryMs: number;
+  private readonly playWaitMs: number;
   private caps: { key: string; value: Capabilities } | null = null;
   /** Writes to one instance run one at a time. */
   private queue: Promise<unknown> = Promise.resolve();
@@ -264,6 +277,7 @@ export class Instance {
     this.timing = opts.timing ?? { quick: DEFAULT_TIMING, major: MAJOR_TIMING };
     this.speedWindowMs = opts.speedWindowMs ?? 30_000;
     this.queueEveryMs = opts.queueEveryMs ?? 5000;
+    this.playWaitMs = opts.playWaitMs ?? 5000;
   }
 
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
@@ -539,7 +553,10 @@ export class Instance {
       replies.set("convolution", await this.client.send(cmd.setConvolution(change.convolution)));
     if (change.matrixProfile !== undefined && fields.includes("matrixProfile"))
       replies.set("matrixProfile", await this.client.send(cmd.matrixSetProfile(change.matrixProfile)));
-    if (volume !== undefined) replies.set("volume", await this.client.send(cmd.volume(volume)));
+    if (volume !== undefined) {
+      this.ownVolume = { v: volume, at: Date.now() };
+      replies.set("volume", await this.client.send(cmd.volume(volume)));
+    }
 
     // ---- 5. read back: State is the verdict, not the reply (rule 4) ----------
     const after = await this.client.state();
@@ -582,12 +599,23 @@ export class Instance {
    * act underneath Roon, which may or may not follow. Measured: Play doesn't
    * restart an instance stalled by an invalid combination.
    */
-  transport(action: TransportAction): Promise<{ reply: Outcome; status: Status }> {
+  transport(action: TransportAction): Promise<{ reply: Outcome; status: Status; notStarted?: { explained?: string } }> {
     return this.exclusive(async () => {
       const reply = await this.client.send(cmd[action]());
       // Give the engine a moment, then report what actually happened.
       await new Promise((r) => setTimeout(r, 300));
-      return { reply, status: await this.client.status() };
+      let status = await this.client.status();
+      if (action !== "play" || status.state === 2) return { reply, status };
+      // Measured: Play is "OK" even when nothing can start (a ratio HQPlayer can't
+      // do, or an output that isn't there). Wait a little, then say so, and why if
+      // a known rule explains it.
+      for (let waited = 0; waited < this.playWaitMs && status.state !== 2; waited += 400) {
+        await new Promise((r) => setTimeout(r, 400));
+        status = await this.client.status();
+      }
+      if (status.state === 2) return { reply, status };
+      const why = await this.explain().catch(() => undefined);
+      return { reply, status, notStarted: why ? { explained: why.text } : {} };
     });
   }
 
@@ -643,7 +671,13 @@ export class Instance {
   /** Does a known HQPlayer rule explain why the current settings can't play? */
   private async explain(): Promise<Hint | undefined> {
     const [caps, state, status] = await Promise.all([this.capabilities(true), this.client.state(), this.client.status()]);
-    const source = status.source?.sampleRate;
+    // A track that can't start has no source in Status (measured): use the queued one.
+    const source =
+      status.source?.sampleRate ??
+      (await this.client
+        .request(cmd.playlistGet())
+        .then((el) => queuedRate(el, status.track))
+        .catch(() => null));
     if (!source) return undefined;
     const s = settingsOf(caps, state);
     const filter = filterSlot(source) === "1x" ? s.filter1x : s.filterNx;
@@ -699,6 +733,30 @@ export class Instance {
     const avg = this.processTrail.reduce((a, p) => a + p.v, 0) / this.processTrail.length;
     return Math.round(avg * 100) / 100;
   }
+  // ---- volume rising without hqpweb ------------------------------------------
+  // Measured (v6): every restart, and Embedded's "Refresh devices", brings the
+  // volume back to −3 dB. A jump of 10 dB or more between two polls that hqpweb
+  // didn't make is flagged until it's undone or dismissed. Hands on a knob move
+  // in smaller steps (inferred), so they don't trip it.
+  private lastVolume: { v: number; at: number } | null = null;
+  private lastPollError = 0;
+  private ownVolume: { v: number; at: number } | null = null;
+  private volumeJump: VolumeJump | null = null;
+  private noteVolume(v: number) {
+    const now = Date.now();
+    const prev = this.lastVolume;
+    this.lastVolume = { v, at: now };
+    if (this.volumeJump && v <= this.volumeJump.from + 1) this.volumeJump = null;
+    // A long gap (nobody watching) proves nothing about how it got there.
+    if (!prev || now - prev.at > 30 * 60_000 || v - prev.v < 10) return;
+    if (this.ownVolume && Math.abs(this.ownVolume.v - v) <= VOLUME_EPS && now - this.ownVolume.at < 10_000) return;
+    this.volumeJump = { from: prev.v, to: v, at: new Date(now).toISOString(), restarted: now - this.lastPollError < 60_000 };
+  }
+  dismissVolumeJump() {
+    this.volumeJump = null;
+    return { ok: true };
+  }
+
   // The queued track's rate, read from the playlist at most every queueEveryMs while stopped.
   private queued: { at: number; rate: number | null; list: string } | null = null;
   /**
@@ -748,14 +806,21 @@ export class Instance {
           const [status, state] = await Promise.all([this.client.status(), this.client.state()]);
           const latencyMs = Date.now() - t0;
           const queuedRate = await this.queuedRateFor(status);
+          this.noteVolume(state.volume);
           event = {
-            snapshot: { status, state, ...(queuedRate !== undefined ? { queuedRate } : {}) },
+            snapshot: {
+              status,
+              state,
+              ...(queuedRate !== undefined ? { queuedRate } : {}),
+              ...(this.volumeJump ? { volumeJump: this.volumeJump } : {}),
+            },
             health: { latencyMs, speed: this.trackSpeed(status), processSpeed: this.averageProcessSpeed(status) },
           };
           // Inferred threshold: normal replies take ~1 ms on a kept-open connection (measured).
           if (latencyMs > 1000) next = Math.min(10_000, latencyMs * 3);
         } catch (e) {
           event = { error: (e as Error).message };
+          this.lastPollError = Date.now();
           this.trail = [];
           this.processTrail = [];
           next = Math.min(10_000, intervalMs * 4);

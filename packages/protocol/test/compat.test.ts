@@ -180,3 +180,15 @@ describe("compatible rates for a filter", () => {
     expect(r.map((x) => x.rate)).toEqual([45_158_400]); // AHM needs ≥ 40.96 MHz
   });
 });
+
+describe("apodizing filters (manual §4.6)", () => {
+  it("knows the marked ones, follows the base for -2s, and admits unknowns", async () => {
+    const { isApodizing } = await import("../src/compat.ts");
+    expect(isApodizing("poly-sinc-gauss-xla")).toBe(true);
+    expect(isApodizing("poly-sinc-gauss-xl")).toBe(false);
+    expect(isApodizing("sinc-MGa")).toBe(true);
+    expect(isApodizing("sinc-MG")).toBe(false);
+    expect(isApodizing("poly-sinc-xtr-short-lp-2s")).toBe(true);
+    expect(isApodizing("poly-sinc-ext2-xla")).toBeUndefined(); // not in the manual
+  });
+});

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   // A searchable picker for long lists (36–77 items). Opens as a bottom sheet.
   // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before".
   // With HQPlayer 6, filters carry a rating, focus tags and a ratio rule, and
@@ -19,6 +20,8 @@
     gen?: number;
     /** Why it can't do the current ratio, e.g. "needs a power-of-two ratio; … is 4.35×". */
     blocked?: string;
+    /** Apodizing (manual §4.6); undefined when unknown. */
+    apodizing?: boolean;
   };
   let {
     label,
@@ -55,6 +58,7 @@
   const rated = $derived(items.some((i) => i.rating !== undefined));
   const tagChips = $derived([...new Set(items.flatMap((i) => i.tags ?? []))].sort());
   const anyWarn = $derived(items.some((i) => i.warn || i.disabled));
+  const anyApodizing = $derived(items.some((i) => i.apodizing));
   const blockedCount = $derived(items.filter((i) => i.blocked && i.name !== current).length);
   const toggle = (c: string) => {
     const next = new Set(chips);
@@ -68,6 +72,7 @@
       if (q && !i.name.toLowerCase().includes(q) && !(i.tags ?? []).some((t) => t.includes(q))) return false;
       if (compatOnly && i.blocked && i.name !== current) return false;
       if (chips.has("5/5") && i.rating !== 5) return false;
+      if (chips.has("apodizing") && i.apodizing !== true) return false;
       if (chips.has("works here") && (i.warn || i.disabled)) return false;
       for (const t of tagChips) if (chips.has(t) && !(i.tags ?? []).includes(t)) return false;
       return true;
@@ -81,7 +86,7 @@
       : [{ rating: -1, items: shown }],
   );
   /** Some rows have ⓘ: the others keep its column, so stars line up. */
-  const anyInfo = $derived(items.some((i) => i.tags?.length || i.ratioText));
+  const anyInfo = $derived(items.some((i) => i.tags?.length || i.ratioText || i.apodizing));
   // HQPlayer's terse ratio wording, said plainly.
   const RATIO_WORDS: Record<string, string> = {
     Any: "any conversion ratio",
@@ -93,11 +98,16 @@
     "1:1": "no rate conversion",
   };
 
-  export function open() {
+  /** Open the sheet; `chips` pre-selects narrowing chips, e.g. ["apodizing"]. */
+  export async function open(opts: { chips?: string[] } = {}) {
+    if (opts.chips) chips = new Set(opts.chips);
     query = "";
     openInfo = null;
     compatOnly = true;
+    await tick(); // let the narrowing apply before looking for the current row
     dialog.showModal();
+    const list = dialog.querySelector("ul");
+    if (list) list.scrollTop = 0;
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
     // Don't pop the keyboard on phones; do focus search on desktop.
     if (matchMedia("(pointer: fine)").matches) search.focus();
@@ -109,7 +119,7 @@
   }
 </script>
 
-<button class="row" onclick={open} {disabled}>
+<button class="row" onclick={() => open()} {disabled}>
   <span class="label"
     >{label}{#if hint}<span class="hint">{hint}</span>{/if}</span
   >
@@ -135,10 +145,15 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
       <input bind:this={search} bind:value={query} type="search" placeholder="Search {items.length}…" autocomplete="off" />
     </label>
-    {#if rated || anyWarn || blockedCount}
+    {#if rated || anyWarn || blockedCount || anyApodizing}
       <div class="chips" role="group" aria-label="Narrow the list">
         {#if blockedCount}
           <button class:on={compatOnly} aria-pressed={compatOnly} onclick={() => (compatOnly = !compatOnly)}>compatible</button>
+        {/if}
+        {#if anyApodizing}
+          <button class:on={chips.has("apodizing")} aria-pressed={chips.has("apodizing")} onclick={() => toggle("apodizing")}
+            >apodizing</button
+          >
         {/if}
         {#if rated}
           <button class:on={chips.has("5/5")} aria-pressed={chips.has("5/5")} onclick={() => toggle("5/5")}>★ 5/5</button>
@@ -165,7 +180,7 @@
             {g.rating ? `${g.rating} star${g.rating === 1 ? "" : "s"}` : "Not rated"} · {g.items.length}
           </li>{/if}
         {#each g.items as item (item.index)}
-          {@const info = item.tags?.length || item.ratioText}
+          {@const info = item.tags?.length || item.ratioText || item.apodizing}
           <li>
             <div class="item">
               <button
@@ -213,6 +228,7 @@
               <p class="details">
                 {#if item.tags?.length}Favours {item.tags.join(", ")}.{/if}
                 {#if item.ratioText}Works with {RATIO_WORDS[item.ratioText] ?? item.ratioText}.{/if}
+                {#if item.apodizing}Apodizing.{/if}
               </p>
             {/if}
           </li>

@@ -134,6 +134,14 @@ export interface Status {
    * versions that don't report it (5.13 doesn't).
    */
   processSpeed: number | null;
+  /**
+   * HQPlayer's apodization counter: how often the recording needed what an
+   * apodizing filter corrects. The v5 manual (§4.6) advises an apodizing filter
+   * once it passes 10 in a track. Present on 5.17.2 and 6.2.3 (measured, 0 so far).
+   */
+  apod: number;
+  /** HQPlayer's clip counter (inferred: overs it had to clip). 0 so far in every capture. */
+  clips: number;
   track: number;
   tracksTotal: number;
   /** From the <metadata> child, present while playing (measured). Decides 1x vs Nx filter. */
@@ -164,6 +172,8 @@ export function parseStatus(el: Element): Status {
     position: Number(el.attrs.position ?? 0),
     length: Number(el.attrs.length ?? 0) || 0,
     processSpeed: el.attrs.process_speed === undefined ? null : Number(el.attrs.process_speed) || 0,
+    apod: Number(el.attrs.apod ?? 0) || 0,
+    clips: Number(el.attrs.clips ?? 0) || 0,
     track: Number(el.attrs.track ?? 0),
     tracksTotal: Number(el.attrs.tracks_total ?? 0),
     source: sourceOf(el),

@@ -92,6 +92,83 @@ const RATIO: Record<string, RatioClass> = {
   "sinc-long-h": "any",
 };
 
+/**
+ * Apodizing filters: the v5.13 manual's §4.6 "Apod" column, names only. "-2s"
+ * variants follow their base filter (the column's "O"). Filters the manual doesn't
+ * list (the v6 ext2 variants, gauss-medium) are unknown, not guessed.
+ */
+const APODIZING = new Set([
+  "IIR",
+  "IIR2",
+  "FIR",
+  "asymFIR",
+  "minphaseFIR",
+  "FFT",
+  "poly-sinc-lp",
+  "poly-sinc-mp",
+  "poly-sinc-short-lp",
+  "poly-sinc-short-mp",
+  "poly-sinc-long-lp",
+  "poly-sinc-long-ip",
+  "poly-sinc-long-mp",
+  "poly-sinc-ext",
+  "poly-sinc-ext2",
+  "poly-sinc-ext3",
+  "poly-sinc-mqa/mp3-lp",
+  "poly-sinc-mqa/mp3-mp",
+  "poly-sinc-xtr-short-lp",
+  "poly-sinc-xtr-short-mp",
+  "poly-sinc-gauss",
+  "poly-sinc-gauss-long",
+  "poly-sinc-gauss-xla",
+  "poly-sinc-gauss-hires-lp",
+  "poly-sinc-gauss-hires-ip",
+  "poly-sinc-gauss-hires-mp",
+  "sinc-S",
+  "sinc-M",
+  "sinc-Mx",
+  "sinc-MGa",
+]);
+/** Filters the manual lists without an Apod mark. */
+const NOT_APODIZING = new Set([
+  "none",
+  "poly-sinc-hb",
+  "poly-sinc-hb-xs",
+  "poly-sinc-hb-s",
+  "poly-sinc-hb-m",
+  "poly-sinc-hb-l",
+  "poly-sinc-xtr-lp",
+  "poly-sinc-xtr-mp",
+  "poly-sinc-gauss-short",
+  "poly-sinc-gauss-xl",
+  "poly-sinc-gauss-halfband",
+  "poly-sinc-gauss-halfband-s",
+  "ASRC",
+  "polynomial-1",
+  "polynomial-2",
+  "minringFIR-lp",
+  "minringFIR-mp",
+  "closed-form",
+  "closed-form-fast",
+  "closed-form-M",
+  "closed-form-16M",
+  "sinc-MG",
+  "sinc-L",
+  "sinc-Ls",
+  "sinc-Lm",
+  "sinc-Ll",
+  "sinc-Lh",
+  "sinc-short",
+  "sinc-medium",
+  "sinc-long",
+  "sinc-long-h",
+]);
+/** Whether a filter is apodizing (§4.6); undefined when the manual doesn't say. */
+export function isApodizing(filter: string): boolean | undefined {
+  const base = filter.endsWith("-2s") ? filter.slice(0, -3) : filter;
+  return APODIZING.has(base) ? true : NOT_APODIZING.has(base) ? false : undefined;
+}
+
 /** Ratio class for a filter name; "-2s" variants share their base filter's (§4.6). */
 export function ratioClass(filter: string): RatioClass | undefined {
   return RATIO[filter] ?? (filter.endsWith("-2s") ? RATIO[filter.slice(0, -3)] : undefined);

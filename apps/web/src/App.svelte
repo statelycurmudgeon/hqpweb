@@ -9,6 +9,7 @@
   import { prefs } from "./lib/prefs.svelte.ts";
   import {
     MODULATOR_NOTE,
+    isApodizing,
     compatibleRates,
     RECOMMENDED_MAX_VOLUME_DB,
     ditherHint,
@@ -72,6 +73,9 @@
   // Speed vs real time: the server fits Status position over 30 s (no access to
   // the machine needed). Shown as a state, not a number: amber only after 15 s
   // below 0.97, red below 0.90. The number is in the tooltip.
+  const APOD_TITLE =
+    "HQPlayer's apodization counter: problems in the recording that an apodizing filter corrects. HQPlayer's manual suggests one once it passes 10 in a track.";
+  const CLIPS_TITLE = "HQPlayer's clip counter: samples it had to clip. Lowering the volume gives it headroom.";
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
   $effect(() => {
@@ -257,6 +261,7 @@
         // The row already shows the name: "needs a power-of-two ratio; 44.1k → 192k is 4.35×".
         ...(rule?.level === "hard" ? { blocked: rule.text.replace(`${f.name} `, "") } : {}),
         ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
+        apodizing: isApodizing(f.name),
       };
     });
   const ratioLabel = $derived(
@@ -341,6 +346,24 @@
     setTimeout(() => (w?.cause === "modulator" ? shaperPicker : w?.slot === "filter1x" ? picker1x : pickerNx)?.open(), 0);
   }
 
+  // ---- volume jumped without hqpweb (e.g. HQPlayer restarted at −3 dB) ---------
+  let hiddenJump = $state("");
+  const jump = $derived(snap?.volumeJump && snap.volumeJump.at !== hiddenJump ? snap.volumeJump : null);
+  async function dismissJump() {
+    if (!jump || !selected) return;
+    hiddenJump = jump.at;
+    await api.dismissVolumeJump(selected).catch(() => undefined);
+  }
+
+  // ---- HQPlayer's apodization and clip counters ---------------------------------
+  // The v5 manual (§4.6): use an apodizing filter once the counter passes 10 in a track.
+  const apod = $derived(snap?.status.apod ?? 0);
+  const clips = $derived(snap?.status.clips ?? 0);
+  function suggestApodizing() {
+    const slot = source && filterSlot(source) === "Nx" ? pickerNx : picker1x;
+    slot?.open({ chips: ["apodizing"] });
+  }
+
   // ---- other source rates at a fixed output rate (guard 2) ---------------------
   // The next album may be a different rate family. Typical source rates per slot.
   const SOURCES = { filter1x: [44_100, 48_000], filterNx: [88_200, 96_000, 176_400, 192_000] } as const;
@@ -372,6 +395,7 @@
     caps && snap && source ? nameAt(caps.filters, filterSlot(source) === "1x" ? snap.state.filter1x : snap.state.filterNx) : "",
   );
   const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
+  const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
   const rateItems = $derived(
     (caps?.rates ?? []).map((r) => {
       const inUseRatio = parseFilterDescription(caps?.filters.find((f) => f.name === inUseFilter)?.description)?.ratio;
@@ -542,6 +566,14 @@
       else {
         const r = await api.transport(selected, action);
         if (snap) snap = { ...snap, status: r.status };
+        // Measured: HQPlayer says OK to Play even when nothing can start.
+        if (r.notStarted)
+          message = {
+            kind: "warn",
+            text: r.notStarted.explained
+              ? `HQPlayer didn't start: ${r.notStarted.explained}.`
+              : "HQPlayer didn't start, and its settings don't explain it. Its output may be unavailable: an NAA in use by another HQPlayer, or a DAC that's off.",
+          };
       }
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
@@ -670,6 +702,13 @@
           {/if}
         </div>
       {/if}
+      {#if jump}
+        <p class="wedge">
+          Volume jumped from {jump.from} to {jump.to} dB{jump.restarted ? " (HQPlayer restarted)" : ""}.
+          <button class="link" onclick={() => apply({ volume: jump!.from })} disabled={busy}>Back to {jump.from} dB</button>
+          <button class="link quiet" onclick={dismissJump}>Dismiss</button>
+        </p>
+      {/if}
       {#if wedge}
         <p class="wedge">
           The next track won't start: {wedge.text}.
@@ -744,6 +783,18 @@
         </dd>
         <dt title={speedTitle}>Processing</dt>
         <dd class="speed {speedClass}" title={speedTitle}>{speedText}</dd>
+        {#if apod > 0}
+          <dt title={APOD_TITLE}>Apod</dt>
+          <dd class="speed {apod > 10 ? 'bad' : 'warn'}" title={APOD_TITLE}>
+            {apod}{#if apod > 10 && inUseApodizing !== true}<button class="link" onclick={suggestApodizing}
+                >Use an apodizing filter</button
+              >{/if}
+          </dd>
+        {/if}
+        {#if clips > 0}
+          <dt title={CLIPS_TITLE}>Clips</dt>
+          <dd class="speed warn" title={CLIPS_TITLE}>{clips} · lower the volume</dd>
+        {/if}
       </dl>
       {#if caps}
         <!-- Volume belongs with playback: compact, on the Now card. -->
@@ -1129,6 +1180,10 @@
     margin: 0;
     font-size: 0.85rem;
     color: var(--warn);
+  }
+  .link.quiet {
+    color: var(--text-dim);
+    font-weight: 400;
   }
   .link {
     background: none;
