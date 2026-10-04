@@ -141,3 +141,42 @@ describe("v5 instances (no descriptions of their own)", () => {
     expect(modulatorGen("AHM7EC5L", undefined, false)).toBeUndefined(); // v5-only
   });
 });
+
+describe("compatible rates for a filter", () => {
+  it("lists the rates sinc-M can play from 44.1k, nearest to the current 192k first-class", async () => {
+    const { compatibleRates } = await import("../src/compat.ts");
+    const rates = [0, 44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 352_800, 384_000];
+    const r = compatibleRates({ filter: "sinc-M", sourceRate: 44_100, rates, sdm: false, shaper: "TPDF", currentRate: 192_000 });
+    expect(r.map((x) => x.rate)).toEqual([44_100, 88_200, 176_400, 352_800]); // power-of-two (measured on 5.17.2)
+    expect(r.find((x) => x.nearest)?.rate).toBe(176_400);
+  });
+
+  it("uses HQPlayer's own rule when given, and skips Auto", async () => {
+    const { compatibleRates } = await import("../src/compat.ts");
+    const rates = [0, 44_100, 88_200, 132_300];
+    const up = compatibleRates({
+      filter: "x",
+      sourceRate: 88_200,
+      rates,
+      sdm: false,
+      shaper: "",
+      currentRate: 44_100,
+      given: "pow2-up",
+    });
+    expect(up.map((x) => x.rate)).toEqual([88_200]); // no downsampling, no 1.5×
+  });
+
+  it("in SDM, also respects the modulator's rate floor", async () => {
+    const { compatibleRates } = await import("../src/compat.ts");
+    const rates = [5_644_800, 11_289_600, 22_579_200, 45_158_400];
+    const r = compatibleRates({
+      filter: "poly-sinc-gauss-xla",
+      sourceRate: 44_100,
+      rates,
+      sdm: true,
+      shaper: "AHM7EC8B",
+      currentRate: 22_579_200,
+    });
+    expect(r.map((x) => x.rate)).toEqual([45_158_400]); // AHM needs ≥ 40.96 MHz
+  });
+});

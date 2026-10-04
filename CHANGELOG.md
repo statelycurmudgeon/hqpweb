@@ -15,6 +15,10 @@ may change behaviour; upgrade notes say what you need to do.
   allows power-of-two either way, and the ext2 variants are covered.
 - **v5 instances get the same guide:** ratings and focus borrowed from HQPlayer 6 by
   name; v5-only filters and modulators described from the v5 manual.
+- **Compatible filters first.** When the output rate is fixed, filters that can't do
+  the current conversion ratio are hidden by a "compatible" chip (on by default; "Show
+  all" lists them struck through). Picking one offers the output rates that fit, marks
+  the closest, offers Auto, or applies anyway; the filter and rate change together.
 - **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.
 - **Seek** within files HQPlayer plays itself.
 

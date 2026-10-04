@@ -5,9 +5,11 @@
   import Picker from "./lib/Picker.svelte";
   import Settings from "./lib/Settings.svelte";
   import Presets from "./lib/Presets.svelte";
+  import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import {
     MODULATOR_NOTE,
+    compatibleRates,
     RECOMMENDED_MAX_VOLUME_DB,
     ditherHint,
     filterNotes,
@@ -238,18 +240,47 @@
   // wins over our table from the manual. v5 describes nothing: see filterNotes.
   const described = $derived((caps?.filters ?? []).some((f) => f.description));
   const shapersDescribed = $derived((caps?.shapers ?? []).some((s) => s.description));
+  // A filter that can't do the current ratio is "blocked" rather than warned: the
+  // picker hides it by default, and picking it offers rates that fit (RateSwitch).
   const filterItems = (slot: "1x" | "Nx") =>
     (caps?.filters ?? []).map((f) => {
       const info = filterNotes(f.name, f.description, isSdm, described);
+      const rule =
+        source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined;
       return {
-        ...decorate(
-          f,
-          source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined,
-          warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
-        ),
+        ...decorate(f, rule?.level === "hard" ? undefined : rule, warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name)),
+        // The row already shows the name: "needs a power-of-two ratio; 44.1k → 192k is 4.35×".
+        ...(rule?.level === "hard" ? { blocked: rule.text.replace(`${f.name} `, "") } : {}),
         ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
       };
     });
+  const ratioLabel = $derived(
+    source && outRate ? `${formatRate(source, "PCM")} → ${formatRate(outRate, caps?.mode.name ?? "")}` : "",
+  );
+
+  // ---- picking an incompatible filter: offer output rates that fit -------------
+  let rateSwitch = $state<(RateSwitchRequest & { field: "filter1x" | "filterNx" }) | null>(null);
+  function pickFilter(field: "filter1x" | "filterNx", item: { name: string; blocked?: string }) {
+    if (!item.blocked || !caps) return apply({ [field]: item.name });
+    const given = filterNotes(item.name, caps.filters.find((f) => f.name === item.name)?.description, isSdm, described)?.ratio;
+    const options = compatibleRates({
+      filter: item.name,
+      sourceRate: source,
+      rates: caps.rates.filter((r) => r.allowed).map((r) => r.rate),
+      sdm: isSdm,
+      shaper: shaperName,
+      currentRate: outRate,
+      given,
+    }).map((o) => ({ label: formatRate(o.rate, caps!.mode.name), rate: o.rate, nearest: o.nearest }));
+    const auto = caps.rates.some((r) => r.rate === 0 && r.allowed) && fixedRate;
+    rateSwitch = { field, filter: item.name, reason: `${item.name} ${item.blocked}`, options, auto };
+  }
+  function chooseRate(rate: number | null) {
+    const r = rateSwitch;
+    rateSwitch = null;
+    if (!r) return;
+    apply(rate === null ? { [r.field]: r.filter } : { [r.field]: r.filter, rate });
+  }
   const shaperItems = $derived(
     (caps?.shapers ?? []).map((s) => ({
       ...decorate(
@@ -674,7 +705,8 @@
           groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filter1x)}
           disabled={busy}
-          onpick={(i) => apply({ filter1x: i.name })}
+          {ratioLabel}
+          onpick={(i) => pickFilter("filter1x", i)}
         />
         <Picker
           label="Nx filter"
@@ -684,9 +716,11 @@
           groupByRating={prefs.filterOrder === "rating"}
           current={nameAt(caps.filters, snap.state.filterNx)}
           disabled={busy}
-          onpick={(i) => apply({ filterNx: i.name })}
+          {ratioLabel}
+          onpick={(i) => pickFilter("filterNx", i)}
         />
       </section>
+      <RateSwitch request={rateSwitch} onchoose={chooseRate} oncancel={() => (rateSwitch = null)} />
       <section class="card list quick">
         <Picker
           label={isSdm ? "Modulator" : "Dither"}

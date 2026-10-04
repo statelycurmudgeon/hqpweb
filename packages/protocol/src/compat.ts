@@ -208,6 +208,32 @@ export function predictedStop(c: {
 }
 
 /**
+ * Output rates a filter can play from `sourceRate`: its ratio rule, and in SDM the
+ * modulator's hard floor. `nearest` marks the one closest to `currentRate` (by
+ * ratio), the least surprising switch.
+ */
+export function compatibleRates(c: {
+  filter: string;
+  sourceRate: number;
+  rates: number[];
+  sdm: boolean;
+  shaper: string;
+  currentRate: number;
+  /** HQPlayer's own ratio class for the filter, when it gives one. */
+  given?: RatioClass;
+}): { rate: number; nearest: boolean }[] {
+  const fits = c.rates.filter(
+    (hz) =>
+      hz > 0 &&
+      ratioHint(c.filter, c.sourceRate, hz, c.sdm, c.given)?.level !== "hard" &&
+      (!c.sdm || modulatorHint(c.shaper, hz)?.level !== "hard"),
+  );
+  const dist = (hz: number) => Math.abs(Math.log(hz / (c.currentRate || c.sourceRate)));
+  const best = fits.reduce<number | undefined>((b, hz) => (b === undefined || dist(hz) < dist(b) ? hz : b), undefined);
+  return fits.map((rate) => ({ rate, nearest: rate === best }));
+}
+
+/**
  * HQPlayer 6's filter description, e.g. "5/5 transients, timbre ⥮ Any up":
  * a rating out of 5, what the filter favours, and its ratio rule. Measured on
  * engine 6.2.3: all 84 filters follow this shape. The arrow was ⥣ for every SDM

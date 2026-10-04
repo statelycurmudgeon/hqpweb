@@ -4,6 +4,9 @@
   // With HQPlayer 6, filters carry a rating, focus tags and a ratio rule, and
   // modulators a generation: shown as stars (ⓘ for details) or a "Gen" badge, with
   // chips to narrow the list and an optional grouping by rating.
+  // Items that can't do the current conversion ratio are `blocked`: hidden by a
+  // "compatible" chip that's on by default, and struck through when shown. Picking
+  // one is still allowed; the caller decides what to offer (e.g. a rate switch).
   type Item = {
     index: number;
     name: string;
@@ -14,6 +17,8 @@
     tags?: string[];
     ratioText?: string;
     gen?: number;
+    /** Why it can't do the current ratio, e.g. "needs a power-of-two ratio; … is 4.35×". */
+    blocked?: string;
   };
   let {
     label,
@@ -23,6 +28,7 @@
     active = null,
     disabled = false,
     groupByRating = false,
+    ratioLabel = "",
     onpick,
   }: {
     label: string;
@@ -34,6 +40,8 @@
     disabled?: boolean;
     /** Sections by rating instead of HQPlayer's order (only when items have ratings). */
     groupByRating?: boolean;
+    /** The conversion being checked, e.g. "44.1 kHz → 192 kHz", for the hidden-items line. */
+    ratioLabel?: string;
     onpick: (item: Item) => void;
   } = $props();
 
@@ -42,10 +50,12 @@
   let search: HTMLInputElement;
   let chips = $state<Set<string>>(new Set());
   let openInfo = $state<number | null>(null);
+  let compatOnly = $state(true);
 
   const rated = $derived(items.some((i) => i.rating !== undefined));
   const tagChips = $derived([...new Set(items.flatMap((i) => i.tags ?? []))].sort());
   const anyWarn = $derived(items.some((i) => i.warn || i.disabled));
+  const blockedCount = $derived(items.filter((i) => i.blocked && i.name !== current).length);
   const toggle = (c: string) => {
     const next = new Set(chips);
     if (next.has(c)) next.delete(c);
@@ -56,6 +66,7 @@
     items.filter((i) => {
       const q = query.trim().toLowerCase();
       if (q && !i.name.toLowerCase().includes(q) && !(i.tags ?? []).some((t) => t.includes(q))) return false;
+      if (compatOnly && i.blocked && i.name !== current) return false;
       if (chips.has("5/5") && i.rating !== 5) return false;
       if (chips.has("works here") && (i.warn || i.disabled)) return false;
       for (const t of tagChips) if (chips.has(t) && !(i.tags ?? []).includes(t)) return false;
@@ -85,6 +96,7 @@
   function open() {
     query = "";
     openInfo = null;
+    compatOnly = true;
     dialog.showModal();
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
     // Don't pop the keyboard on phones; do focus search on desktop.
@@ -123,8 +135,11 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
       <input bind:this={search} bind:value={query} type="search" placeholder="Search {items.length}…" autocomplete="off" />
     </label>
-    {#if rated || anyWarn}
+    {#if rated || anyWarn || blockedCount}
       <div class="chips" role="group" aria-label="Narrow the list">
+        {#if blockedCount}
+          <button class:on={compatOnly} aria-pressed={compatOnly} onclick={() => (compatOnly = !compatOnly)}>compatible</button>
+        {/if}
         {#if rated}
           <button class:on={chips.has("5/5")} aria-pressed={chips.has("5/5")} onclick={() => toggle("5/5")}>★ 5/5</button>
           {#each tagChips as t (t)}
@@ -137,6 +152,12 @@
           >
         {/if}
       </div>
+    {/if}
+    {#if blockedCount && compatOnly}
+      <p class="hidden-note">
+        {blockedCount} hidden: they can't convert {ratioLabel || "at this ratio"}.
+        <button class="link" onclick={() => (compatOnly = false)}>Show all</button>
+      </p>
     {/if}
     <ul>
       {#each groups as g (g.rating)}
@@ -152,21 +173,26 @@
                 class:current={item.name === current}
                 aria-current={item.name === current ? "true" : undefined}
                 class:warn={!!item.warn}
+                class:blocked={!!item.blocked}
                 disabled={item.disabled}
                 onclick={() => pick(item)}
               >
                 <span class="name">
                   {item.name}
-                  {#if item.warn}<small class="why">⚠ {item.warn}</small>{:else if item.note}<small class="why">{item.note}</small
-                    >{/if}
+                  {#if item.blocked}<small class="why">{item.blocked}</small>{:else if item.warn}<small class="why"
+                      >⚠ {item.warn}</small
+                    >{:else if item.note}<small class="why">{item.note}</small>{/if}
                 </span>
-                {#if item.rating !== undefined && !(groupByRating && rated)}<span
-                    class="stars"
-                    role="img"
-                    aria-label="{item.rating} of 5"
-                    >{"★".repeat(item.rating)}<span class="off">{"★".repeat(5 - item.rating)}</span></span
-                  >{/if}
-                {#if item.gen !== undefined}<span class="gen" title="Modulator generation">Gen {item.gen}</span>{/if}
+                <span class="trail">
+                  {#if item.blocked && item.ratioText}<s class="ratio" title="Can't do this conversion">{item.ratioText}</s>{/if}
+                  {#if item.rating !== undefined && !(groupByRating && rated)}<span
+                      class="stars"
+                      role="img"
+                      aria-label="{item.rating} of 5"
+                      >{"★".repeat(item.rating)}<span class="off">{"★".repeat(5 - item.rating)}</span></span
+                    >{/if}
+                  {#if item.gen !== undefined}<span class="gen" title="Modulator generation">Gen {item.gen}</span>{/if}
+                </span>
               </button>
               {#if info}
                 <button
@@ -411,6 +437,39 @@
   .empty {
     padding: 16px 12px;
     color: var(--text-dim);
+  }
+  .trail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ratio {
+    font-size: 0.72rem;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    white-space: nowrap;
+  }
+  li .main.blocked .name {
+    color: var(--text-dim);
+  }
+  li .main.blocked .why {
+    color: var(--warn);
+  }
+  .hidden-note {
+    margin: -6px 16px 12px;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+  .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--accent-text);
+    font-weight: 600;
+    cursor: pointer;
   }
   .stars {
     color: var(--accent-text);
