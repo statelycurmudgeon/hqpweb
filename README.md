@@ -112,14 +112,14 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 
 ## Tested with
 
-| HQPlayer                        | Platform                | Status                                                                    |
-| ------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                               |
-| Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                                  |
-| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | reads verified; changes tested on 5.15 (engine 5.32.5), SDM up to DSD1024 |
-| Embedded 6 (engine 6.2.3)       | macOS (Apple Silicon)   | works: reads, changes and playback to a DAC over NAA                      |
-| Embedded 6 (engine 6.2.3)       | Linux (container, CUDA) | works: reads, changes and playback to a DAC over NAA                      |
-| Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))                  |
+| HQPlayer                        | Platform                | Status                                                            |
+| ------------------------------- | ----------------------- | ----------------------------------------------------------------- |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                       |
+| Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                          |
+| Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | works: changes and playback verified (PCM, and SDM up to DSD1024) |
+| Embedded 6 (engine 6.2.3)       | macOS (Apple Silicon)   | works: reads, changes and playback to a DAC over NAA              |
+| Embedded 6 (engine 6.2.3)       | Linux (container, CUDA) | works: reads, changes and playback to a DAC over NAA              |
+| Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))          |
 
 hqpweb shows the _engine_ version (Settings → General); HQPlayer's own Help → About
 shows the product version.
