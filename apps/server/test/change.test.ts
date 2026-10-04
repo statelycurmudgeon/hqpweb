@@ -149,7 +149,7 @@ describe("rollback when playback fails", () => {
     await change({ filter1x: "sinc-M", rate: 176400 }); // 4×: fine
     const body = (await change({ rate: 192000 })).json(); // 4.35×: can't
     expect(body.playback.kind).toBe("stopped");
-    expect(body.incompatible).toMatchObject({ level: "hard", text: expect.stringMatching(/power-of-two/) });
+    expect(body.incompatible).toMatchObject({ level: "hard", text: expect.stringMatching(/whole-number/) });
     expect(body.rolledBack.results[0]).toMatchObject({ field: "rate", actual: 176400, applied: true });
     expect((await req("GET", "/api/instances/mac/learned")).json()).toEqual([]);
   });

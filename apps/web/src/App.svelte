@@ -7,10 +7,12 @@
   import Presets from "./lib/Presets.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import {
+    MODULATOR_NOTE,
     RECOMMENDED_MAX_VOLUME_DB,
     ditherHint,
+    filterNotes,
     filterSlot,
-    modulatorGeneration,
+    modulatorGen,
     modulatorHint,
     parseFilterDescription,
     ratioHint,
@@ -233,23 +235,32 @@
   /** Rate is fixed (not auto): only then can a filter choice make the ratio impossible. */
   const fixedRate = $derived((snap?.state.rate ?? 0) !== 0);
   // HQPlayer 6 describes each filter (rating, focus, ratio rule); its ratio rule
-  // wins over our table from the manual.
+  // wins over our table from the manual. v5 describes nothing: see filterNotes.
+  const described = $derived((caps?.filters ?? []).some((f) => f.description));
+  const shapersDescribed = $derived((caps?.shapers ?? []).some((s) => s.description));
   const filterItems = (slot: "1x" | "Nx") =>
     (caps?.filters ?? []).map((f) => {
-      const info = parseFilterDescription(f.description);
+      const info = filterNotes(f.name, f.description, isSdm, described);
       return {
         ...decorate(
           f,
           source && fixedRate && filterSlot(source) === slot ? ratioHint(f.name, source, outRate, isSdm, info?.ratio) : undefined,
           warnFor(slot === "1x" ? "filter1x" : "filterNx", f.name),
         ),
-        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText } : {}),
+        ...(info ? { rating: info.rating, tags: info.tags, ratioText: info.ratioText, fromHqp: info.fromHqp } : {}),
       };
     });
   const shaperItems = $derived(
     (caps?.shapers ?? []).map((s) => ({
-      ...decorate(s, isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate), warnFor("shaper", s.name)),
-      ...(modulatorGeneration(s.description) !== undefined ? { gen: modulatorGeneration(s.description)! } : {}),
+      ...decorate(
+        s,
+        isSdm ? modulatorHint(s.name, outRate) : ditherHint(s.name, outRate),
+        warnFor("shaper", s.name),
+        isSdm ? MODULATOR_NOTE[s.name] : undefined,
+      ),
+      ...(isSdm && modulatorGen(s.name, s.description, shapersDescribed) !== undefined
+        ? { gen: modulatorGen(s.name, s.description, shapersDescribed)! }
+        : {}),
     })),
   );
   const inUseFilter = $derived(

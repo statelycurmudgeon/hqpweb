@@ -3,7 +3,7 @@ import { ditherHint, filterSlot, modulatorHint, predictedStop, ratioClass, ratio
 
 describe("ratio rules (manual §4.6)", () => {
   it("knows classes, including -2s variants, and admits unknown names", () => {
-    expect(ratioClass("sinc-M")).toBe("pow2-up"); // HQPlayer 6's own description
+    expect(ratioClass("sinc-M")).toBe("integer"); // the v5 manual; v6 says 2^x via its descriptions
     expect(ratioClass("FFT")).toBe("pow2");
     expect(ratioClass("closed-form-M")).toBe("pow2-up");
     expect(ratioClass("poly-sinc-long-lp-2s")).toBe("any");
@@ -11,13 +11,14 @@ describe("ratio rules (manual §4.6)", () => {
     expect(ratioClass("some-future-filter")).toBeUndefined();
   });
 
-  it("explains the measured sinc-M stop: 44.1k → 192k isn't a power-of-two ratio", () => {
+  it("explains the measured sinc-M stop: 44.1k → 192k isn't a whole-number ratio", () => {
     expect(ratioHint("sinc-M", 44_100, 192_000)).toMatchObject({
       level: "hard",
-      text: expect.stringMatching(/power-of-two.*4\.35×/),
+      text: expect.stringMatching(/whole-number.*4\.35×/),
     });
     expect(ratioHint("sinc-M", 44_100, 176_400)).toBeUndefined(); // 4×
-    expect(ratioHint("sinc-M", 192_000, 96_000)?.level).toBe("hard"); // upsampling only (HQPlayer 6)
+    expect(ratioHint("sinc-M", 192_000, 96_000)).toBeUndefined(); // integer down is fine (v5 manual)
+    expect(ratioHint("sinc-M", 192_000, 96_000, false, "pow2-up")?.level).toBe("hard"); // HQPlayer 6 PCM
   });
 
   it("handles power-of-two and integer-up filters", () => {
@@ -83,7 +84,7 @@ describe("HQPlayer 6 descriptions", () => {
     });
     expect(parseFilterDescription("4/5 space, ⥮ Any")?.tags).toEqual(["space"]); // trailing comma, measured
     expect(parseFilterDescription("2/5 ⥮ 2^x up")).toMatchObject({ rating: 2, tags: [], ratio: "pow2-up" });
-    expect(parseFilterDescription("5/5 timbre ⥣ Any")?.arrow).toBe("⥣"); // -2s filters
+    expect(parseFilterDescription("5/5 timbre ⥣ Any")?.arrow).toBe("⥣"); // SDM, in our capture
     expect(parseFilterDescription("1/5 ⥮ 1:1")?.ratio).toBe("1:1");
     expect(parseFilterDescription(undefined)).toBeUndefined();
     expect(parseFilterDescription("something new")).toBeUndefined();
@@ -100,5 +101,37 @@ describe("HQPlayer 6 descriptions", () => {
     const { modulatorGeneration } = await import("../src/compat.ts");
     expect(modulatorGeneration("Gen8")).toBe(8);
     expect(modulatorGeneration("")).toBeUndefined();
+  });
+});
+
+describe("v5 instances (no descriptions of their own)", () => {
+  it("borrow HQPlayer 6's rating and focus, but keep the v5 manual's ratio rule", async () => {
+    const { filterNotes } = await import("../src/compat.ts");
+    expect(filterNotes("sinc-M", undefined, false, false)).toEqual({
+      rating: 4,
+      tags: ["space", "timbre"],
+      ratio: "integer",
+      ratioText: "Int",
+      fromHqp: false,
+    });
+    expect(filterNotes("poly-sinc-mqa/mp3-lp", undefined, true, false)?.ratio).toBe("any"); // SDM (§4.6)
+    expect(filterNotes("poly-sinc-mqa/mp3-lp", undefined, false, false)?.ratio).toBe("integer-up");
+  });
+
+  it("describe v5-only filters from the manual, without a rating", async () => {
+    const { filterNotes } = await import("../src/compat.ts");
+    const ext3 = filterNotes("poly-sinc-ext3", undefined, false, false);
+    expect(ext3).toMatchObject({ tags: ["timbre"], ratio: "any" });
+    expect(ext3?.rating).toBeUndefined();
+    expect(filterNotes("some-future-filter", undefined, false, false)).toBeUndefined();
+  });
+
+  it("never mix: an instance that describes its filters gets only its own words", async () => {
+    const { filterNotes, modulatorGen } = await import("../src/compat.ts");
+    expect(filterNotes("sinc-M", "4/5 space, timbre ⥮ 2^x up", false, true)).toMatchObject({ ratio: "pow2-up", fromHqp: true });
+    expect(filterNotes("sinc-M", undefined, false, true)).toBeUndefined();
+    expect(modulatorGen("AHM7EC8B", undefined, false)).toBe(8);
+    expect(modulatorGen("AHM7EC8B", undefined, true)).toBeUndefined();
+    expect(modulatorGen("AHM7EC5L", undefined, false)).toBeUndefined(); // v5-only
   });
 });

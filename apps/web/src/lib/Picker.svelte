@@ -13,6 +13,8 @@
     rating?: number;
     tags?: string[];
     ratioText?: string;
+    /** The rating and focus came from this HQPlayer, not our table. */
+    fromHqp?: boolean;
     gen?: number;
   };
   let {
@@ -133,7 +135,9 @@
     {/if}
     <ul>
       {#each groups as g (g.rating)}
-        {#if g.rating >= 0}<li class="group">{stars(g.rating)} <small>({g.items.length})</small></li>{/if}
+        {#if g.rating >= 0}<li class="group">
+            {g.rating ? stars(g.rating) : "Not rated"} <small>({g.items.length})</small>
+          </li>{/if}
         {#each g.items as item (item.index)}
           {@const info = item.tags?.length || item.ratioText}
           <li>
@@ -153,7 +157,7 @@
                 {#if item.rating !== undefined && !(groupByRating && rated)}<span class="stars" aria-label="{item.rating} of 5"
                     >{stars(item.rating)}</span
                   >{/if}
-                {#if item.gen !== undefined}<span class="gen" title="Modulator generation (HQPlayer)">Gen{item.gen}</span>{/if}
+                {#if item.gen !== undefined}<span class="gen" title="Modulator generation">Gen{item.gen}</span>{/if}
                 {#if item.name === current}<span class="tick">✓</span>{/if}
               </button>
               {#if info}
@@ -169,7 +173,7 @@
               <p class="details">
                 {#if item.tags?.length}Favours {item.tags.join(", ")}.{/if}
                 {#if item.ratioText}Works with {RATIO_WORDS[item.ratioText] ?? item.ratioText}.{/if}
-                <span class="src">(HQPlayer's description)</span>
+                {#if item.fromHqp}<span class="src">(HQPlayer's description)</span>{/if}
               </p>
             {/if}
           </li>

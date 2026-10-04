@@ -6,6 +6,8 @@
 // Unknown names get no prediction: the engine (5.32+) has filters the 5.13
 // manual doesn't list, and guessing would be worse than silence.
 
+import { FILTERS_V6, MODULATOR_GEN, MODULATOR_NOTE } from "./fallback.ts";
+
 /**
  * Which conversion ratios a filter can do: from the manual's §4.6 "Ratio" column,
  * and from HQPlayer 6's own filter descriptions where they differ (those win).
@@ -19,7 +21,7 @@ const RATIO: Record<string, RatioClass> = {
   FIR: "integer",
   asymFIR: "integer",
   minphaseFIR: "integer",
-  FFT: "pow2", // HQPlayer 6 says "2^x" (either direction)
+  FFT: "pow2", // §4.6: "2^x" (either direction), as HQPlayer 6 also says
   "poly-sinc-lp": "any",
   "poly-sinc-mp": "any",
   "poly-sinc-short-lp": "any",
@@ -34,7 +36,7 @@ const RATIO: Record<string, RatioClass> = {
   "poly-sinc-hb-l": "any",
   "poly-sinc-ext": "integer",
   "poly-sinc-ext2": "any",
-  // Not in the 5.13 manual; from HQPlayer 6's descriptions.
+  // Not in the 5.13 manual; from HQPlayer 6's descriptions (same names in v5.17).
   "poly-sinc-ext2-short": "integer-up",
   "poly-sinc-ext2-medium": "any",
   "poly-sinc-ext2-long": "any",
@@ -70,22 +72,23 @@ const RATIO: Record<string, RatioClass> = {
   "closed-form": "pow2-up",
   "closed-form-fast": "pow2-up",
   "closed-form-M": "pow2-up",
-  "closed-form-16M": "pow2",
-  // HQPlayer 6's descriptions say power-of-two upsampling only (the 5.13 manual
-  // reads as whole-number); matches what we saw (sinc-M at a non-2^x ratio).
-  "sinc-S": "pow2-up",
-  "sinc-M": "pow2-up",
-  "sinc-Mx": "pow2-up",
-  "sinc-MG": "pow2-up",
-  "sinc-MGa": "pow2-up",
-  "sinc-L": "pow2-up",
-  "sinc-Ls": "pow2-up",
-  "sinc-Lm": "pow2-up",
-  "sinc-Ll": "pow2-up",
-  "sinc-Lh": "pow2-up",
-  "sinc-short": "any-up",
-  "sinc-medium": "any-up",
-  "sinc-long": "any-up",
+  "closed-form-16M": "pow2-up",
+  // HQPlayer 6 says power-of-two (upsampling only in PCM) for the sinc-S/M/L
+  // family and "any up" for sinc-short/medium/long; v6 instances use that, via
+  // their descriptions. v5 keeps the v5 manual's rule.
+  "sinc-S": "integer",
+  "sinc-M": "integer",
+  "sinc-Mx": "integer",
+  "sinc-MG": "integer",
+  "sinc-MGa": "integer",
+  "sinc-L": "integer",
+  "sinc-Ls": "integer",
+  "sinc-Lm": "integer",
+  "sinc-Ll": "integer",
+  "sinc-Lh": "integer",
+  "sinc-short": "any",
+  "sinc-medium": "any",
+  "sinc-long": "any",
   "sinc-long-h": "any",
 };
 
@@ -207,8 +210,9 @@ export function predictedStop(c: {
 /**
  * HQPlayer 6's filter description, e.g. "5/5 transients, timbre ⥮ Any up":
  * a rating out of 5, what the filter favours, and its ratio rule. Measured on
- * engine 6.2.3: all 84 filters follow this shape. The arrow is ⥮ for most and
- * ⥣ for the two-stage (-2s) filters; its meaning isn't documented, so it's kept raw.
+ * engine 6.2.3: all 84 filters follow this shape. The arrow was ⥣ for every SDM
+ * filter and ⥮ for every PCM one in our capture; its meaning isn't documented, so
+ * it's kept raw.
  */
 export interface FilterInfo {
   rating: number;
@@ -251,3 +255,49 @@ export const modulatorGeneration = (d: string | undefined): number | undefined =
   const m = d ? /^Gen(\d+)$/.exec(d) : null;
   return m ? Number(m[1]) : undefined;
 };
+
+const RATIO_WORDING = Object.fromEntries(Object.entries(RATIO_TEXT).map(([text, cls]) => [cls, text])) as Record<
+  RatioClass,
+  string
+>;
+
+/** What the pickers show about a filter. `fromHqp`: HQPlayer itself said so. */
+export interface FilterNotes {
+  rating?: number;
+  tags: string[];
+  ratio?: RatioClass;
+  ratioText?: string;
+  fromHqp: boolean;
+}
+
+/**
+ * HQPlayer 6 describes its own filters. v5 doesn't, so for a v5 instance
+ * (`described` false) use HQPlayer 6's rating and focus for the same name, and
+ * the v5 manual's ratio rule from our table.
+ */
+export function filterNotes(
+  name: string,
+  description: string | undefined,
+  sdm: boolean,
+  described: boolean,
+): FilterNotes | undefined {
+  const info = parseFilterDescription(description);
+  if (info) return { rating: info.rating, tags: info.tags, ratio: info.ratio, ratioText: info.ratioText, fromHqp: true };
+  if (described) return undefined;
+  const mirror = FILTERS_V6[sdm ? "sdm" : "pcm"][name];
+  let ratio = ratioClass(name);
+  if (sdm && ratio === "integer-up" && name.startsWith("poly-sinc-mqa")) ratio = "any"; // §4.6
+  if (!mirror && !ratio) return undefined;
+  return {
+    ...(mirror?.[0] ? { rating: mirror[0] } : {}),
+    tags: mirror?.[1] ?? [],
+    ...(ratio ? { ratio, ratioText: RATIO_WORDING[ratio] } : {}),
+    fromHqp: false,
+  };
+}
+
+/** Modulator generation: HQPlayer's own, else HQPlayer 6's for the same name (v5). */
+export const modulatorGen = (name: string, description: string | undefined, described: boolean): number | undefined =>
+  modulatorGeneration(description) ?? (described ? undefined : MODULATOR_GEN[name]);
+
+export { MODULATOR_NOTE };

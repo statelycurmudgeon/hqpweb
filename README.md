@@ -42,6 +42,8 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 - **Checked and reversible:** every change is read back from HQPlayer. If one stops
   playback or HQPlayer can't keep up, the app puts the old settings back, remembers
   the combination, and warns you next time. Undo is one tap.
+- **Filter guide:** star ratings, what each filter favours, which ratios it can do,
+  and modulator generations ([where these come from](#where-filter-descriptions-come-from)).
 - **Processing:** whether HQPlayer is processing in real time.
 - **Volume safety:** never raised by more than 6 dB at once; undo and rollback
   never raise it.
@@ -120,6 +122,15 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 
 hqpweb shows the _engine_ version (Settings → General); HQPlayer's own Help → About
 shows the product version.
+
+## Where filter descriptions come from
+
+HQPlayer 6 describes its own filters and modulators to control apps, and hqpweb shows
+that as-is. HQPlayer 5 doesn't, so for v5 hqpweb borrows HQPlayer 6's ratings and
+focus for the same names (v5.17's lists match v6's). Ratio warnings on v5 follow the
+v5 user manual's rules, which differ from v6's for some filters. The few filters and
+modulators v6 dropped are described from the v5 manual, in our own words, without
+ratings. Ratings are Signalyst's; nothing here is our own judgement of sound.
 
 ## Why can't I switch profiles or endpoints?
 
