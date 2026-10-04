@@ -599,24 +599,25 @@ export class Instance {
    * act underneath Roon, which may or may not follow. Measured: Play doesn't
    * restart an instance stalled by an invalid combination.
    */
-  transport(action: TransportAction): Promise<{ reply: Outcome; status: Status; notStarted?: { explained?: string } }> {
-    return this.exclusive(async () => {
+  async transport(action: TransportAction): Promise<{ reply: Outcome; status: Status; notStarted?: { explained?: string } }> {
+    const { reply, status: first } = await this.exclusive(async () => {
       const reply = await this.client.send(cmd[action]());
       // Give the engine a moment, then report what actually happened.
       await new Promise((r) => setTimeout(r, 300));
-      let status = await this.client.status();
-      if (action !== "play" || status.state === 2) return { reply, status };
-      // Measured: Play is "OK" even when nothing can start (a ratio HQPlayer can't
-      // do, or an output that isn't there). Wait a little, then say so, and why if
-      // a known rule explains it.
-      for (let waited = 0; waited < this.playWaitMs && status.state !== 2; waited += 400) {
-        await new Promise((r) => setTimeout(r, 400));
-        status = await this.client.status();
-      }
-      if (status.state === 2) return { reply, status };
-      const why = await this.explain().catch(() => undefined);
-      return { reply, status, notStarted: why ? { explained: why.text } : {} };
+      return { reply, status: await this.client.status() };
     });
+    let status = first;
+    if (action !== "play" || status.state === 2) return { reply, status };
+    // Measured: Play is "OK" even when nothing can start (a ratio HQPlayer can't do,
+    // or an output that isn't there). Wait a little, outside the write lock so a Stop
+    // or a volume change never queues behind it, then say so, and why if a rule does.
+    for (let waited = 0; waited < this.playWaitMs && status.state !== 2; waited += 400) {
+      await new Promise((r) => setTimeout(r, 400));
+      status = await this.client.status();
+    }
+    if (status.state === 2) return { reply, status };
+    const why = await this.explain().catch(() => undefined);
+    return { reply, status, notStarted: why ? { explained: why.text } : {} };
   }
 
   /**
@@ -749,7 +750,8 @@ export class Instance {
     if (this.volumeJump && v <= this.volumeJump.from + 1) this.volumeJump = null;
     // A long gap (nobody watching) proves nothing about how it got there.
     if (!prev || now - prev.at > 30 * 60_000 || v - prev.v < 10) return;
-    if (this.ownVolume && Math.abs(this.ownVolume.v - v) <= VOLUME_EPS && now - this.ownVolume.at < 10_000) return;
+    // hqpweb's own writes (by time, not value: HQPlayer may clamp, and polls back off to 10 s).
+    if (this.ownVolume && now - this.ownVolume.at < 15_000) return;
     this.volumeJump = { from: prev.v, to: v, at: new Date(now).toISOString(), restarted: now - this.lastPollError < 60_000 };
   }
   dismissVolumeJump() {
@@ -763,8 +765,10 @@ export class Instance {
    * After Roon was the source, HQPlayer's own playlist is left over and isn't what
    * plays next: ignore it until it changes (someone queued something in HQPlayer).
    * A track that can't start never shows as a source, so "changed" is the signal.
+   * Until this server has seen what plays (e.g. after a restart), the playlist is
+   * treated the same way: a missed warning beats a false one.
    */
-  private stalePlaylist: string | null | undefined;
+  private stalePlaylist: string | null | undefined = null;
   private async queuedRateFor(status: Status): Promise<number | null | undefined> {
     if (status.source) {
       this.stalePlaylist = status.source.song === "Roon" ? null : undefined;

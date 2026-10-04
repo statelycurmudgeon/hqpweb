@@ -241,7 +241,7 @@
         >
         <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button>
       </div>
-      <p class="help">Ratings come from HQPlayer 6; with older versions the list keeps HQPlayer's order.</p>
+      <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
 
       <label class="row">
         <span>Open “Advanced” by default</span>

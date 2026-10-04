@@ -17,7 +17,6 @@
     filterSlot,
     modulatorGen,
     modulatorHint,
-    parseFilterDescription,
     ratioHint,
     type Hint,
   } from "@app/protocol/compat";
@@ -75,7 +74,9 @@
   // below 0.97, red below 0.90. The number is in the tooltip.
   const APOD_TITLE =
     "HQPlayer's apodization counter: problems in the recording that an apodizing filter corrects. HQPlayer's manual suggests one once it passes 10 in a track.";
-  const CLIPS_TITLE = "HQPlayer's clip counter: samples it had to clip. Lowering the volume gives it headroom.";
+  // Inferred from the name: every capture so far reads 0, and whether either counter
+  // resets per track is unmeasured.
+  const CLIPS_TITLE = "HQPlayer's clip counter (likely samples it had to clip). Lowering the volume gives it headroom.";
   const speed = $derived(snap?.health?.speed ?? null);
   let slowSince = $state<number | null>(null);
   $effect(() => {
@@ -396,9 +397,9 @@
   );
   const shaperName = $derived(caps && snap ? nameAt(caps.shapers, snap.state.shaper) : "");
   const inUseApodizing = $derived(inUseFilter ? isApodizing(inUseFilter) : undefined);
+  const inUseRatio = $derived(ratioOf(inUseFilter));
   const rateItems = $derived(
     (caps?.rates ?? []).map((r) => {
-      const inUseRatio = parseFilterDescription(caps?.filters.find((f) => f.name === inUseFilter)?.description)?.ratio;
       const ratio = r.rate && source ? ratioHint(inUseFilter, source, r.rate, isSdm, inUseRatio) : undefined;
       const mod = r.rate ? (isSdm ? modulatorHint(shaperName, r.rate) : ditherHint(shaperName, r.rate)) : undefined;
       const rule = ratio?.level === "hard" ? ratio : mod;
@@ -704,7 +705,7 @@
       {/if}
       {#if jump}
         <p class="wedge">
-          Volume jumped from {jump.from} to {jump.to} dB{jump.restarted ? " (HQPlayer restarted)" : ""}.
+          Volume jumped from {jump.from} to {jump.to} dB{jump.restarted ? " (HQPlayer probably restarted)" : ""}.
           <button class="link" onclick={() => apply({ volume: jump!.from })} disabled={busy}>Back to {jump.from} dB</button>
           <button class="link quiet" onclick={dismissJump}>Dismiss</button>
         </p>

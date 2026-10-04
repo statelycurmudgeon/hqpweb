@@ -440,12 +440,17 @@ describe("live health in the status stream", () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
     fake.playback = 0;
     fake.feeder = "playlist";
+    await fake.listen();
+    app = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
+      { pollMs: 50, queueEveryMs: 100 },
+    );
+    base = await app.listen(0, "127.0.0.1");
+    // A playlist that was there before hqpweb started isn't trusted (it may be left over).
+    await events(20, (x) => x.queuedRate === null);
     fake.playlist = ["/music/Example Artist/First Album/01 - Opening.flac"];
     fake.setSource(96_000);
-    await fake.listen();
-    app = buildApp({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] }, { pollMs: 50 });
-    base = await app.listen(0, "127.0.0.1");
-    const d = await events(20, (x) => x.queuedRate !== undefined);
+    const d = await events(200, (x) => x.queuedRate === 96_000);
     expect(d?.status.source).toBeNull();
     expect(d?.queuedRate).toBe(96_000);
   });

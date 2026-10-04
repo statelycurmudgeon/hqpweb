@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   // A searchable picker for long lists (36–77 items). Opens as a bottom sheet.
   // Items can be disabled (with a reason) or carry a warning, e.g. "failed here before".
-  // With HQPlayer 6, filters carry a rating, focus tags and a ratio rule, and
+  // Filters carry a rating, focus tags and a ratio rule (HQPlayer 6's, borrowed by name for v5), and
   // modulators a generation: shown as stars (ⓘ for details) or a "Gen" badge, with
   // chips to narrow the list and an optional grouping by rating.
   // Items that can't do the current conversion ratio are `blocked`: hidden by a
@@ -100,7 +100,7 @@
 
   /** Open the sheet; `chips` pre-selects narrowing chips, e.g. ["apodizing"]. */
   export async function open(opts: { chips?: string[] } = {}) {
-    if (opts.chips) chips = new Set(opts.chips);
+    chips = new Set(opts.chips ?? []);
     query = "";
     openInfo = null;
     compatOnly = true;
