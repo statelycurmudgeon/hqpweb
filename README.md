@@ -128,7 +128,7 @@ shows the product version.
 HQPlayer 6 describes its own filters and modulators to control apps, and hqpweb shows
 that as-is. HQPlayer 5 doesn't, so for v5 hqpweb borrows HQPlayer 6's ratings and
 focus for the same names (v5.17's lists match v6's). Ratio warnings on v5 follow the
-v5 user manual's rules, which differ from v6's for some filters. The few filters and
+v5 user manual's rules, corrected where we measured otherwise. The few filters and
 modulators v6 dropped are described from the v5 manual, in our own words, without
 ratings. Ratings are Signalyst's; nothing here is our own judgement of sound.
 

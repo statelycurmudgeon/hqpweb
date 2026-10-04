@@ -9,9 +9,10 @@ may change behaviour; upgrade notes say what you need to do.
   own rating (stars); tap ⓘ for what it favours (transients, timbre, space) and the
   ratios it works with. Chips narrow the list (5/5, a focus, "works here"), and
   Settings can group the list by rating. Modulators show their generation (Gen1–8).
-- **Ratio warnings use HQPlayer 6's own rule** when it gives one (it differs from
-  the v5 manual for the sinc-S/M/L family). v5 keeps the manual's rules; FFT now
-  allows power-of-two either way, as the manual says, and the ext2 variants are covered.
+- **Ratio warnings use HQPlayer 6's own rule** when it gives one. On v5 we follow
+  the v5 manual, except where measured otherwise: on Desktop 5.17.2 sinc-M needs a
+  power-of-two ratio (it refuses 3×, and 2× down plays), not "whole-number". FFT
+  allows power-of-two either way, and the ext2 variants are covered.
 - **v5 instances get the same guide:** ratings and focus borrowed from HQPlayer 6 by
   name; v5-only filters and modulators described from the v5 manual.
 - **"Processing" shows HQPlayer's processing speed** (e.g. 32×) on 5.17.2 and 6.x.

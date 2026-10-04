@@ -3,7 +3,7 @@ import { ditherHint, filterSlot, modulatorHint, predictedStop, ratioClass, ratio
 
 describe("ratio rules (manual §4.6)", () => {
   it("knows classes, including -2s variants, and admits unknown names", () => {
-    expect(ratioClass("sinc-M")).toBe("integer"); // the v5 manual; v6 says 2^x via its descriptions
+    expect(ratioClass("sinc-M")).toBe("pow2"); // measured on 5.17.2, not the manual's whole-number
     expect(ratioClass("FFT")).toBe("pow2");
     expect(ratioClass("closed-form-M")).toBe("pow2-up");
     expect(ratioClass("poly-sinc-long-lp-2s")).toBe("any");
@@ -11,13 +11,14 @@ describe("ratio rules (manual §4.6)", () => {
     expect(ratioClass("some-future-filter")).toBeUndefined();
   });
 
-  it("explains the measured sinc-M stop: 44.1k → 192k isn't a whole-number ratio", () => {
+  it("explains the measured sinc-M stop: 44.1k → 192k isn't a power-of-two ratio", () => {
     expect(ratioHint("sinc-M", 44_100, 192_000)).toMatchObject({
       level: "hard",
-      text: expect.stringMatching(/whole-number.*4\.35×/),
+      text: expect.stringMatching(/power-of-two.*4\.35×/),
     });
     expect(ratioHint("sinc-M", 44_100, 176_400)).toBeUndefined(); // 4×
-    expect(ratioHint("sinc-M", 192_000, 96_000)).toBeUndefined(); // integer down is fine (v5 manual)
+    expect(ratioHint("sinc-M", 192_000, 96_000)).toBeUndefined(); // 2× down plays (measured, 5.17.2)
+    expect(ratioHint("sinc-M", 32_000, 96_000)?.level).toBe("hard"); // 3× refused (measured, 5.17.2)
     expect(ratioHint("sinc-M", 192_000, 96_000, false, "pow2-up")?.level).toBe("hard"); // HQPlayer 6 PCM
   });
 
@@ -110,8 +111,8 @@ describe("v5 instances (no descriptions of their own)", () => {
     expect(filterNotes("sinc-M", undefined, false, false)).toEqual({
       rating: 4,
       tags: ["space", "timbre"],
-      ratio: "integer",
-      ratioText: "Int",
+      ratio: "pow2",
+      ratioText: "2^x",
       fromHqp: false,
     });
     expect(filterNotes("poly-sinc-mqa/mp3-lp", undefined, true, false)?.ratio).toBe("any"); // SDM (§4.6)
