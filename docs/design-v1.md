@@ -315,6 +315,17 @@ From the 6.0.1 SDK source and the release notes:
   - Like v5, a restart (here a VM reboot) brings back the _saved_ settings: changes
     made over the control API, volume included, are lost (volume returned to −3 dB).
   - Not measured: playback (no output device), and Embedded's web UI (port 8088).
+- **Filter and modulator descriptions (measured on engine 6.2.3).** v6 sends a
+  `description` on every filter (`"5/5 transients, timbre ⥮ Any up"`: rating, focus,
+  ratio rule) and every SDM modulator (`"Gen8"`). v5 sends none. Descriptions differ
+  slightly by mode: the same filter can read "2^x" in SDM and "2^x up" in PCM.
+  hqpweb mirrors 6.2.3's ratings and focus for v5 instances by name (`fallback.ts`).
+- **Ratio rules can disagree between sources (measured on Desktop 5.17.2, PCM,
+  sinc-M as both filters):** 44.1k → 176.4k (4×) plays; 32k → 96k (3×) never starts,
+  while poly-sinc-gauss-long plays the same file at that rate; 96k → 48k (½) plays.
+  So v5's sinc-M needs a power-of-two ratio either way: neither the v5.13 manual's
+  "whole-number" nor v6's PCM "2^x up" describes v5. The rest of the sinc-S/M/L
+  family is assumed to match (inferred). v6's own rule in PCM is untested.
 
 **Design rule:** everything enumerable is discovered at runtime and cached per
 `(instance, engine version, mode)`. Nothing is hard-coded except the command names.
