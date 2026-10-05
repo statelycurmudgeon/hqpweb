@@ -57,11 +57,16 @@ const info = await hq.info();
 const status = await hq.status();
 const l = await lists();
 const before = await now();
+// Roon's own entries (song "Roon", an http stream; seen 2026-10-04) can't be re-added,
+// and Roon doesn't need them back: leave them out.
 const playlist = async () =>
-  (await hq.request(cmd.playlistGet())).children.filter((c) => c.name === "PlaylistItem").map((c) => c.attrs.uri ?? "");
+  (await hq.request(cmd.playlistGet())).children
+    .filter((c) => c.name === "PlaylistItem" && c.attrs.uri && c.attrs.song !== "Roon")
+    .map((c) => c.attrs.uri!);
 const queued = await playlist();
-const v1 = before.volume - 3;
-const v2 = before.volume - 6;
+// 1 dB steps: repeated runs shouldn't walk the volume down to the floor.
+const v1 = before.volume - 1;
+const v2 = before.volume - 2;
 const refuse = [
   status.state !== 0 && "HQPlayer is playing: someone may be listening",
   before.volume > -20 && `volume is ${before.volume} dB; start at −20 dB or lower`,
@@ -74,7 +79,7 @@ console.log(`${info.product} ${info.engine} on ${info.platform} ("${info.name}")
 console.log(`Start: ${JSON.stringify(before)}`);
 console.log(`Plan (writes):
   1. lower the volume to ${v1} dB
-  2. ${queued.length ? `set HQPlayer's playlist aside (${queued.length} item(s), put back at the end), ` : ""}play the test file from it; expect 44.1 kHz playing
+  2. ${queued.length ? `set HQPlayer's playlist aside (${queued.length} item(s), put back at the end); ` : ""}play the test file from HQPlayer's playlist; expect 44.1 kHz playing
   3. 1x filter → ${LIGHT}; expect ✓ and playback OK; 4. undo it
   5. output rate ${FITS / 1000} kHz with ${POW2} (4×); expect playback OK
   6. rate ${NOT / 1000} kHz (4.35×) with the volume at ${v2} dB; expect HQPlayer to stop,
@@ -141,9 +146,26 @@ try {
     `playback ${r.playback.kind}, HQPlayer at ${s.activeRate} Hz with ${s.activeFilter}`,
   );
 
+  // Trace HQPlayer through the rollback, so a failure explains itself.
+  const trace: string[] = [];
+  let tracing = true;
+  const t6 = Date.now();
+  const tracer = (async () => {
+    let last = "";
+    while (tracing) {
+      const x = await hq.status();
+      const line = `state ${x.state}, ${x.activeRate} Hz, pos ${Math.floor(x.position)}`;
+      if (line !== last) trace.push(`+${((Date.now() - t6) / 1000).toFixed(1)}s ${line}`);
+      last = line;
+      await sleep(250);
+    }
+  })();
   r = await api("change", { rate: NOT, volume: v2 });
   const after6: Named = await now();
   s = await until((x) => x.state === 2, 15_000);
+  tracing = false;
+  await tracer;
+  log(`HQPlayer during step 6 (from the change request):\n          ${trace.join("\n          ")}`);
   if (!r.rolledBack) {
     record(
       "6. incompatible ratio is rolled back",
@@ -181,7 +203,7 @@ try {
   }
   const list = await playlist().catch(() => ["(couldn't read it)"]);
   record("playlist put back", JSON.stringify(list) === JSON.stringify(queued), `${list.length} item(s), was ${queued.length}`);
-  log("NOTE  HQPlayer's Play now uses its own playlist (adding the test file selected it); no known command switches it back.");
+  log("NOTE  HQPlayer's own Play button now uses its playlist (the test file selected it). Roon still plays to it (measured).");
   const end = await now();
   const c = compare(before, end);
   record("restored to the snapshot", c.differs.length === 0, c.differs.join("; ") || "all settings match");

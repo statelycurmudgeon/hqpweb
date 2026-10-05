@@ -33,21 +33,23 @@ git-ignored `*.local.md`, never in the repo.
 Changes go through the real hqpweb server, started by the script; every result is
 checked by reading HQPlayer directly.
 
-1. Lowers the volume 3 dB.
+1. Lowers the volume 1 dB.
 2. Sets HQPlayer's playlist aside (put back at the end) and plays the test file:
    expects 44.1 kHz playing.
 3. Changes the 1x filter: expects ✓ and playback OK.
 4. Undoes it: expects the original filter back.
 5. Sets 176.4 kHz with `sinc-M` (a 4× ratio): expects playback OK.
-6. Asks for 192 kHz (4.35×, which `sinc-M` can't do) and 3 dB lower volume: expects
+6. Asks for 192 kHz (4.35×, which `sinc-M` can't do) and 1 dB lower volume: expects
    HQPlayer to stop, hqpweb to roll the rate back and explain why, playback to recover,
    and the volume to stay low.
 7. Stops, restores every setting except the volume, puts the playlist back, and
    compares with the snapshot.
 
-The volume ends 6 dB below where it started; raise it yourself afterwards. HQPlayer's
-Play button is left on its own playlist (adding the test file selects it, and no known
-command switches it back).
+The volume ends 2 dB below where it started; raise it yourself afterwards. HQPlayer's
+own Play button is left on its playlist (adding the test file selects it); Roon still
+plays to it (measured). Roon's own playlist entries (its stream) aren't put back; Roon
+doesn't need them. If step 6 fails, the check prints HQPlayer's state
+through the rollback.
 
 ## Also check by hand
 
