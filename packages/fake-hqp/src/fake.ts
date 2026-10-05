@@ -40,6 +40,8 @@ export class FakeHqp {
   playback: 0 | 1 | 2 | 3;
   /** Playback stopped by an incompatible combination; resumes by itself once valid. */
   stalled = false;
+  /** After such a stop on its own playlist, Play shows state 2 but the position doesn't move until a Stop (measured, 5.35.10). */
+  stuck = false;
   position = 0;
   convolution = false;
   matrixProfile = "";
@@ -158,7 +160,7 @@ export class FakeHqp {
 
   private tick() {
     const now = Date.now();
-    if (this.playback === 2) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
+    if (this.playback === 2 && !this.stuck) this.position += ((now - this.lastTick) / 1000) * this.currentSpeed();
     this.lastTick = now;
   }
 
@@ -188,9 +190,13 @@ export class FakeHqp {
       });
     } else if (!this.comboBad && this.stalled) {
       this.stalled = false;
-      this.later(DELAY.resume, () => {
-        if (this.playback === 0 || this.playback === 3) this.playback = 2;
-      });
+      // Resumes by itself with Roon as the source (measured, §2.3). From its own
+      // playlist it stays stopped; only Stop, then Play, resumes it (measured, 5.35.10).
+      if (this.feeder === "Roon")
+        this.later(DELAY.resume, () => {
+          if (this.playback === 0 || this.playback === 3) this.playback = 2;
+        });
+      else this.stuck = true;
     }
   }
 
@@ -486,8 +492,7 @@ export class FakeHqp {
       return this.ok("SelectTrack");
     },
     Stop: () => {
-      // Inferred: an explicit Stop clears the auto-resume.
-      this.stalled = false;
+      this.stalled = this.stuck = false; // clears the auto-resume (inferred) and a stuck Play (measured, 5.35.10)
       this.playback = 0;
       this.position = 0;
       return this.ok("Stop");

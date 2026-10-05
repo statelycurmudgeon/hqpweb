@@ -5,6 +5,7 @@
 // shows as position advancing slower than real time while state stays 2.
 // Overload can leave an instance needing a restart (operator report), so slow
 // progress is judged early rather than at the end of the window.
+import { cmd, type Status } from "@app/protocol";
 
 export interface Sample {
   /** ms since the watch started */
@@ -115,4 +116,23 @@ export async function watchPlayback(
     if (v.kind !== "pending") return v;
     await new Promise((r) => setTimeout(r, timing.sampleMs));
   }
+}
+
+/**
+ * Getting playback back after a rollback. Roon resumes by itself once the settings are
+ * valid again (measured, design §2.3). HQPlayer's own playlist doesn't, and Play alone
+ * then leaves it reporting "playing" with the position stuck; Stop, then Play, resumes
+ * it (all measured on 5.35.10, 2026-10-04). So do that, but only if it was playing
+ * before the change and Roon wasn't the source: it restores what was happening.
+ */
+export async function afterRollback<V extends { kind: string }>(
+  was: Status,
+  watch: () => Promise<V>,
+  client: { send(body: string): Promise<unknown> },
+): Promise<V> {
+  const first = await watch();
+  if (first.kind !== "stopped" || was.state !== 2 || was.source?.song === "Roon") return first;
+  await client.send(cmd.stop());
+  await client.send(cmd.play());
+  return watch();
 }
