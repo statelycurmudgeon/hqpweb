@@ -64,6 +64,8 @@ const playlist = async () =>
     .filter((c) => c.name === "PlaylistItem" && c.attrs.uri && c.attrs.song !== "Roon")
     .map((c) => c.attrs.uri!);
 const queued = await playlist();
+// Anything queued, Roon's entries included, has to go first: Play otherwise starts the wrong item (seen 2026-10-04).
+const anyQueued = (await hq.request(cmd.playlistGet())).children.some((c) => c.name === "PlaylistItem");
 // 1 dB steps: repeated runs shouldn't walk the volume down to the floor.
 const v1 = before.volume - 1;
 const v2 = before.volume - 2;
@@ -79,7 +81,7 @@ console.log(`${info.product} ${info.engine} on ${info.platform} ("${info.name}")
 console.log(`Start: ${JSON.stringify(before)}`);
 console.log(`Plan (writes):
   1. lower the volume to ${v1} dB
-  2. ${queued.length ? `set HQPlayer's playlist aside (${queued.length} item(s), put back at the end); ` : ""}play the test file from HQPlayer's playlist; expect 44.1 kHz playing
+  2. ${anyQueued ? `clear HQPlayer's playlist (${queued.length} item(s) to put back at the end); ` : ""}play the test file from HQPlayer's playlist; expect 44.1 kHz playing
   3. 1x filter → ${LIGHT}; expect ✓ and playback OK; 4. undo it
   5. output rate ${FITS / 1000} kHz with ${POW2} (4×); expect playback OK
   6. rate ${NOT / 1000} kHz (4.35×) with the volume at ${v2} dB; expect HQPlayer to stop,
@@ -116,7 +118,7 @@ try {
   record("1. volume lowered", near(vs.volume, v1), `${vs.volume} dB`);
 
   // No playlist route in hqpweb: queue the file directly (measured: start="1" makes the playlist the transport).
-  if (queued.length) await hq.send(element("PlaylistClear"));
+  if (anyQueued) await hq.send(element("PlaylistClear"));
   await hq.send(element("PlaylistAdd", { uri: file, start: 1 }));
   const play = await api("transport", { action: "play" });
   let s = await until((x) => x.state === 2 && x.position > 1, 15_000);
