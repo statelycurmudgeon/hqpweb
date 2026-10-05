@@ -125,14 +125,26 @@ export async function watchPlayback(
  * it (all measured on 5.35.10, 2026-10-04). So do that, but only if it was playing
  * before the change and Roon wasn't the source: it restores what was happening.
  */
+/** The gap that worked (measured, 5.35.10); Play straight after Stop is untested. */
+const STOP_TO_PLAY_MS = 500;
+/**
+ * HQPlayer can take seconds to start after Play, depending on the upsampling chain
+ * (operator report; not measured, and it varies). Wait this long for it to start before
+ * judging: generous on purpose, since a fast chain starts well within it.
+ */
+const START_MS = 15_000;
+
 export async function afterRollback<V extends { kind: string }>(
   was: Status,
   watch: () => Promise<V>,
-  client: { send(body: string): Promise<unknown> },
+  client: { send(body: string): Promise<unknown>; status(): Promise<Status> },
 ): Promise<V> {
   const first = await watch();
   if (first.kind !== "stopped" || was.state !== 2 || was.source?.song === "Roon") return first;
   await client.send(cmd.stop());
+  await new Promise((r) => setTimeout(r, STOP_TO_PLAY_MS));
   await client.send(cmd.play());
+  for (const end = Date.now() + START_MS; Date.now() < end && (await client.status()).state !== 2;)
+    await new Promise((r) => setTimeout(r, 250));
   return watch();
 }

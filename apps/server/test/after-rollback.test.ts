@@ -10,7 +10,10 @@ const stopped: V = { kind: "stopped", detail: "stopped" };
 /** Run afterRollback with watch results in order; report what happened. */
 async function run(was: Status, ...verdicts: V[]) {
   const sent: string[] = [];
-  const result = await afterRollback(was, async () => verdicts.shift()!, { send: async (b: string) => sent.push(b) });
+  const result = await afterRollback(was, async () => verdicts.shift()!, {
+    send: async (b: string) => sent.push(b),
+    status: async () => status(2, "01 - Example.flac"),
+  });
   return { result, sent: sent.map((b) => /<(\w+)/.exec(b)![1]) };
 }
 
@@ -36,5 +39,18 @@ describe("after a rollback", () => {
 
   it("reports the second check when Play doesn't bring it back", async () => {
     expect((await run(status(2, "01 - Example.flac"), stopped, stopped)).result).toEqual(stopped);
+  });
+
+  it("waits for HQPlayer to start after Play before judging (upsampling can take seconds)", async () => {
+    const states = [0, 0, 2];
+    const events: string[] = [];
+    let watches = 0;
+    await afterRollback(
+      status(2, "01 - Example.flac"),
+      async () => (events.push(`watch@${3 - states.length}`), watches++ === 0 ? stopped : { kind: "playing" }),
+      { send: async () => undefined, status: async () => status(states.shift() as Status["state"], null) },
+    );
+    // The second watch starts only once state 2 was seen (all three samples used).
+    expect(events).toEqual(["watch@0", "watch@3"]);
   });
 });
