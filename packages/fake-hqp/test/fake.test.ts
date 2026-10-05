@@ -157,7 +157,8 @@ describe("invalid rate/modulator combination (measured)", () => {
 
   // Measured 2026-10-04 (Desktop 5.35.10, Linux): playing from HQPlayer's own playlist,
   // a stop at an incompatible ratio doesn't resume when the rate is fixed. Play alone then
-  // reports state 2 but the position doesn't move; Stop, then Play, really resumes.
+  // reports state 2 but the position doesn't move; Stop, then Play, resumed it once and
+  // failed once. The fake lets Stop-then-Play resume, so hqpweb's Restart button can be tested.
   it("with its own playlist as the source: after the fix, Play alone is stuck; Stop then Play resumes", async () => {
     const c = await start("desktop5-linux-pcm");
     fake!.feeder = "playlist";

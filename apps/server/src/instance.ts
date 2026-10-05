@@ -24,7 +24,7 @@ import {
 } from "@app/protocol";
 import type { InstanceConfig } from "./config.ts";
 import { LearnedStore, type Combo, type Failure } from "./learned.ts";
-import { afterRollback, DEFAULT_TIMING, MAJOR_TIMING, watchPlayback, type Verdict, type WatchTiming } from "./watch.ts";
+import { DEFAULT_TIMING, MAJOR_TIMING, watchPlayback, type Verdict, type WatchTiming } from "./watch.ts";
 import { decideVolume, VOLUME_EPS } from "./volume.ts";
 import { MODE_BOUND, previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf } from "./settings.ts";
@@ -277,7 +277,7 @@ export class Instance {
     const fields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     if (fields.length === 0) throw new HttpError(400, "empty change");
 
-    const was = await this.client.status(); // before the change
+    const playingBefore = (await this.client.status()).state === 2;
     const applied = await this.applyFields(change, isUndo, lenient);
     const skipped = applied.skipped.length ? { skipped: applied.skipped } : {};
     const risky = applied.results.some((r) => RISKY.includes(r.field));
@@ -285,7 +285,7 @@ export class Instance {
 
     let playback: PlaybackCheck;
     if (!risky) playback = { kind: "not-checked", detail: "this change can't stop playback" };
-    else if (was.state !== 2) playback = { kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" };
+    else if (!playingBefore) playback = { kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" };
     else playback = await this.watch(timing);
 
     if (playback.kind === "stopped" || playback.kind === "struggling") {
@@ -306,7 +306,7 @@ export class Instance {
       let recovered: PlaybackCheck;
       try {
         back = await this.applyFields(applied.prev, true, true, true);
-        recovered = await afterRollback(was, () => this.watch(this.timing.major), this.client);
+        recovered = await this.watch(this.timing.major);
       } catch (e) {
         back = { results: [], state: await this.client.state() };
         recovered = { kind: "inconclusive", detail: `couldn't roll back: ${(e as Error).message}` };

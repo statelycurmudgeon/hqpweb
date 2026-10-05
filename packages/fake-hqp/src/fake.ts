@@ -190,8 +190,8 @@ export class FakeHqp {
       });
     } else if (!this.comboBad && this.stalled) {
       this.stalled = false;
-      // Resumes by itself with Roon as the source (measured, §2.3). From its own
-      // playlist it stays stopped; only Stop, then Play, resumes it (measured, 5.35.10).
+      // Resumes by itself with Roon as the source (measured, §2.3). From its own playlist
+      // it stays stopped (measured, 5.35.10); Stop, then Play, resumed it once and not once.
       if (this.feeder === "Roon")
         this.later(DELAY.resume, () => {
           if (this.playback === 0 || this.playback === 3) this.playback = 2;

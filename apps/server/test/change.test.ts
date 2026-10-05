@@ -154,15 +154,19 @@ describe("rollback when playback fails", () => {
     expect((await req("GET", "/api/instances/mac/learned")).json()).toEqual([]);
   });
 
-  it("after a rollback, sends Stop then Play if HQPlayer's own playlist was playing (it doesn't resume by itself)", async () => {
+  it("after a rollback from HQPlayer's own playlist, leaves it stopped and presses nothing", async () => {
+    // Measured (5.35.10): it doesn't resume by itself, and neither Play nor Stop-then-Play
+    // resumes it reliably, so hqpweb leaves it plainly stopped and the user chooses (design §2.3).
     await setup();
     await change({ mode: "PCM" }); // 44.1 kHz source, so the 1x filter is in use
     fake.feeder = "playlist";
     fake.playlist = ["/music/Example Artist/Example Album/01 - Example.flac"];
     await change({ filter1x: "sinc-M", rate: 176400 }); // 4×: fine
+    const sent = () => fake.received.filter((x) => x.includes("<Play") || x.includes("<Stop")).length;
+    const before = sent();
     const body = (await change({ rate: 192000 })).json(); // 4.35×: can't
-    expect(body.rolledBack.playback).toEqual({ kind: "playing" });
-    expect(fake.playback).toBe(2);
+    expect(body.rolledBack.playback.kind).toBe("stopped");
+    expect(sent()).toBe(before);
   });
 
   it("after a rollback with Roon as the source, leaves resuming to it (no Stop or Play sent)", async () => {
