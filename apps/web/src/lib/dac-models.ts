@@ -29,6 +29,7 @@ export const DAC_MODELS: DacModel[] = [
       jussi(
         "107054/4",
         "2020-05",
+        "dither",
         "Qutest: send 705.6 or 768 kHz PCM, DSD content included, with LNS15 and DAC Bits at default.",
       ),
       jussi("169369/27", "2023-03", "hardware", "Chord DACs convert DSD to PCM before their own modulator."),

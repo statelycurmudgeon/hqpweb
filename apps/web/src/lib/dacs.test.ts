@@ -62,6 +62,11 @@ describe("Find your DAC: the table's own rules", () => {
     expect(advice.filter((a) => older.test(a.text)).map((a) => `${a.id}: ${a.text}`)).toEqual([]);
   });
 
+  it("says what every piece of advice is about", () => {
+    const odd = advice.filter((a) => !["modulator", "dither", "hardware"].includes(a.about));
+    expect(odd.map((a) => `${a.id}: ${String(a.about)}`)).toEqual([]);
+  });
+
   it("never lists a model as both covered and excluded by the same row", () => {
     const both = DAC_MODELS.filter((m) => m.notThese?.some((n) => m.models.includes(n))).map((m) => m.id);
     expect(both).toEqual([]);
