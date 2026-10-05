@@ -40,8 +40,9 @@ checked by reading HQPlayer directly.
 4. Undoes it: expects the original filter back.
 5. Sets 176.4 kHz with `sinc-M` (a 4× ratio): expects playback OK.
 6. Asks for 192 kHz (4.35×, which `sinc-M` can't do) and 1 dB lower volume: expects
-   HQPlayer to stop, hqpweb to roll the rate back and explain why, playback to recover,
-   and the volume to stay low.
+   HQPlayer to stop, hqpweb to roll the rate back and explain why, and the volume to stay
+   low. Playback must then recover: by itself (Roon), or with what hqpweb's **Restart
+   playback** button presses (Stop, then Play), judged by the position really moving.
 7. Stops, restores every setting except the volume, puts the playlist back, and
    compares with the snapshot.
 
@@ -58,6 +59,6 @@ shows 44.1 kHz in and the output rate, and Processing settles on a real-time fig
 
 ## Results
 
-| Date       | hqpweb         | HQPlayer               | Result                                                                                                                                                       |
-| ---------- | -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-10-04 | main after #23 | Desktop 5.35.10, Linux | 11 of 12. **Failed: playback didn't recover after the rollback** (HQPlayer stayed stopped once the rate was fixed; the fake resumes by itself). Needs a fix. |
+| Date       | hqpweb         | HQPlayer               | Result                                                                                                                                                                                                 |
+| ---------- | -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-10-04 | main after #23 | Desktop 5.35.10, Linux | 11 of 12. **Playback didn't recover after the rollback**; the fake resumed by itself, so no test caught it. Measuring it (design §2.3) led to Restart playback. Step 6c as now written hasn't run yet. |

@@ -164,7 +164,20 @@ try {
   })();
   r = await api("change", { rate: NOT, volume: v2 });
   const after6: Named = await now();
-  s = await until((x) => x.state === 2, 15_000);
+  // Playing really means the position moves: HQPlayer can report state 2 and stay at 0 (measured).
+  const moving = (x: Status) => x.state === 2 && x.position > 2;
+  s = await until(moving, 10_000);
+  // If it didn't come back by itself, press what hqpweb's Restart playback button presses.
+  let how = moving(s) ? "by itself" : "";
+  if (r.rolledBack && !how) {
+    await api("transport", { action: "stop" });
+    await sleep(500);
+    await api("transport", { action: "play" });
+    s = await until(moving, 20_000);
+    how = moving(s)
+      ? "after Restart playback (Stop, then Play)"
+      : `not even after Restart playback: state ${s.state}, position ${s.position}`;
+  }
   tracing = false;
   await tracer;
   log(`HQPlayer during step 6 (from the change request):\n          ${trace.join("\n          ")}`);
@@ -178,7 +191,11 @@ try {
   } else {
     record("6a. incompatible ratio is rolled back", after6.rate === FITS, `rate back to ${after6.rate} Hz`);
     record("6b. and explained", !!r.incompatible, r.incompatible?.text ?? "no explanation");
-    record("6c. playback recovers", r.rolledBack.playback.kind === "playing" && s.state === 2, r.rolledBack.playback.kind);
+    record(
+      "6c. playback recovers, by itself or with Restart playback",
+      moving(s),
+      `${how} (hqpweb judged: ${r.rolledBack.playback.kind})`,
+    );
     record("6d. the rollback keeps the volume low (#20)", near(after6.volume, v2), `${after6.volume} dB`);
   }
 
