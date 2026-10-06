@@ -1,48 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { MODULATORS_V5 as V5, MODULATORS_V61 as V61 } from "./recorded-lists.ts";
 import { modulatorAdvice, type ModulatorInput } from "./modulator.ts";
 import { RULES } from "./policy.ts";
 
-// As HQPlayer Desktop 5.35 lists them in SDM mode (recorded, packages/fake-hqp profile).
-const V5 = [
-  "DSD5",
-  "DSD5v2",
-  "DSD5v2 256+fs",
-  "DSD5EC",
-  "ASDM5",
-  "ASDM5EC",
-  "ASDM5ECv2",
-  "ASDM5ECv3",
-  "ASDM5EC-ul",
-  "ASDM5EC-light",
-  "ASDM5EC-fast",
-  "ASDM5EC-super",
-  "ASDM5EC-ul 512+fs",
-  "ASDM5EC-light 512+fs",
-  "ASDM5EC-fast 512+fs",
-  "ASDM5EC-super 512+fs",
-  "DSD7",
-  "DSD7 256+fs",
-  "ASDM7",
-  "ASDM7EC",
-  "ASDM7ECv2",
-  "ASDM7ECv3",
-  "ASDM7EC-ul",
-  "ASDM7EC-light",
-  "ASDM7EC-fast",
-  "ASDM7EC-super",
-  "ASDM7EC-ul 512+fs",
-  "ASDM7EC-light 512+fs",
-  "ASDM7EC-fast 512+fs",
-  "ASDM7EC-super 512+fs",
-  "AMSDM7 512+fs",
-  "AMSDM7EC 512+fs",
-  "AHM5EC5L",
-  "AHM7EC5L",
-  "AHM5EC8B",
-  "AHM7EC8B",
-];
-// HQPlayer 6.1: the 5L AHM gone, the 4B AHM added (release notes, 2026-09). Not yet seen live.
-const V61 = [...V5.filter((n) => !n.endsWith("5L")), "AHM5EC4B", "AHM7EC4B"];
 const DSD256 = 11_289_600,
   DSD512 = 22_579_200,
   DSD1024 = 45_158_400;

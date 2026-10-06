@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { SHAPERS_V5 as SHAPERS } from "./recorded-lists.ts";
 import { ditherAdvice, type DitherInput } from "./dither.ts";
 import { RULES } from "./policy.ts";
 
-// As HQPlayer Desktop 5.35 lists them in PCM mode (recorded, packages/fake-hqp profile).
-const SHAPERS = ["none", "NS1", "NS4", "NS5", "NS9", "LNS15", "RPDF", "TPDF", "Gauss1", "shaped"];
 const advise = (over: Partial<DitherInput> & { setup: DitherInput["setup"] }) =>
   ditherAdvice({ rateHz: 384_000, shapers: SHAPERS, ...over });
 
