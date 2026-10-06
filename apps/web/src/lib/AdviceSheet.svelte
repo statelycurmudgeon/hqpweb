@@ -13,6 +13,7 @@
   import { savedMessage, type SetupKey } from "./setup-questions.ts";
   import ShaperList from "./ShaperList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
+  import GuideIntro from "./GuideIntro.svelte";
   import DitherGuide from "./DitherGuide.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -146,6 +147,7 @@
     <p class="now">Now using <strong>{current || "—"}</strong></p>
     {#if message}<p class="msg" class:failed role="status">{message}</p>{/if}
     <div class="body">
+      {#if prefs.adviceTab === "guide"}<GuideIntro />{/if}
       {#if prefs.adviceTab === "list"}
         <ShaperList {sections} items={listItems} {current} {badges} {disabled} onpick={pick} />
       {:else if isSdm}
@@ -174,11 +176,9 @@
           onpick={pick}
         />
       {/if}
-      <p class="foot">
-        Suggestions follow Signalyst's posts, linked by date; they're starting points, not rules. Every {isSdm
-          ? "modulator"
-          : "dither"} HQPlayer offers stays in the list.
-      </p>
+      {#if prefs.adviceTab === "list"}
+        <p class="foot">Every {isSdm ? "modulator" : "dither"} HQPlayer offers stays in the list.</p>
+      {/if}
     </div>
   </div>
 </dialog>

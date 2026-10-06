@@ -37,6 +37,10 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
 
   // The guide: three answers, saved as they're given.
   await sheet(page).getByRole("tab", { name: "Guide" }).click();
+  // The intro: in full the first time; one line after "Got it".
+  await expect(sheet(page)).toContainText("No set of rules");
+  await sheet(page).getByRole("button", { name: "Got it" }).click();
+  await expect(sheet(page).getByRole("button", { name: "About this guide" })).toBeVisible();
   await step(page, "Your DAC")
     .getByRole("button", { name: /^An older ESS chip/ })
     .click();
@@ -67,6 +71,7 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
   await page.reload();
   await row(page, "Modulator").click();
   await expect(sheet(page).getByRole("tab", { name: "Guide" })).toHaveAttribute("aria-selected", "true");
+  await expect(sheet(page)).not.toContainText("No set of rules"); // the intro stays one line
   await expect(step(page, "Your DAC")).toBeHidden();
   await sheet(page).getByRole("button", { name: "Change" }).first().click();
   await expect(step(page, "Your DAC").getByRole("button", { name: /^An older ESS chip/ })).toHaveClass(/sel/);
