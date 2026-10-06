@@ -19,6 +19,12 @@ function setFilter(fake: FakeHqp, slot: "filter1x" | "filterNx", name: string) {
   if (!f) throw new Error(`no filter ${name} in ${fake.profile.id}`);
   fake.rem[slot] = f.index;
 }
+/** Set the modulator or dither, by name. */
+function setShaper(fake: FakeHqp, name: string) {
+  const s = fake.lists.shapers.find((x) => x.name === name);
+  if (!s) throw new Error(`no shaper ${name} in ${fake.profile.id}`);
+  fake.rem.shaper = s.index;
+}
 /** Fix the output rate (0 = auto), by Hz. */
 function setRate(fake: FakeHqp, hz: number) {
   const i = fake.lists.rates.indexOf(hz);
@@ -89,6 +95,25 @@ const FLOWS: Record<string, Flow> = {
   volume: { name: "Volume", profile: "desktop5-mac-sdm", setup: (f) => (f.volume = -30) },
   advanced: { name: "Advanced", profile: "desktop5-linux-pcm", setup: (f) => (f.playback = 2) },
   about: { name: "About", profile: "desktop5-mac-sdm" },
+  // SDM fixed at DSD512 with an old modulator, no setup answers yet: the guide's flow.
+  guide: {
+    name: "Guide",
+    profile: "desktop5-mac-sdm",
+    setup: (f) => {
+      setRate(f, 22_579_200);
+      setShaper(f, "DSD7");
+    },
+  },
+  // PCM fixed at 384k with TPDF, playing, no setup answers yet: the dither guide's flow.
+  dither: {
+    name: "Dither",
+    profile: "desktop5-linux-pcm",
+    setup: (f) => {
+      setRate(f, 384_000);
+      setShaper(f, "TPDF");
+      f.playback = 2;
+    },
+  },
 };
 
 /** What a test may change on a fake. Anything else is refused. */
