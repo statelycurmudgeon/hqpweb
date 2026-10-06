@@ -14,7 +14,7 @@ import {
 } from "@app/protocol/compat";
 import { formatRate, knownBad, type Capabilities, type Combo, type Snapshot } from "./api.ts";
 import { heavyAt } from "./advice/variants.ts";
-import { monthLabel } from "./dac-table.ts";
+import { dayLabel, monthLabel } from "./dac-table.ts";
 
 /** "Heavy" by Signalyst's word (information): the note text, with who said it and when. */
 const heavyNote = (shaper: string, rateHz: number) => {
@@ -78,10 +78,22 @@ export function context(caps: Capabilities, snap: Snapshot): Ctx {
 export const ratioOf = (c: Ctx, name: string) =>
   filterNotes(name, c.caps.filters.find((f) => f.name === name)?.description, c.isSdm, c.described)?.ratio;
 
+/** "failed here 3× at these settings (last 6 Oct 2026: …)": the history, in local time. */
+export function failedText(f: { reason: string; at: string; count?: number }): string {
+  const d = new Date(f.at);
+  const day = Number.isNaN(d.getTime())
+    ? f.at
+    : dayLabel(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+  const n = f.count ?? 1;
+  return n > 1
+    ? `failed here ${n}× at these settings (last ${day}: ${f.reason})`
+    : `failed here once at these settings (${day}: ${f.reason})`;
+}
+
 /** Warning text if switching `field` to `value` gives a combination that failed here before. */
 const warnFor = (c: Ctx, field: keyof Combo, value: string | number) => {
   const f = knownBad(c.caps.knownBad, { ...c.combo, [field]: value });
-  return f ? `failed here before at these settings (${f.reason})` : undefined;
+  return f ? failedText(f) : undefined;
 };
 
 /** Rule hints (manual) first, then learned failures. Hard → warning, soft → note. */
@@ -242,7 +254,7 @@ export function checkPair(c: Ctx, pair: { rateHz: number; shaper: string }) {
   const f = knownBad(c.caps.knownBad, { ...c.combo, rateHz: pair.rateHz, shaper: pair.shaper });
   return {
     invalid,
-    failedHere: f ? `failed here before at these settings (${f.reason})` : null,
+    failedHere: f ? failedText(f) : null,
     note: mod?.level === "soft" ? mod.text : null,
   };
 }

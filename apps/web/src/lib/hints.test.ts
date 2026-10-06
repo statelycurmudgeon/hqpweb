@@ -6,6 +6,7 @@ import {
   companionRate,
   companionShaper,
   context,
+  failedText,
   filterItems,
   filterTaken,
   inUseSlot,
@@ -112,11 +113,26 @@ describe("filter picker", () => {
         filter1x: "poly-sinc-hb",
         shaper: "NS5",
         reason: "playback stopped",
-        at: "2026-10-04T00:00:00Z",
+        at: "2026-10-04T12:00:00Z",
       },
     ]);
     const hb = filterItems(context(caps, snap({})), "1x").find((f) => f.name === "poly-sinc-hb")!;
-    expect(hb.warn).toBe("failed here before at these settings (playback stopped)");
+    expect(hb.warn).toBe("failed here once at these settings (4 Oct 2026: playback stopped)");
+  });
+
+  it("counts a combination that has failed here more than once, with the latest", () => {
+    const f = {
+      mode: "PCM",
+      rateHz: 384_000,
+      filterNx: "poly-sinc-gauss-xla",
+      filter1x: "poly-sinc-hb",
+      shaper: "NS5",
+      reason: "playing at 70% of real time",
+      at: "2026-10-06T12:00:00Z",
+      count: 3,
+      first: "2026-10-01T12:00:00Z",
+    };
+    expect(failedText(f)).toBe("failed here 3× at these settings (last 6 Oct 2026: playing at 70% of real time)");
   });
 });
 
