@@ -114,6 +114,17 @@ const FLOWS: Record<string, Flow> = {
       f.playback = 2;
     },
   },
+  // Stopped at DSD512 with AHM7EC8B (needs DSD1024): a queued track can't start, because of the modulator.
+  wedgemod: {
+    name: "Queued track, modulator",
+    profile: "desktop5-mac-sdm",
+    setup: (f) => {
+      setRate(f, 22_579_200);
+      setShaper(f, "AHM7EC8B");
+      f.playback = 0;
+      f.feeder = "playlist";
+    },
+  },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };

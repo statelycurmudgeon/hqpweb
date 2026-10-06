@@ -4,6 +4,7 @@
 // we check the screen asks, saves, and applies what the engine said.
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import { CONTROL_PORT } from "./stack.ts";
 
 async function openOn(page: Page, id: string) {
   await page.addInitScript((i) => localStorage.setItem("instance", i), id);
@@ -14,6 +15,11 @@ const shot = (page: Page, name: string) =>
   page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
 const row = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^${label}`) });
 const sheet = (page: Page) => page.locator("dialog[open]");
+/** Change a fake's state, as HQPlayer or its owner would. */
+async function poke(id: string, body: object) {
+  const r = await fetch(`http://127.0.0.1:${CONTROL_PORT}/fake/${id}`, { method: "POST", body: JSON.stringify(body) });
+  expect(r.status).toBe(204);
+}
 const step = (page: Page, title: string) => sheet(page).getByRole("group", { name: title });
 
 test("modulators: grouped list, then the guide's answers, starting point and Compare", async ({ page }) => {
@@ -91,4 +97,23 @@ test("dither: a ladder DAC at 384k is offered the shapers as equals, and one app
   // A recommended row shows the guide's reason, not the manual's narrower rate note.
   await expect(sheet(page).getByRole("button", { name: /^NS9/ })).toContainText("For your answers");
   await expect(sheet(page).getByRole("button", { name: /^NS9/ })).not.toContainText("176.4");
+});
+
+test("a queued track the modulator can't start opens the list, where it says why", async ({ page }) => {
+  await openOn(page, "wedgemod");
+  await poke("wedgemod", { playlist: ["/music/Example Artist/Example Album/01 - Example.flac"], sourceRate: 44_100 });
+
+  await page.getByRole("button", { name: /^Fix/ }).click();
+  await sheet(page)
+    .getByRole("button", { name: /another modulator/ })
+    .click();
+  await expect(sheet(page).getByRole("tab", { name: "List" })).toHaveAttribute("aria-selected", "true");
+  await expect(sheet(page).getByRole("button", { name: /^AHM7EC8B/ })).toContainText("won't play");
+  await shot(page, "advice-4-wedge");
+
+  await sheet(page)
+    .getByRole("button", { name: /^ASDM7EC-fast Gen/ })
+    .click();
+  await expect(row(page, "Modulator")).toContainText("ASDM7EC-fast");
+  await expect(page.locator("p", { hasText: /won't start/ })).toBeHidden();
 });
