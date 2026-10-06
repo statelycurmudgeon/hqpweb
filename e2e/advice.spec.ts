@@ -224,5 +224,7 @@ test("HQPlayer that stops answering gets restart steps", async ({ page }) => {
   await banner.locator("summary").click();
   await expect(banner).toContainText("Quit HQPlayer");
   await expect(banner).toContainText("saved settings");
+  // What's shown is HQPlayer's last known state: dimmed, and nothing in it can be pressed.
+  await expect(page.locator("div.live")).toHaveAttribute("inert", "");
   await shot(page, "advice-5-down");
 });

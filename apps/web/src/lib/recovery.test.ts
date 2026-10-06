@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { restartSteps } from "./recovery.ts";
+import { RECENT_MS, recentChange, restartSteps } from "./recovery.ts";
 
 describe("how to restart HQPlayer when it stops answering", () => {
   it("tells Desktop users to quit and reopen it", () => {
@@ -18,5 +18,17 @@ describe("how to restart HQPlayer when it stops answering", () => {
 
   it("always says it comes back on its saved settings", () => {
     expect(restartSteps("Signalyst HQPlayer Embedded").after).toMatch(/saved settings/);
+  });
+});
+
+describe("tying an overload to a recent change", () => {
+  const at = new Date(2026, 9, 6, 12, 3).getTime();
+
+  it("names a risky change made in the last few minutes", () => {
+    expect(recentChange(at, at + 2 * 60_000)).toBe(true);
+  });
+
+  it("doesn't blame a change made long before", () => {
+    expect([recentChange(at, at + RECENT_MS + 1), recentChange(null, at)]).toEqual([false, false]);
   });
 });

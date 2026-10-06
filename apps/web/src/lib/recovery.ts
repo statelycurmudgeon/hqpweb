@@ -29,3 +29,11 @@ export function restartSteps(product: string | undefined): RestartSteps {
       "HQPlayer comes back on its saved settings, which may not be the last ones you chose: check the volume before playing.",
   };
 }
+
+/**
+ * Overload can build over minutes after a change (design §2.3: about 5 minutes to 100%
+ * CPU, measured), well after hqpweb's playback check ends. Within this window, the
+ * overload banners name the last risky change, next to Undo.
+ */
+export const RECENT_MS = 10 * 60_000;
+export const recentChange = (changedAt: number | null, now: number) => changedAt !== null && now - changedAt <= RECENT_MS;
