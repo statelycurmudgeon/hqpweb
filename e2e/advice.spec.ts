@@ -138,6 +138,15 @@ test("a queued track the modulator can't start opens the list, where it says why
   await expect(sheet(page).getByRole("button", { name: /^AHM7EC8B/ })).toContainText("won't play");
   await shot(page, "advice-4-wedge");
 
+  // Search reaches into folded sections; "Works here" hides what won't play.
+  await sheet(page).getByRole("searchbox").fill("ecv3");
+  await expect(sheet(page).getByRole("button", { name: /^ASDM7ECv3/ })).toBeVisible();
+  await expect(sheet(page).getByRole("button", { name: /^AHM7EC8B/ })).toBeHidden();
+  await sheet(page).getByRole("searchbox").fill("");
+  await sheet(page).getByRole("button", { name: "Works here" }).click();
+  await expect(sheet(page).getByRole("button", { name: /^AHM5EC8B/ })).toBeHidden();
+  await sheet(page).getByRole("button", { name: "Works here" }).click();
+
   await sheet(page)
     .getByRole("button", { name: /^ASDM7EC-fast Gen/ })
     .click();
