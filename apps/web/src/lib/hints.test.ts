@@ -369,3 +369,11 @@ describe("the other half of a pair (Advanced and the List)", () => {
     expect(companionRate("AHM7EC4B", [0, 11_289_600, 22_579_200], 11_289_600)).toBeNull();
   });
 });
+
+describe("heavy at DSD1024, on the list's rows", () => {
+  it("notes a regular modulator needs a high-clock CPU at DSD1024, and not AHM", () => {
+    const items = shaperItems(context(sdm(), snap({ activeRate: 45_158_400 })));
+    const note = (n: string) => items.find((i) => i.name === n)?.note ?? "";
+    expect([note("ASDM7EC").includes("high-clock CPU"), note("AHM7EC8B").includes("high-clock CPU")]).toEqual([true, false]);
+  });
+});

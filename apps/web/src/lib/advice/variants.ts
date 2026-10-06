@@ -23,3 +23,15 @@ export function variantNote(name: string): VariantNote | null {
   if (/^AHM[57]EC8B$/.test(name)) return { load: "light", rules: [RULES.ahm8bLight] };
   return null;
 }
+
+/** AHM's floor (manual): DSD1024 and up. */
+const DSD1024_HZ = 40_960_000;
+
+/**
+ * Heavy, by Signalyst's word, not by this machine: the EC line at DSD1024 needs a
+ * high-clock CPU. Information shown before the change, never a refusal.
+ */
+export function heavyAt(name: string, rateHz: number): Rule | null {
+  // "Regular modulators" in Signalyst's words: everything but AHM.
+  return rateHz >= DSD1024_HZ && /^(ASDM|DSD|AMSDM)/.test(name) ? RULES.ecAt1024 : null;
+}

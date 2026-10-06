@@ -210,3 +210,19 @@ test("the sheet scrolls to its end; a DAC that converts DSD still gets DSD choic
   await sheet(page).getByRole("button", { name: "Switch to PCM" }).click();
   await expect(row(page, "Dither")).toBeVisible();
 });
+
+test("HQPlayer falling behind for a while raises the alarm", async ({ page }) => {
+  await openOn(page, "behind");
+  await expect(page.locator(".banner", { hasText: /falling behind/ })).toBeVisible();
+});
+
+test("HQPlayer that stops answering gets restart steps", async ({ page }) => {
+  await openOn(page, "down");
+  await poke("down", { down: true });
+  const banner = page.locator(".banner", { hasText: /unreachable/ });
+  await expect(banner).toBeVisible({ timeout: 10_000 });
+  await banner.locator("summary").click();
+  await expect(banner).toContainText("Quit HQPlayer");
+  await expect(banner).toContainText("saved settings");
+  await shot(page, "advice-5-down");
+});

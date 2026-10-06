@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RULES } from "./policy.ts";
-import { variantNote } from "./variants.ts";
+import { heavyAt, variantNote } from "./variants.ts";
 
 describe("what each modulator variant is like", () => {
   it("ranks the EC variants by CPU load, lightest first", () => {
@@ -26,5 +26,15 @@ describe("what each modulator variant is like", () => {
 
   it("says nothing about a modulator it has no documented notes for", () => {
     expect([variantNote("ASDM7ECv3"), variantNote("DSD7")]).toEqual([null, null]);
+  });
+});
+
+describe("heavy at DSD1024 (information, never a refusal)", () => {
+  it("notes the EC line needs a high-clock CPU at DSD1024, cited", () => {
+    expect(heavyAt("ASDM7EC-fast", 45_158_400)).toBe(RULES.ecAt1024);
+  });
+
+  it("says nothing below DSD1024, or for AHM", () => {
+    expect([heavyAt("ASDM7EC-super", 22_579_200), heavyAt("AHM7EC8B", 45_158_400)]).toEqual([null, null]);
   });
 });

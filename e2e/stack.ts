@@ -136,6 +136,10 @@ const FLOWS: Record<string, Flow> = {
   },
   // A short screen: the sheet's body must scroll to its end.
   scroll: { name: "Scroll", profile: "desktop5-mac-sdm" },
+  // Playing on a machine that can't keep up with anything: the falling-behind alarm.
+  behind: { name: "Behind", profile: "desktop5-mac-sdm", speed: () => 0.6 },
+  // HQPlayer stops answering (a test closes it): the restart steps.
+  down: { name: "Down", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
@@ -146,6 +150,8 @@ interface Poke {
   apod?: number;
   playlist?: string[];
   sourceRate?: number;
+  /** Stop answering, as an overloaded or crashed HQPlayer would. */
+  down?: boolean;
 }
 
 // Short playback checks, as in the server's own tests: flows finish in seconds.
@@ -185,6 +191,7 @@ export async function startStack() {
       if (p.apod !== undefined) fake.apod = p.apod;
       if (p.playlist !== undefined) fake.playlist = p.playlist;
       if (p.sourceRate !== undefined) fake.setSource(p.sourceRate);
+      if (p.down) void fake.close();
       res.writeHead(204).end();
     });
   });

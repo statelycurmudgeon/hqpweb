@@ -17,6 +17,7 @@
   import * as hints from "./lib/hints.ts";
   import { offerReload } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
+  import { restartSteps } from "./lib/recovery.ts";
   import { nameAt } from "./lib/hints.ts";
   import { isApodizing, filterSlot } from "@app/protocol/compat";
   import {
@@ -92,11 +93,16 @@
       else if (slowSince === null) slowSince = Date.now();
     });
   });
+  const restart = $derived(restartSteps(instances.find((i) => i.id === selected)?.product));
   const processSpeed = $derived(snap?.health?.processSpeed ?? null);
+  /** Readings in a row below real time: the alarm waits for a few (speed.ts, SUSTAIN). */
+  let behind = $state(0);
   // `snap` in the clock term re-evaluates on each update, so "slow for 15 s" can turn amber.
   const speedClass = $derived(
     speedRules.speedClass(processSpeed, speed, slowSince === null ? null : (snap ? Date.now() : 0) - slowSince),
   );
+  /** HQPlayer's own figure must stay below 1× for a while; the position fit has its own timing. */
+  const fallingBehind = $derived(processSpeed != null ? speedRules.lasting(behind) : speedClass === "bad" && speed != null);
   const speedText = $derived(speedRules.speedText(processSpeed, speed, speedClass));
   const speedTitle = $derived(speedRules.speedTitle(processSpeed, speed));
   let offlineSince = $state<Date | null>(null);
@@ -146,6 +152,7 @@
     const es = api.events(id);
     es.addEventListener("now", (e) => {
       snap = JSON.parse((e as MessageEvent).data);
+      behind = speedRules.behindStreak(behind, snap?.health?.processSpeed ?? null);
       online = "live";
       offlineSince = null;
     });
@@ -328,7 +335,7 @@
     <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
   {/if}
 
-  {#if speedClass === "bad" && (processSpeed ?? speed) != null}
+  {#if fallingBehind}
     <p class="banner warn">
       HQPlayer is falling behind real time ({(processSpeed ?? speed)!.toFixed(2)}×): it may be overloaded.
       {#if undoAvailable}Undo the last change below, or pick a lighter filter or modulator.{:else}Try a lighter filter or
@@ -340,7 +347,17 @@
   {/if}
 
   {#if online === "unreachable"}
-    <p class="banner error">HQPlayer unreachable: {offlineReason}</p>
+    <div class="banner error">
+      <p>HQPlayer unreachable: {offlineReason}</p>
+      <details>
+        <summary>If it doesn't come back within a minute</summary>
+        <p>It may be overloaded, or stopped. Restart it:</p>
+        <ul>
+          {#each restart.steps as s (s)}<li>{s}</li>{/each}
+        </ul>
+        <p>{restart.after}</p>
+      </details>
+    </div>
   {:else if online === "lost"}
     <p class="banner warn">Lost connection to the app's server; retrying…</p>
   {/if}
@@ -476,6 +493,25 @@
     padding: 10px 14px;
     border-radius: 10px;
     margin: 0 0 12px;
+  }
+  .banner p {
+    margin: 0;
+  }
+  .banner details {
+    margin-top: 6px;
+    color: var(--text);
+  }
+  .banner summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: inherit;
+  }
+  .banner ul {
+    margin: 4px 0;
+    padding-left: 1.2rem;
+  }
+  .banner li {
+    overflow-wrap: anywhere;
   }
   .banner.error {
     background: color-mix(in srgb, var(--danger) 14%, transparent);

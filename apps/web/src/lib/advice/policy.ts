@@ -54,6 +54,11 @@ export const RULES = {
     source: "HQPlayer 6.1 release notes",
     date: "2026-09",
   },
+  ecAt1024: {
+    text: "At DSD1024, modulators other than AHM need a high-clock CPU; AHM is a lighter way there.",
+    url: roon("306780/13"),
+    date: "2025-09",
+  },
   ahm8bLight: { text: "AHM7EC8B isn't heavy to process, even at DSD1024.", url: roon("132298/2650"), date: "2025-06" },
   akmPairRate: {
     text: "The AK4191 pair (AK4499EX) runs at DSD128 or DSD256; higher rates only hurt.",

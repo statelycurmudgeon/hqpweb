@@ -13,6 +13,14 @@ import {
   type Hint,
 } from "@app/protocol/compat";
 import { formatRate, knownBad, type Capabilities, type Combo, type Snapshot } from "./api.ts";
+import { heavyAt } from "./advice/variants.ts";
+import { monthLabel } from "./dac-table.ts";
+
+/** "Heavy" by Signalyst's word (information): the note text, with who said it and when. */
+const heavyNote = (shaper: string, rateHz: number) => {
+  const h = heavyAt(shaper, rateHz);
+  return h ? `${h.text} (Signalyst, ${monthLabel(h.date)})` : undefined;
+};
 
 export type Slot = "filter1x" | "filterNx";
 
@@ -183,7 +191,9 @@ export function shaperItems(c: Ctx) {
       s,
       c.isSdm ? modulatorHint(s.name, c.outRate) : ditherHint(s.name, c.outRate),
       warnFor(c, "shaper", s.name),
-      c.isSdm ? MODULATOR_NOTE[s.name] : undefined,
+      [c.isSdm ? MODULATOR_NOTE[s.name] : undefined, c.isSdm ? heavyNote(s.name, c.outRate) : undefined]
+        .filter(Boolean)
+        .join(" · ") || undefined,
     ),
     ...(c.isSdm && modulatorGen(s.name, s.description, c.shapersDescribed) !== undefined
       ? { gen: modulatorGen(s.name, s.description, c.shapersDescribed)! }
@@ -202,7 +212,7 @@ export function rateItems(c: Ctx) {
         { index: r.index, name: formatRate(r.rate, c.caps.mode.name) },
         rule,
         r.rate ? warnFor(c, "rateHz", r.rate) : undefined,
-        r.note,
+        [r.note, c.isSdm && r.rate ? heavyNote(c.shaperName, r.rate) : undefined].filter(Boolean).join(" · ") || undefined,
       ),
       rate: r.rate,
       disabled: !r.allowed,
