@@ -88,4 +88,7 @@ test("dither: a ladder DAC at 384k is offered the shapers as equals, and one app
   await sheet(page).getByRole("tab", { name: "List" }).click();
   await expect(sheet(page)).toContainText(/not for listening/i);
   await expect(sheet(page).getByRole("button", { name: /^none/ })).toBeVisible();
+  // A recommended row shows the guide's reason, not the manual's narrower rate note.
+  await expect(sheet(page).getByRole("button", { name: /^NS9/ })).toContainText("For your answers");
+  await expect(sheet(page).getByRole("button", { name: /^NS9/ })).not.toContainText("176.4");
 });

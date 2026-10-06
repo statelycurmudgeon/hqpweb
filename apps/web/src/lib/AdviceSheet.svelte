@@ -6,6 +6,7 @@
   import { api, type Setup } from "./api.ts";
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
+  import { withGuideNotes } from "./advice/list-notes.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { ditherAdvice } from "./advice/dither.ts";
   import type { SetupKey } from "./setup-questions.ts";
@@ -74,6 +75,8 @@
     return b;
   });
 
+  const listItems = $derived(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))));
+
   export function open(opts: { tab?: "list" | "guide" } = {}) {
     if (opts.tab) setTab(opts.tab);
     message = "";
@@ -137,7 +140,7 @@
     {#if message}<p class="msg" class:failed role="status">{message}</p>{/if}
     <div class="body">
       {#if prefs.adviceTab === "list"}
-        <ShaperList {sections} {items} {current} {badges} {disabled} onpick={pick} />
+        <ShaperList {sections} items={listItems} {current} {badges} {disabled} onpick={pick} />
       {:else if isSdm}
         <ModulatorGuide
           setup={answers}
