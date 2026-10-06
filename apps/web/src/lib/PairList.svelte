@@ -11,7 +11,6 @@
     pairs,
     currentRate,
     current,
-    playing,
     disabled = false,
     check,
     onpick,
@@ -21,8 +20,6 @@
     currentRate: number;
     /** The modulator now. */
     current: string;
-    /** Something is playing: A/B is only useful by ear. */
-    playing: boolean;
     disabled?: boolean;
     /** What's known about a pair here: learned failures (information only). */
     check: (c: Choice) => { invalid: string | null; failedHere: string | null } | null;
@@ -30,13 +27,6 @@
   } = $props();
 
   const isNow = (c: Choice) => c.rateHz === currentRate && c.shaper === current;
-  // Compare: A is the pair, B what was playing when Compare was pressed.
-  let compare = $state<{ a: Choice; b: Choice; label: string } | null>(null);
-  function startCompare(p: Pair) {
-    const a = { rateHz: p.rateHz, shaper: p.start.name };
-    compare = { a, b: { rateHz: currentRate, shaper: current }, label: p.label };
-    onpick(a);
-  }
 </script>
 
 <ul class="pairs">
@@ -67,22 +57,8 @@
           <span class="using">✓ Now using</span>
         {:else}
           <button class="primary" {disabled} onclick={() => onpick(c)}>Use</button>
-          <button
-            class="secondary"
-            disabled={disabled || !current || !currentRate || !playing}
-            title={playing ? "" : "Play something to compare"}
-            onclick={() => startCompare(p)}>A/B with your current setting</button
-          >
         {/if}
       </div>
-      {#if compare && compare.label === p.label}
-        {@const cmp = compare}
-        <div class="ab" role="group" aria-label="Compare">
-          <button class:on={isNow(cmp.a)} {disabled} onclick={() => onpick(cmp.a)}>A · {p.label} · {cmp.a.shaper}</button>
-          <button class:on={isNow(cmp.b)} {disabled} onclick={() => onpick(cmp.b)}>B · your setting · {cmp.b.shaper}</button>
-        </div>
-        <p class="abnote">Flip between them while listening; whichever you leave on stays.</p>
-      {/if}
     </li>
   {/each}
 </ul>
@@ -143,16 +119,10 @@
     color: var(--warn);
     background: color-mix(in srgb, var(--warn) 10%, transparent);
   }
-  .actions,
-  .ab {
+  .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-  }
-  .abnote {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--text-dim);
   }
   .using {
     color: var(--ok);
@@ -178,9 +148,5 @@
     color: var(--on-accent);
     border-color: var(--accent);
     font-weight: 600;
-  }
-  .on {
-    border-color: var(--ok);
-    background: color-mix(in srgb, var(--ok) 12%, var(--bg-elev));
   }
 </style>

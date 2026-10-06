@@ -40,7 +40,12 @@
     <input bind:value={query} type="search" placeholder="Search {total}…" autocomplete="off" />
   </label>
   {#if anyWarn}
-    <button class="chip" aria-pressed={worksHere} onclick={() => (worksHere = !worksHere)}>Works here</button>
+    <button
+      class="chip"
+      aria-pressed={worksHere}
+      onclick={() => (worksHere = !worksHere)}
+      title="Hide what won't play at this rate, or has failed on this HQPlayer before">Only what plays here</button
+    >
   {/if}
 </div>
 {#if !shown.length}<p class="none">Nothing matches.</p>{/if}

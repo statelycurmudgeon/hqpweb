@@ -434,7 +434,7 @@
             onpick={(name) => apply({ shaper: name })}
             onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
             onpcm={() => apply({ mode: "PCM" })}
-            playing={snap.status.state === 2}
+            result={message}
             onsaved={refreshInstances}
           />
         </section>

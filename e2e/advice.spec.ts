@@ -22,7 +22,7 @@ async function poke(id: string, body: object) {
 }
 const step = (page: Page, title: string) => sheet(page).getByRole("group", { name: title });
 
-test("modulators: grouped list, then the guide's answers, starting point and Compare", async ({ page }) => {
+test("modulators: grouped list, then the guide's answers and its rate-and-modulator pairs", async ({ page }) => {
   await openOn(page, "guide");
   await expect(row(page, "Modulator")).toContainText("DSD7");
 
@@ -57,17 +57,14 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
   await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("For your answers");
   await shot(page, "advice-2-guide");
 
-  // Compare: A is the pair, B what was playing.
+  // Use: the pair applies as one change.
   await pair(/^DSD512 · ASDM5EC-fast/)
-    .getByRole("button", { name: /^A\/B/ })
+    .getByRole("button", { name: "Use" })
     .click();
   await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
-  const ab = sheet(page).getByRole("group", { name: "Compare" });
-  await ab.getByRole("button", { name: /^B/ }).click();
-  await expect(row(page, "Modulator")).toContainText("DSD7");
-  await ab.getByRole("button", { name: /^A/ }).click();
-  await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
   await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("Now using");
+  // No A/B in this version: it's a feature for later.
+  await expect(sheet(page).getByRole("button", { name: /^A\/B/ })).toHaveCount(0);
 
   // The variants carry what Signalyst has said about each: CPU load and character.
   await expect(sheet(page)).toContainText("CPU: lightest");
@@ -143,9 +140,9 @@ test("a queued track the modulator can't start opens the list, where it says why
   await expect(sheet(page).getByRole("button", { name: /^ASDM7ECv3/ })).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: /^AHM7EC8B/ })).toBeHidden();
   await sheet(page).getByRole("searchbox").fill("");
-  await sheet(page).getByRole("button", { name: "Works here" }).click();
+  await sheet(page).getByRole("button", { name: "Only what plays here" }).click();
   await expect(sheet(page).getByRole("button", { name: /^AHM5EC8B/ })).toBeHidden();
-  await sheet(page).getByRole("button", { name: "Works here" }).click();
+  await sheet(page).getByRole("button", { name: "Only what plays here" }).click();
 
   await sheet(page)
     .getByRole("button", { name: /^ASDM7EC-fast Gen/ })
@@ -205,15 +202,26 @@ test("the sheet scrolls to its end; a DAC that converts DSD still gets DSD choic
   await step(page, "Your DAC")
     .getByRole("button", { name: /^It converts/ })
     .click();
+  await expect(sheet(page).locator("li.pair").first()).toBeHidden(); // folded away under PCM
+  await sheet(page).getByText("Staying in DSD?").click();
   await expect(sheet(page).locator("li.pair").first()).toBeVisible();
   await expect(sheet(page)).not.toContainText("Suits your DAC");
   await sheet(page).getByRole("button", { name: "Switch to PCM" }).click();
   await expect(row(page, "Dither")).toBeVisible();
 });
 
-test("HQPlayer falling behind for a while raises the alarm", async ({ page }) => {
+test("HQPlayer falling behind raises the alarm; a rollback from the guide is reported in the sheet", async ({ page }) => {
   await openOn(page, "behind");
   await expect(page.locator(".banner", { hasText: /falling behind/ })).toBeVisible();
+
+  // A pick from the guide that can't keep up is rolled back, and the sheet says so.
+  await row(page, "Modulator").click();
+  await sheet(page).getByRole("tab", { name: "Guide" }).click();
+  await step(page, "Your DAC")
+    .getByRole("button", { name: /^DSD goes straight/ })
+    .click();
+  await sheet(page).locator("li.row").getByRole("button", { name: "Use" }).first().click();
+  await expect(sheet(page).locator(".msg.result")).toContainText(/rolled back/i, { timeout: 10_000 });
 });
 
 test("HQPlayer that stops answering gets restart steps", async ({ page }) => {

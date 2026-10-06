@@ -34,7 +34,7 @@
     onpick,
     onpickpair,
     onpcm,
-    playing,
+    result,
     onsaved,
   }: {
     isSdm: boolean;
@@ -57,8 +57,8 @@
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
     /** Switch HQPlayer to PCM output. */
     onpcm: () => void;
-    /** Something is playing (A/B needs it). */
-    playing: boolean;
+    /** The app's latest change result (the footer's), shown here too while the sheet is open. */
+    result: { kind: string; text: string } | null;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
   } = $props();
@@ -100,7 +100,10 @@
     withVolumeNotes(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))), answers),
   );
 
+  /** The result showing when the sheet opened: only newer ones are repeated here. */
+  let resultAtOpen = $state<{ kind: string; text: string } | null>(null);
   export async function open(opts: { tab?: "list" | "guide" } = {}) {
+    resultAtOpen = result;
     if (opts.tab) setTab(opts.tab);
     message = "";
     await tick(); // let the tab render before looking for the current row
@@ -125,7 +128,7 @@
       return onpickpair({ rateHz: r, shaper: name });
     }
     // Picking from the list closes the sheet, like the other pickers; the guide stays open
-    // so its Compare and alternatives can be tried in turn.
+    // so its alternatives can be tried in turn.
     if (prefs.adviceTab === "list") dialog.close();
     onpick(name);
   }
@@ -170,9 +173,15 @@
     </header>
     <div class="tabs" role="tablist" aria-label="{label} view">
       <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
-      <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}>Guide</button>
+      <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
+        >Guide <span class="beta">Beta</span></button
+      >
     </div>
     <p class="now">Now using <strong>{current || "—"}</strong></p>
+    {#if result && result !== resultAtOpen}
+      <!-- A change made from here: its outcome (a rollback, say) would otherwise sit behind the sheet. -->
+      <p class="msg result {result.kind}" role="status">{result.text}</p>
+    {/if}
     {#if message}<p class="msg" class:failed role="status">{message}</p>{/if}
     <div class="body">
       {#if prefs.adviceTab === "guide"}<GuideIntro />{/if}
@@ -189,7 +198,6 @@
           {rates}
           {check}
           {onpickpair}
-          {playing}
           onpcm={() => {
             dialog.close();
             onpcm();
@@ -353,6 +361,25 @@
   }
   .msg {
     color: var(--ok);
+  }
+  .beta {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    margin-left: 4px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    vertical-align: middle;
+  }
+  .msg.result {
+    color: var(--text);
+  }
+  .msg.result.warn,
+  .msg.result.error {
+    color: var(--warn);
   }
   .msg.failed {
     color: var(--danger);
