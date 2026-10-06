@@ -206,6 +206,10 @@ export function rateItems(c: Ctx) {
       ),
       rate: r.rate,
       disabled: !r.allowed,
+      /** The modulator to change to with this rate, when the current one can't play there. */
+      companion: ratio?.level === "hard" ? null : companionShaper(c, r.rate),
+      /** Can't play at all as things stand (rules): only a pair, or nothing, may be written. */
+      cantPlay: rule?.level === "hard",
     };
   });
 }
@@ -227,4 +231,29 @@ export function checkPair(c: Ctx, pair: { rateHz: number; shaper: string }) {
     failedHere: f ? `failed here before at these settings (${f.reason})` : null,
     note: mod?.level === "soft" ? mod.text : null,
   };
+}
+
+/** The modulator can't play at this rate, by the rules (AHM below DSD1024). */
+export const cantPlay = (shaper: string, rateHz: number) => modulatorHint(shaper, rateHz)?.level === "hard";
+const orderOfName = (name: string) => (/^[A-Z]+5/.test(name) ? 5 : 7);
+
+/**
+ * A new rate the current modulator can't play at (AHM below DSD1024): the modulator to
+ * change to with it, so the pair can play. HQPlayer's EC default, in the same order.
+ * Null when the current one plays there (heavy is information, not a reason to switch).
+ */
+export function companionShaper(c: Ctx, rateHz: number): string | null {
+  if (!c.isSdm || !rateHz || !cantPlay(c.shaperName, rateHz)) return null;
+  const o = orderOfName(c.shaperName);
+  const names = c.caps.shapers.map((s) => s.name);
+  return [`ASDM${o}EC-fast`, "ASDM7EC-fast"].find((n) => names.includes(n) && !cantPlay(n, rateHz)) ?? null;
+}
+
+/**
+ * A modulator picked that can't play at the current rate (AHM below DSD1024): the lowest
+ * listed rate it plays at, to change to with it. Null when it plays now, or nowhere listed.
+ */
+export function companionRate(shaper: string, rates: number[], currentRate: number): number | null {
+  if (!currentRate || !cantPlay(shaper, currentRate)) return null;
+  return [...rates].filter((r) => r > 0 && !cantPlay(shaper, r)).sort((a, b) => a - b)[0] ?? null;
 }

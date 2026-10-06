@@ -3,6 +3,8 @@ import type { Capabilities, Failure, Snapshot } from "./api.ts";
 import {
   apodization,
   checkPair,
+  companionRate,
+  companionShaper,
   context,
   filterItems,
   filterTaken,
@@ -335,5 +337,35 @@ describe("a rate and modulator together (checkPair)", () => {
   it("says when the filter in use can't do the new rate's ratio", () => {
     const c = now({ source: 48_000, filter1x: "FFT" });
     expect(checkPair(c, { rateHz: DSD1024, shaper: "AHM7EC8B" }).invalid).toMatch(/FFT/);
+  });
+});
+
+describe("the other half of a pair (Advanced and the List)", () => {
+  const caps = { ...sdm(), shapers: named(["ASDM7EC-fast", "ASDM5EC-fast", "AHM7EC4B", "AHM7EC8B", "AHM5EC8B"]) };
+  const on = (shaper: string, activeRate: number) =>
+    context(caps, snap({ activeRate, shaper: caps.shapers.find((s) => s.name === shaper)!.index }));
+
+  it("going to DSD256 from AHM, pairs the EC line's default in the same order", () => {
+    expect(companionShaper(on("AHM7EC4B", 45_158_400), 11_289_600)).toBe("ASDM7EC-fast");
+  });
+
+  it("going to DSD1024 is fine for the EC line: no companion needed", () => {
+    expect(companionShaper(on("ASDM7EC-fast", 11_289_600), 45_158_400)).toBeNull();
+  });
+
+  it("keeps fifth order when coming down from AHM5", () => {
+    expect(companionShaper(on("AHM5EC8B", 45_158_400), 11_289_600)).toBe("ASDM5EC-fast");
+  });
+
+  it("picking AHM in the list at DSD256 pairs DSD1024, the lowest rate it plays at", () => {
+    expect(companionRate("AHM7EC4B", [0, 11_289_600, 22_579_200, 45_158_400], 11_289_600)).toBe(45_158_400);
+  });
+
+  it("needs no rate for a modulator that plays at the current rate", () => {
+    expect(companionRate("ASDM7EC-fast", [0, 11_289_600, 45_158_400], 11_289_600)).toBeNull();
+  });
+
+  it("has no rate to offer when HQPlayer lists none it plays at", () => {
+    expect(companionRate("AHM7EC4B", [0, 11_289_600, 22_579_200], 11_289_600)).toBeNull();
   });
 });

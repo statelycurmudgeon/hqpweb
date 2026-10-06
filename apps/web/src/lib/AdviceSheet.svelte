@@ -4,7 +4,8 @@
   // to start. Answers are saved to the instance (Settings shows them too). The tab used
   // last is remembered on this device.
   import { tick } from "svelte";
-  import { api, type Setup } from "./api.ts";
+  import { api, formatRate, type Setup } from "./api.ts";
+  import { cantPlay, companionRate } from "./hints.ts";
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
   import { withGuideNotes, withVolumeNotes } from "./advice/list-notes.ts";
@@ -105,10 +106,22 @@
     savePrefs();
   }
   function pick(name: string) {
+    if (name === current) return;
+    // A modulator that can't play at this rate goes with a rate it plays at, as one
+    // change; with no such rate listed, it isn't written (it would only stop playback).
+    if (isSdm && rateHz && cantPlay(name, rateHz)) {
+      const r = companionRate(name, rates, rateHz);
+      if (r === null) return void alert(`${name} can't play at ${rateText}, or at any rate this HQPlayer offers.`);
+      const to = formatRate(r, "SDM (DSD)");
+      if (!confirm(`${name} needs ${to} or higher; it can't play at ${rateText}.\n\nChange the output rate to ${to} with it?`))
+        return;
+      if (prefs.adviceTab === "list") dialog.close();
+      return onpickpair({ rateHz: r, shaper: name });
+    }
     // Picking from the list closes the sheet, like the other pickers; the guide stays open
     // so its Compare and alternatives can be tried in turn.
     if (prefs.adviceTab === "list") dialog.close();
-    if (name !== current) onpick(name);
+    onpick(name);
   }
   async function answer(key: SetupKey, value: string) {
     local = { ...local, [key]: value };

@@ -125,6 +125,15 @@ const FLOWS: Record<string, Flow> = {
       f.feeder = "playlist";
     },
   },
+  // Playing at DSD1024 with AHM7EC8B: rate and modulator have to change together.
+  pairnet: {
+    name: "Pairs",
+    profile: "desktop5-mac-sdm",
+    setup: (f) => {
+      setRate(f, 45_158_400);
+      setShaper(f, "AHM7EC8B");
+    },
+  },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
