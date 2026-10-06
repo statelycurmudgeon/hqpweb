@@ -34,6 +34,7 @@
     onpick,
     onpickpair,
     onpcm,
+    playing,
     onsaved,
   }: {
     isSdm: boolean;
@@ -56,6 +57,8 @@
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
     /** Switch HQPlayer to PCM output. */
     onpcm: () => void;
+    /** Something is playing (A/B needs it). */
+    playing: boolean;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
   } = $props();
@@ -186,6 +189,7 @@
           {rates}
           {check}
           {onpickpair}
+          {playing}
           onpcm={() => {
             dialog.close();
             onpcm();

@@ -59,7 +59,7 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
 
   // Compare: A is the pair, B what was playing.
   await pair(/^DSD512 · ASDM5EC-fast/)
-    .getByRole("button", { name: /^Compare/ })
+    .getByRole("button", { name: /^A\/B/ })
     .click();
   await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
   const ab = sheet(page).getByRole("group", { name: "Compare" });

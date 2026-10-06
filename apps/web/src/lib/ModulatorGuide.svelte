@@ -20,6 +20,7 @@
     check,
     onpickpair,
     onpcm,
+    playing,
     warnings,
     processSpeed,
     current,
@@ -40,6 +41,8 @@
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
     /** Switch HQPlayer to PCM output (for a DAC that converts DSD). */
     onpcm: () => void;
+    /** Something is playing: A/B is only useful by ear. */
+    playing: boolean;
     /** Warnings from the list, by name ("won't play here", "failed here before"). */
     warnings: Record<string, string>;
     processSpeed: number | null;
@@ -136,7 +139,7 @@
       <div class="head">Rate and modulator</div>
       {#if pairs.length}
         <p class="sub">Each choice sets both at once. Now: {rateText || "unknown"}.</p>
-        <PairList {pairs} currentRate={rateHz} {current} {disabled} {check} onpick={onpickpair} />
+        <PairList {pairs} currentRate={rateHz} {current} {playing} {disabled} {check} onpick={onpickpair} />
         {#if advice.suggestedRate}<RuleList rules={advice.suggestedRate.rules} />{/if}
       {:else if advice.suggestedRate}
         <p>
@@ -174,7 +177,12 @@
             <span class="using">✓ Now using</span>
           {:else}
             <button class="primary" {disabled} onclick={() => onpick(advice.start!.name)}>Use {advice.start.name}</button>
-            <button class="secondary" disabled={disabled || !current} onclick={compare}>Compare with what's playing</button>
+            <button
+              class="secondary"
+              disabled={disabled || !current || !playing}
+              title={playing ? "" : "Play something to compare"}
+              onclick={compare}>A/B with your current setting</button
+            >
           {/if}
         </div>
         {#if comparing}
@@ -184,6 +192,7 @@
             >
             <button class:on={current === compareB} {disabled} onclick={() => onpick(compareB!)}>B · {compareB}</button>
           </div>
+          <p class="abnote">Flip between them while listening; whichever you leave on stays.</p>
         {/if}
         {@render variants()}
       {:else}
@@ -267,6 +276,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+  }
+  .abnote {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-dim);
   }
   .using {
     color: var(--ok);
