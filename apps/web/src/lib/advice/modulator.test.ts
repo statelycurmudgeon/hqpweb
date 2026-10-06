@@ -14,8 +14,12 @@ describe("modulator advice: the DAC question", () => {
     expect(advise({ setup: {} }).status).toBe("needs-dac");
   });
 
-  it("starts a direct-DSD DAC on HQPlayer's default, ASDM7EC-fast", () => {
-    expect(advise({ setup: { dsd: "direct" } }).start).toEqual({ name: "ASDM7EC-fast", isDefault: true, rules: [] });
+  it("starts a direct-DSD DAC on HQPlayer's default, ASDM7EC-fast, citing why the default", () => {
+    expect(advise({ setup: { dsd: "direct" } }).start).toEqual({
+      name: "ASDM7EC-fast",
+      isDefault: true,
+      rules: [RULES.default],
+    });
   });
 
   it("starts an older ESS DAC on fifth order, citing the rule", () => {
@@ -117,6 +121,17 @@ describe("modulator advice: DSD1024 and names", () => {
 
   it("knows every modulator HQPlayer 5 and 6.1 list", () => {
     expect([...advise({ setup: {}, modulators: V61 }).unknown, ...advise({ setup: {} }).unknown]).toEqual([]);
+  });
+});
+
+describe("modulator advice: an unknown rate (auto, stopped)", () => {
+  it("still gives a starting point, but says the rate isn't known", () => {
+    const a = advise({ setup: { dsd: "direct", amp: "other", volume: "fixed" }, rateHz: 0 });
+    expect([a.status, a.rateKnown, a.start?.name]).toEqual(["ok", false, "ASDM7EC-fast"]);
+  });
+
+  it("knows the rate when HQPlayer reports one", () => {
+    expect(advise({ setup: { dsd: "direct" }, rateHz: 11_289_600 }).rateKnown).toBe(true);
   });
 });
 

@@ -13,6 +13,7 @@
     rateHz,
     rateText,
     names,
+    warnings,
     processSpeed,
     current,
     disabled = false,
@@ -24,6 +25,8 @@
     /** The output rate as the app shows it, e.g. "DSD256". */
     rateText: string;
     names: string[];
+    /** Warnings from the list, by name ("won't play here", "failed here before"). */
+    warnings: Record<string, string>;
     processSpeed: number | null;
     current: string;
     disabled?: boolean;
@@ -39,9 +42,9 @@
 
   // Compare: A is the starting point, B what was playing when Compare was pressed.
   let compareB = $state<string | null>(null);
-  const comparing = $derived(compareB !== null && advice.start !== null && compareB !== advice.start.name);
+  const comparing = $derived(!!compareB && advice.start !== null && compareB !== advice.start.name);
   function compare() {
-    if (!advice.start) return;
+    if (!advice.start || !current) return;
     compareB = current;
     onpick(advice.start.name);
   }
@@ -103,6 +106,11 @@
       {:else}
         <p>Now: {rateText || "unknown"}.</p>
       {/if}
+      {#if !advice.rateKnown}
+        <p class="note">
+          The rate isn't known while stopped on auto, so this assumes below DSD1024. Play something to update it.
+        </p>
+      {/if}
     </li>
 
     <li class="card">
@@ -115,12 +123,13 @@
           >
         </p>
         <RuleList rules={advice.start.rules} />
+        {#if warnings[advice.start.name]}<p class="note warn">⚠ {warnings[advice.start.name]}</p>{/if}
         <div class="actions">
           {#if current === advice.start.name}
             <span class="using">✓ Now using</span>
           {:else}
             <button class="primary" {disabled} onclick={() => onpick(advice.start!.name)}>Use {advice.start.name}</button>
-            <button class="secondary" {disabled} onclick={compare}>Compare with what's playing</button>
+            <button class="secondary" disabled={disabled || !current} onclick={compare}>Compare with what's playing</button>
           {/if}
         </div>
         {#if comparing}
@@ -140,9 +149,18 @@
         {/if}
         {#if advice.alternatives.length}
           <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
+          <RuleList rules={[RULES.variantsEqual]} />
           <div class="alts">
             {#each advice.alternatives as a (a.name)}
-              <button class="chip" class:on={current === a.name} {disabled} onclick={() => onpick(a.name)}>{a.name}</button>
+              <button
+                class="chip"
+                class:on={current === a.name}
+                title={warnings[a.name]}
+                {disabled}
+                onclick={() => onpick(a.name)}
+                >{#if warnings[a.name]}⚠
+                {/if}{a.name}</button
+              >
             {/each}
           </div>
         {/if}

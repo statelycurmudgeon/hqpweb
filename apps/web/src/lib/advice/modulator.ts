@@ -31,6 +31,8 @@ export interface ModulatorAdvice {
   /** Modulators this instance lists that the advice doesn't know: newer than our rules. */
   unknown: string[];
   machine: { state: "keeps-up" | "tight" | "behind"; rule: Rule } | null;
+  /** False when the rate is unknown (auto, stopped): AHM and 512+fs can't be judged. */
+  rateKnown: boolean;
 }
 
 const is = <T extends string>(list: readonly T[], v: string | undefined): boolean =>
@@ -54,6 +56,7 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     p512: { offered: false, suggested: false },
     unknown,
     machine,
+    rateKnown: rateHz > 0,
   };
   if (!setup.dsd) return { status: "needs-dac", ...empty };
 
@@ -87,7 +90,8 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     const name = ec(POLICY.defaultVariant, use512);
     if (has(name)) {
       if (use512) rules.push(RULES.p512Volume);
-      start = { name, isDefault: name === `ASDM7EC-${POLICY.defaultVariant}`, rules };
+      const isDefault = name === `ASDM7EC-${POLICY.defaultVariant}`;
+      start = { name, isDefault, rules: isDefault ? [RULES.default] : rules };
     }
   }
   const alternatives = family.filter((x) => x.name !== start?.name);
@@ -100,6 +104,7 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     p512: { offered: p512Offered, suggested: p512Suggested },
     unknown,
     machine,
+    rateKnown: rateHz > 0,
   };
 }
 

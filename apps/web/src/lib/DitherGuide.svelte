@@ -13,6 +13,7 @@
     rateHz,
     rateText,
     names,
+    warnings,
     current,
     disabled = false,
     onanswer,
@@ -22,6 +23,8 @@
     rateHz: number;
     rateText: string;
     names: string[];
+    /** Warnings from the list, by name ("won't play here", "failed here before"). */
+    warnings: Record<string, string>;
     current: string;
     disabled?: boolean;
     onanswer: (key: SetupKey, value: string) => Promise<void>;
@@ -61,7 +64,15 @@
     onchoose={(v) => onanswer("link", v)}
   />
 
-  {#if advice.status === "ok"}
+  {#if advice.status === "needs-rate"}
+    <li class="card">
+      <div class="head">Where to start</div>
+      <p>
+        For a ladder DAC this depends on the output rate, which isn't known while stopped on auto. Play something, or set the rate
+        under Advanced → Output rate.
+      </p>
+    </li>
+  {:else if advice.status === "ok"}
     <li class="card">
       <div class="head">Where to start</div>
       {#if advice.group.length}
@@ -70,8 +81,14 @@
         </p>
         <div class="alts">
           {#each advice.group as name (name)}
-            <button class="chip" class:on={current === name} {disabled} onclick={() => name !== current && onpick(name)}
+            <button
+              class="chip"
+              class:on={current === name}
+              title={warnings[name]}
+              {disabled}
+              onclick={() => name !== current && onpick(name)}
               >{#if current === name}✓
+              {:else if warnings[name]}⚠
               {/if}{name}</button
             >
           {/each}
@@ -80,6 +97,7 @@
         <p>None of this HQPlayer's dithers fits these answers; pick one from the list.</p>
       {/if}
       <RuleList rules={advice.rules} />
+      {#each advice.group.filter((n) => warnings[n]) as n (n)}<p class="note warn">⚠ {n}: {warnings[n]}</p>{/each}
       {#if advice.raiseRate}
         <p class="note">Now {rateText || "unknown"}: raise the rate under Advanced → Output rate if your DAC takes it.</p>
       {/if}
@@ -128,6 +146,10 @@
     background: var(--bg);
     border-radius: 10px;
     padding: 8px 10px;
+  }
+  .note.warn {
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 10%, transparent);
   }
   .alts {
     display: flex;

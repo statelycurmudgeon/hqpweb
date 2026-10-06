@@ -3,6 +3,7 @@
   // HQPlayer's whole list, grouped by family; Guide asks about the DAC and suggests where
   // to start. Answers are saved to the instance (Settings shows them too). The tab used
   // last is remembered on this device.
+  import { tick } from "svelte";
   import { api, type Setup } from "./api.ts";
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
@@ -53,10 +54,12 @@
   let local = $state<Setup>({});
   let message = $state("");
   let failed = $state(false);
-  // A new instance, or fresh answers from the server (a save here, or Settings), replace them.
+  // A new instance, or answers that changed on the server (a save here, or Settings),
+  // replace them. Keyed by value: the 30 s instance refresh alone doesn't, so an answer
+  // whose save failed stays in use until the sheet's instance changes.
+  const saved = $derived(`${instanceId}|${JSON.stringify(setup)}`);
   $effect(() => {
-    void instanceId;
-    void setup;
+    void saved;
     local = {};
   });
   const answers = $derived<Setup>({ ...setup, ...local });
@@ -75,11 +78,13 @@
     return b;
   });
 
+  const warnings = $derived(Object.fromEntries(items.filter((i) => i.warn).map((i) => [i.name, i.warn!])));
   const listItems = $derived(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))));
 
-  export function open(opts: { tab?: "list" | "guide" } = {}) {
+  export async function open(opts: { tab?: "list" | "guide" } = {}) {
     if (opts.tab) setTab(opts.tab);
     message = "";
+    await tick(); // let the tab render before looking for the current row
     dialog.showModal();
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
   }
@@ -147,6 +152,7 @@
           {rateHz}
           {rateText}
           {names}
+          {warnings}
           {processSpeed}
           {current}
           {disabled}
@@ -154,7 +160,17 @@
           onpick={pick}
         />
       {:else}
-        <DitherGuide setup={answers} {rateHz} {rateText} {names} {current} {disabled} onanswer={answer} onpick={pick} />
+        <DitherGuide
+          setup={answers}
+          {rateHz}
+          {rateText}
+          {names}
+          {warnings}
+          {current}
+          {disabled}
+          onanswer={answer}
+          onpick={pick}
+        />
       {/if}
       <p class="foot">
         Suggestions follow Signalyst's posts, linked by date; they're starting points, not rules. Every {isSdm

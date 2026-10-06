@@ -13,7 +13,8 @@ export interface DitherInput {
 }
 
 export interface DitherAdvice {
-  status: "needs-dac" | "ok";
+  /** needs-rate: a ladder DAC's advice depends on the rate, and it isn't known (auto, stopped). */
+  status: "needs-dac" | "needs-rate" | "ok";
   /** The group to choose from, as equals, in the order to try; `start` is the first listed. */
   group: string[];
   start: string | null;
@@ -39,6 +40,7 @@ export function ditherAdvice(input: DitherInput): DitherAdvice {
     ? { kind: "ladder", rule: RULES.ladderBits }
     : { kind: bits24 ? "24" : "default", rule: null };
 
+  if (ladder && rateHz <= 0) return { status: "needs-rate", group: [], start: null, rules: [], bits, raiseRate: false, tryDsd };
   if (ladder && setup.link !== "spdif" && rateHz >= POLICY.ladderShapingFromHz) {
     const order = rateHz >= POLICY.lns15FromHz ? ["LNS15", "NS9", "NS5"] : ["NS5", "NS9", "LNS15"];
     const group = listed(order);
@@ -46,7 +48,8 @@ export function ditherAdvice(input: DitherInput): DitherAdvice {
     return { status: "ok", group, start: group[0] ?? null, rules, bits, raiseRate: false, tryDsd };
   }
   const group = listed(["TPDF", "Gauss1"]);
-  const raiseRate = ladder && rateHz < POLICY.ladderShapingFromHz;
+  // Not over S/PDIF: it tops out around 192k, so there's no higher rate to go to.
+  const raiseRate = ladder && setup.link !== "spdif" && rateHz < POLICY.ladderShapingFromHz;
   return {
     status: "ok",
     group,

@@ -33,6 +33,20 @@ describe("dither advice", () => {
     expect([a.raiseRate, a.group, a.rules]).toEqual([true, ["TPDF", "Gauss1"], [RULES.ladderRate]]);
   });
 
+  it("asks for the rate before advising a ladder DAC, when it isn't known (auto, stopped)", () => {
+    const a = advise({ setup: { pcm: "ladder", link: "usb" }, rateHz: 0 });
+    expect([a.status, a.group, a.raiseRate]).toEqual(["needs-rate", [], false]);
+  });
+
+  it("advises a delta-sigma DAC without knowing the rate", () => {
+    expect(advise({ setup: { pcm: "delta-sigma", link: "usb" }, rateHz: 0 }).group).toEqual(["TPDF", "Gauss1"]);
+  });
+
+  it("doesn't tell a ladder DAC over S/PDIF to raise the rate, since S/PDIF tops out near 192k", () => {
+    const a = advise({ setup: { pcm: "ladder", link: "spdif" }, rateHz: 192_000 });
+    expect([a.raiseRate, a.rules]).toEqual([false, [RULES.flatDither]]);
+  });
+
   it("keeps flat dither for a ladder DAC over S/PDIF", () => {
     expect(advise({ setup: { pcm: "ladder", link: "spdif" } }).group).toEqual(["TPDF", "Gauss1"]);
   });
