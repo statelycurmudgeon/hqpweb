@@ -114,6 +114,8 @@ const FLOWS: Record<string, Flow> = {
       f.playback = 2;
     },
   },
+  // Settings → Your setup: answers saved on the server, per instance.
+  setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
 
 /** What a test may change on a fake. Anything else is refused. */

@@ -143,3 +143,7 @@ export const SETUP_QUESTION_LIST: SetupQuestion[] = [
   SETUP_QUESTIONS.volume,
   SETUP_QUESTIONS.link,
 ];
+
+/** What Settings says after saving an answer. `savedNow`: a discovered instance was saved first. */
+export const savedMessage = (savedNow: boolean): string =>
+  savedNow ? "Saved, and this instance is now saved in Settings." : "Saved.";

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { DAC_MODELS } from "./dac-models.ts";
-import { dsdLabel, filterModels, groupByMaker, hasNote, monthLabel, OUR_READING, pcmLabel, rowNote } from "./dac-table.ts";
+import {
+  dayLabel,
+  dsdLabel,
+  filterModels,
+  groupByMaker,
+  hasNote,
+  monthLabel,
+  OUR_READING,
+  pcmLabel,
+  rowNote,
+} from "./dac-table.ts";
 import type { DacModel } from "./dacs.ts";
 
 // Invented rows, so the tests don't move when the real table is corrected.
@@ -90,6 +100,10 @@ describe("Find your DAC: a row's note", () => {
 
   it("names the month of a post, as 'Mon YYYY' ('Sept' for September)", () => {
     expect([monthLabel("2025-08"), monthLabel("2026-09"), monthLabel("2016-01")]).toEqual(["Aug 2025", "Sept 2026", "Jan 2016"]);
+  });
+
+  it("names the day the table was checked, as 'D Mon YYYY'", () => {
+    expect(dayLabel("2026-10-05")).toBe("5 Oct 2026");
   });
 
   it("leads with the row's note, then its native DSD rate", () => {

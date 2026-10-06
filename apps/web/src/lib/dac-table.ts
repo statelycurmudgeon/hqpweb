@@ -33,6 +33,12 @@ export function monthLabel(yyyyMm: string): string {
   return name && y ? `${name} ${y}` : yyyyMm;
 }
 
+/** "2026-10-05" → "5 Oct 2026". */
+export function dayLabel(yyyyMmDd: string): string {
+  const day = Number(yyyyMmDd.slice(8, 10));
+  return day ? `${day} ${monthLabel(yyyyMmDd.slice(0, 7))}` : yyyyMmDd;
+}
+
 /**
  * Model rows whose maker, model names or chip contain every word of the query, any case.
  * An empty query matches every row.
