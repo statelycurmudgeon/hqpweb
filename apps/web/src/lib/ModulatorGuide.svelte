@@ -34,6 +34,8 @@
   const advice = $derived(modulatorAdvice({ setup, rateHz, modulators: names, processSpeed }));
   const q = SETUP_QUESTIONS;
   const label = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.label ?? "";
+  // Yes/No answers read better as their description, e.g. "Any other kind."
+  const described = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.description ?? "";
 
   // Compare: A is the starting point, B what was playing when Compare was pressed.
   let compareB = $state<string | null>(null);
@@ -60,7 +62,7 @@
     {#snippet after()}
       {#if advice.status === "use-pcm"}
         <p class="note">
-          Your DAC converts DSD, so PCM output usually sounds better. Switch HQPlayer's mode to PCM, then choose a dither.
+          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM under Advanced → Mode, then choose a dither.
         </p>
         <RuleList rules={[RULES.usePcm]} />
       {/if}
@@ -74,7 +76,7 @@
     help={q.amp.help}
     options={q.amp.options}
     current={setup.amp}
-    summary={label("amp", setup.amp)}
+    summary={described("amp", setup.amp)}
     onchoose={(v) => onanswer("amp", v)}
   />
   <SetupStep
@@ -85,7 +87,7 @@
     help={q.volume.help}
     options={q.volume.options}
     current={setup.volume}
-    summary={label("volume", setup.volume)}
+    summary={described("volume", setup.volume)}
     onchoose={(v) => onanswer("volume", v)}
   />
 
@@ -95,7 +97,7 @@
       {#if advice.suggestedRate}
         <p>
           {advice.suggestedRate.label} suits your DAC{#if advice.suggestedRate.orDsd1024}, or DSD1024 with an AHM modulator{/if}.
-          Now: {rateText || "unknown"}. Change it under Rate.
+          Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
         </p>
         <RuleList rules={[advice.suggestedRate.rule]} />
       {:else}

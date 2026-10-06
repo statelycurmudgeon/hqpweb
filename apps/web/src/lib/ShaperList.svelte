@@ -53,7 +53,7 @@
     {/each}
     {#if !isOpen(s)}
       <li class="more">
-        <button class="link" onclick={() => (opened = [...opened, s.key])}>Show {s.names.length}</button>
+        <button class="link" onclick={() => (opened = [...opened, s.key])}>Show all {s.names.length}</button>
       </li>
     {/if}
   {/each}

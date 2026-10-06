@@ -81,14 +81,14 @@
       {/if}
       <RuleList rules={advice.rules} />
       {#if advice.raiseRate}
-        <p class="note">Now {rateText || "unknown"}: raise the rate under Rate if your DAC takes it.</p>
+        <p class="note">Now {rateText || "unknown"}: raise the rate under Advanced → Output rate if your DAC takes it.</p>
       {/if}
       {#if advice.bits}
         <p class="note">{BITS[advice.bits.kind]}</p>
         {#if advice.bits.rule}<RuleList rules={[advice.bits.rule]} />{/if}
       {/if}
       {#if advice.tryDsd}
-        <p class="note">Your DAC takes DSD well: DSD output usually beats PCM. Try it under Mode.</p>
+        <p class="note">Your DAC takes DSD well: DSD output usually beats PCM. Try it under Advanced → Mode.</p>
         <RuleList rules={[RULES.dsdBetter]} />
       {/if}
       <p class="sub">Never "none" for listening: it's for bit-perfect tests.</p>
