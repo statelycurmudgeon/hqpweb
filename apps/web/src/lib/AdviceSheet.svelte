@@ -28,7 +28,10 @@
     rateHz,
     rateText,
     processSpeed,
+    rates,
+    check,
     onpick,
+    onpickpair,
     onsaved,
   }: {
     isSdm: boolean;
@@ -42,7 +45,13 @@
     rateHz: number;
     rateText: string;
     processSpeed: number | null;
+    /** The output rates HQPlayer offers now, in Hz. */
+    rates: number[];
+    /** What's known about a rate and modulator here (learned; information only). */
+    check: (c: { rateHz: number; shaper: string }) => { failedHere: string | null } | null;
     onpick: (name: string) => void;
+    /** Rate and modulator as one change. */
+    onpickpair: (c: { rateHz: number; shaper: string }) => void;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
   } = $props();
@@ -158,6 +167,9 @@
           {names}
           {warnings}
           {processSpeed}
+          {rates}
+          {check}
+          {onpickpair}
           {current}
           {disabled}
           onanswer={answer}

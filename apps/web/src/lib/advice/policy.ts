@@ -38,6 +38,23 @@ export const RULES = {
     date: "2026-01",
   },
   rateEss: { text: "DSD512 suits ESS chips best.", url: roon("304268/153"), date: "2026-06" },
+  // ---- What each modulator variant is like (variants.ts) ----
+  ulPi: { text: "Ultralight: a Raspberry Pi 5 runs it at DSD256.", url: roon("244327/2165"), date: "2025-09" },
+  ulEss: { text: "To Signalyst's ear, it has something of an ESS-like character.", url: roon("261032/1034"), date: "2025-07" },
+  lightDesign: {
+    text: "Designed to use as little CPU as possible with no compromise in technical performance.",
+    url: roon("166213/730"),
+    date: "2023-05",
+  },
+  fastTransients: { text: 'Think "fast transients"; only a bit heavier than -light.', url: roon("166213/2099"), date: "2026-01" },
+  superDesign: { text: "Made as good as possible without regard to CPU load.", url: roon("166213/730"), date: "2023-05" },
+  superFit: { text: "Signalyst sees it suiting some systems, or classical music.", url: roon("261032/1034"), date: "2025-07" },
+  ahm4bNew: {
+    text: "Newest AHM, made to get the most out of DSD1024 and up.",
+    source: "HQPlayer 6.1 release notes",
+    date: "2026-09",
+  },
+  ahm8bLight: { text: "AHM7EC8B isn't heavy to process, even at DSD1024.", url: roon("132298/2650"), date: "2025-06" },
   akmPairRate: {
     text: "The AK4191 pair (AK4499EX) runs at DSD128 or DSD256; higher rates only hurt.",
     url: roon("244358/1306"),

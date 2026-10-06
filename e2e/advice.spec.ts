@@ -51,12 +51,14 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
     .getByRole("button", { name: /^No\b(?! sure)/ })
     .click();
   await expect(sheet(page).getByRole("status")).toContainText("Saved");
-  await expect(sheet(page)).toContainText("DSD512 suits");
-  await expect(sheet(page)).toContainText("For your answers");
+  // Rate and modulator as pairs: DSD512 suits an older ESS chip, fifth order.
+  const pair = (label: RegExp) => sheet(page).locator("li.pair", { hasText: label });
+  await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("Suits your DAC");
+  await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("For your answers");
   await shot(page, "advice-2-guide");
 
-  // Compare: A is the starting point, B what was playing.
-  await sheet(page)
+  // Compare: A is the pair, B what was playing.
+  await pair(/^DSD512 · ASDM5EC-fast/)
     .getByRole("button", { name: /^Compare/ })
     .click();
   await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
@@ -65,7 +67,23 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
   await expect(row(page, "Modulator")).toContainText("DSD7");
   await ab.getByRole("button", { name: /^A/ }).click();
   await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
-  await expect(sheet(page)).toContainText("Now using");
+  await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("Now using");
+
+  // The variants carry what Signalyst has said about each: CPU load and character.
+  await expect(sheet(page)).toContainText("CPU: lightest");
+
+  // DSD1024 with AHM is one change: rate and modulator together, and back down again.
+  await pair(/^DSD1024 · AHM5EC8B/)
+    .getByRole("button", { name: "Use" })
+    .click();
+  await expect(page.locator(".headline .big")).toHaveText("DSD1024");
+  await expect(row(page, "Modulator")).toContainText("AHM5EC8B");
+  await pair(/^DSD256 · ASDM5EC-fast/)
+    .getByRole("button", { name: "Use" })
+    .click();
+  await expect(page.locator(".headline .big")).toHaveText("DSD256");
+  await expect(row(page, "Modulator")).toContainText("ASDM5EC-fast");
+  await shot(page, "advice-2b-pairs");
 
   // Answers outlive the page; the guide tab is remembered; Change reopens in place.
   await page.reload();

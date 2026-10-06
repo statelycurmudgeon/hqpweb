@@ -419,7 +419,10 @@
           rateHz={outRate}
           rateText={outRate ? formatRate(outRate, caps.mode.name) : ""}
           {processSpeed}
+          rates={caps.rates.filter((r) => r.allowed).map((r) => r.rate)}
+          check={(c) => (ctx ? hints.checkPair(ctx, c) : null)}
           onpick={(name) => apply({ shaper: name })}
+          onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
           onsaved={refreshInstances}
         />
       </section>

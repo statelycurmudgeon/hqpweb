@@ -3,6 +3,9 @@
   // advice/modulator.ts's; this only shows them. Names come from this HQPlayer's own list.
   import type { Setup } from "./api.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
+  import { modulatorPairs } from "./advice/pairs.ts";
+  import PairList from "./PairList.svelte";
+  import VariantRows from "./VariantRows.svelte";
   import { RULES } from "./advice/policy.ts";
   import { SETUP_QUESTIONS, type SetupKey } from "./setup-questions.ts";
   import SetupStep from "./SetupStep.svelte";
@@ -13,6 +16,9 @@
     rateHz,
     rateText,
     names,
+    rates,
+    check,
+    onpickpair,
     warnings,
     processSpeed,
     current,
@@ -25,6 +31,12 @@
     /** The output rate as the app shows it, e.g. "DSD256". */
     rateText: string;
     names: string[];
+    /** The output rates this HQPlayer offers now, in Hz. */
+    rates: number[];
+    /** What's known about a rate and modulator here (learned; information only). */
+    check: (c: { rateHz: number; shaper: string }) => { failedHere: string | null } | null;
+    /** Rate and modulator as one change. */
+    onpickpair: (c: { rateHz: number; shaper: string }) => void;
     /** Warnings from the list, by name ("won't play here", "failed here before"). */
     warnings: Record<string, string>;
     processSpeed: number | null;
@@ -35,6 +47,9 @@
   } = $props();
 
   const advice = $derived(modulatorAdvice({ setup, rateHz, modulators: names, processSpeed }));
+  const pairs = $derived(modulatorPairs({ setup, rates, modulators: names }));
+  // The current rate's starting point is already a pair row when the rate is one of them.
+  const startInPairs = $derived(pairs.some((p) => p.rateHz === rateHz));
   const q = SETUP_QUESTIONS;
   const label = (key: SetupKey, v: string | undefined) => q[key].options.find((o) => o.value === v)?.label ?? "";
   // Yes/No answers read better as their description, e.g. "Any other kind."
@@ -51,6 +66,22 @@
   const startIsAhm = $derived(advice.start?.name.startsWith("AHM") ?? false);
   const p512Name = $derived(advice.start ? `${advice.start.name} 512+fs` : "");
 </script>
+
+{#snippet variants()}
+  {#if advice.p512.offered && names.includes(p512Name)}
+    <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
+    <p class="note">{p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.</p>
+  {/if}
+  {#if advice.alternatives.length}
+    {#if startIsAhm}
+      <p class="sub">The other AHM versions, to compare by ear:</p>
+    {:else}
+      <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
+      <RuleList rules={[RULES.variantsEqual]} />
+    {/if}
+    <VariantRows names={advice.alternatives.map((a) => a.name)} {current} {warnings} {disabled} {onpick} />
+  {/if}
+{/snippet}
 
 <ol class="steps">
   <SetupStep
@@ -97,8 +128,12 @@
 
   {#if advice.status === "ok"}
     <li class="card">
-      <div class="head">Rate</div>
-      {#if advice.suggestedRate}
+      <div class="head">Rate and modulator</div>
+      {#if pairs.length}
+        <p class="sub">Each choice sets both at once. Now: {rateText || "unknown"}.</p>
+        <PairList {pairs} currentRate={rateHz} {current} {disabled} {check} onpick={onpickpair} />
+        {#if advice.suggestedRate}<RuleList rules={advice.suggestedRate.rules} />{/if}
+      {:else if advice.suggestedRate}
         <p>
           {advice.suggestedRate.label} suits {setup.dsd === "remodulates"
             ? "a newer ESS chip"
@@ -117,8 +152,10 @@
     </li>
 
     <li class="card">
-      <div class="head">Where to start</div>
-      {#if advice.start}
+      <div class="head">At {rateText || "the current rate"}</div>
+      {#if advice.start && startInPairs}
+        {@render variants()}
+      {:else if advice.start}
         <p class="start">
           <strong>{advice.start.name}</strong>
           <span class="badge" class:yours={!advice.start.isDefault}
@@ -143,31 +180,7 @@
             <button class:on={current === compareB} {disabled} onclick={() => onpick(compareB!)}>B · {compareB}</button>
           </div>
         {/if}
-        {#if advice.p512.offered && names.includes(p512Name)}
-          <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
-          <p class="note">{p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.</p>
-        {/if}
-        {#if advice.alternatives.length}
-          {#if startIsAhm}
-            <p class="sub">The other AHM versions, to compare by ear:</p>
-          {:else}
-            <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
-            <RuleList rules={[RULES.variantsEqual]} />
-          {/if}
-          <div class="alts">
-            {#each advice.alternatives as a (a.name)}
-              <button
-                class="chip"
-                class:on={current === a.name}
-                title={warnings[a.name]}
-                {disabled}
-                onclick={() => onpick(a.name)}
-                >{#if warnings[a.name]}⚠
-                {/if}{a.name}</button
-              >
-            {/each}
-          </div>
-        {/if}
+        {@render variants()}
       {:else}
         <p>None of this HQPlayer's modulators fits these answers; pick one from the list.</p>
       {/if}
@@ -245,7 +258,6 @@
     color: var(--ok);
   }
   .actions,
-  .alts,
   .ab {
     display: flex;
     flex-wrap: wrap;
@@ -275,10 +287,6 @@
     color: var(--on-accent);
     border-color: var(--accent);
     font-weight: 600;
-  }
-  .chip {
-    border-radius: 999px;
-    font-size: 0.85rem;
   }
   .on {
     border-color: var(--ok);
