@@ -134,6 +134,8 @@ const FLOWS: Record<string, Flow> = {
       setShaper(f, "AHM7EC8B");
     },
   },
+  // A short screen: the sheet's body must scroll to its end.
+  scroll: { name: "Scroll", profile: "desktop5-mac-sdm" },
   // Settings → Your setup: answers saved on the server, per instance.
   setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };

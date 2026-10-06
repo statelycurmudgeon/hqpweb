@@ -26,7 +26,7 @@ export function modulatorPairs(input: Omit<ModulatorInput, "rateHz"> & { rates: 
   for (const r of DSD_RATES) {
     if (!input.rates.includes(r.hz)) continue;
     const a = modulatorAdvice({ ...input, rateHz: r.hz });
-    if (a.status !== "ok" || !a.start) continue;
+    if (a.status === "needs-dac" || !a.start) continue;
     // At DSD1024 only AHM: the EC line doesn't suit that rate (Signalyst; see modulator.ts).
     if (r.label === "DSD1024" && !a.start.name.startsWith("AHM")) continue;
     const s = a.suggestedRate;

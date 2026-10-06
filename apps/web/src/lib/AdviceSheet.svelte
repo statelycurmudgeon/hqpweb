@@ -33,6 +33,7 @@
     check,
     onpick,
     onpickpair,
+    onpcm,
     onsaved,
   }: {
     isSdm: boolean;
@@ -53,6 +54,8 @@
     onpick: (name: string) => void;
     /** Rate and modulator as one change. */
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
+    /** Switch HQPlayer to PCM output. */
+    onpcm: () => void;
     /** After answers are saved, so the instance list (and Settings) catch up. */
     onsaved: () => void;
   } = $props();
@@ -183,6 +186,10 @@
           {rates}
           {check}
           {onpickpair}
+          onpcm={() => {
+            dialog.close();
+            onpcm();
+          }}
           {current}
           {disabled}
           onanswer={answer}

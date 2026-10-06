@@ -43,8 +43,13 @@ describe("rate and modulator pairs for the guide", () => {
     expect(pairs({ dsd: "direct" }, { rates: [0, 11_289_600] }).map((p) => p.label)).toEqual(["DSD256"]);
   });
 
-  it("offers nothing until the DAC question is answered, or when the DAC suits PCM", () => {
-    expect([pairs({}), pairs({ dsd: "converts" })]).toEqual([[], []]);
+  it("offers nothing until the DAC question is answered", () => {
+    expect(pairs({})).toEqual([]);
+  });
+
+  it("still offers pairs when the DAC suits PCM, none of them marked as suiting it", () => {
+    const p = pairs({ dsd: "converts" });
+    expect([p.length > 0, p.some((x) => x.suitsDac)]).toEqual([true, false]);
   });
 
   it("gives each pair its rate in Hz, to apply as one change", () => {

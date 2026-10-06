@@ -177,3 +177,27 @@ test("a rate the modulator can't play at, or a modulator the rate can't take, of
   await expect(row(page, "Modulator")).toContainText("AHM7EC8B");
   expect(asked).toContain("DSD1024");
 });
+
+test("the sheet scrolls to its end; a DAC that converts DSD still gets DSD choices, and Switch to PCM", async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 600 });
+  await openOn(page, "scroll");
+  await row(page, "Modulator").click();
+  await sheet(page).getByRole("tab", { name: "Guide" }).click();
+  const body = sheet(page).locator(".body");
+  // The content is taller than the sheet, and scrolling the body reaches the end.
+  const reach = await body.evaluate((el) => {
+    const tall = el.scrollHeight > el.clientHeight + 10;
+    el.scrollTop = el.scrollHeight;
+    return { tall, moved: el.scrollTop > 0, bottom: el.scrollTop + el.clientHeight >= el.scrollHeight - 2 };
+  });
+  expect(reach).toEqual({ tall: true, moved: true, bottom: true });
+
+  // No dead end: "converts" suggests PCM, and still offers the DSD pairs.
+  await step(page, "Your DAC")
+    .getByRole("button", { name: /^It converts/ })
+    .click();
+  await expect(sheet(page).locator("li.pair").first()).toBeVisible();
+  await expect(sheet(page)).not.toContainText("Suits your DAC");
+  await sheet(page).getByRole("button", { name: "Switch to PCM" }).click();
+  await expect(row(page, "Dither")).toBeVisible();
+});

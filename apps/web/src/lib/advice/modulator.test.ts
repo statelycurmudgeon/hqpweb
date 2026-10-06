@@ -55,9 +55,9 @@ describe("modulator advice: the DAC question", () => {
     expect(advise({ setup: { dsd: "remodulates" } }).suggestedRate?.rules).toEqual([RULES.rateEss, RULES.akmPairRate]);
   });
 
-  it("sends a DAC that converts DSD to PCM, with no modulator to start on", () => {
+  it("suggests PCM for a DAC that converts DSD, but still gives a DSD start for anyone staying in DSD", () => {
     const a = advise({ setup: { dsd: "converts" } });
-    expect([a.status, a.start]).toEqual(["use-pcm", null]);
+    expect([a.status, a.suggestedRate, a.start?.name, a.start?.isDefault]).toEqual(["use-pcm", null, "ASDM7EC-fast", true]);
   });
 });
 

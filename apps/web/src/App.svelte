@@ -423,6 +423,7 @@
           check={(c) => (ctx ? hints.checkPair(ctx, c) : null)}
           onpick={(name) => apply({ shaper: name })}
           onpickpair={(c) => apply(c.rateHz === outRate ? { shaper: c.shaper } : { rate: c.rateHz, shaper: c.shaper })}
+          onpcm={() => apply({ mode: "PCM" })}
           onsaved={refreshInstances}
         />
       </section>

@@ -19,6 +19,7 @@
     rates,
     check,
     onpickpair,
+    onpcm,
     warnings,
     processSpeed,
     current,
@@ -37,6 +38,8 @@
     check: (c: { rateHz: number; shaper: string }) => { invalid: string | null; failedHere: string | null } | null;
     /** Rate and modulator as one change. */
     onpickpair: (c: { rateHz: number; shaper: string }) => void;
+    /** Switch HQPlayer to PCM output (for a DAC that converts DSD). */
+    onpcm: () => void;
     /** Warnings from the list, by name ("won't play here", "failed here before"). */
     warnings: Record<string, string>;
     processSpeed: number | null;
@@ -97,9 +100,11 @@
     {#snippet after()}
       {#if advice.status === "use-pcm"}
         <p class="note">
-          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM under Advanced → Mode, then choose a dither.
+          Your DAC converts DSD, so PCM output usually sounds better. Switch to PCM, then choose a dither. To stay in DSD, the
+          choices below still apply.
         </p>
         <RuleList rules={[RULES.usePcm]} />
+        <button class="primary" {disabled} onclick={onpcm}>Switch to PCM</button>
       {/if}
     {/snippet}
   </SetupStep>
@@ -126,7 +131,7 @@
     onchoose={(v) => onanswer("volume", v)}
   />
 
-  {#if advice.status === "ok"}
+  {#if advice.status !== "needs-dac"}
     <li class="card">
       <div class="head">Rate and modulator</div>
       {#if pairs.length}

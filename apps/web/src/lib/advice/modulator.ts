@@ -74,7 +74,8 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     ? [RULES.rateDirect, ...(ampRate ? [RULES.ampRate] : [])]
     : [RULES.rateEss, ...(setup.dsd === "remodulates" ? [RULES.akmPairRate] : [])];
   const suggestedRate = rate ? { label: rate, orDsd1024: direct, orDsd512: ampRate, rules: rateRules } : null;
-  if (setup.dsd === "converts") return { status: "use-pcm", ...empty, suggestedRate };
+  // A DAC that converts DSD: PCM suits it better, but anyone staying in DSD still gets a
+  // starting point (informing, not refusing).
 
   const rules: Rule[] = [];
   if (setup.dsd === "older-ess") rules.push(RULES.olderEssFifth);
@@ -114,7 +115,7 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     alternatives = [...plain, ...family.filter((n) => n !== start?.name)].map((name) => ({ name }));
   }
   return {
-    status: "ok",
+    status: setup.dsd === "converts" ? "use-pcm" : "ok",
     order,
     suggestedRate,
     start,
