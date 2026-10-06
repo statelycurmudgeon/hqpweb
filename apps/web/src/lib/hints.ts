@@ -209,3 +209,22 @@ export function rateItems(c: Ctx) {
     };
   });
 }
+
+/**
+ * A rate and modulator as one choice, before anything is written. `invalid` comes only
+ * from the rules (the manual's floors, measured stops): it can't play anywhere, so the
+ * UI may refuse that write. `failedHere` comes from what this machine has done before:
+ * information, never a refusal. `note` is a soft rule ("designed for DSD512 and up").
+ */
+export function checkPair(c: Ctx, pair: { rateHz: number; shaper: string }) {
+  const mod = modulatorHint(pair.shaper, pair.rateHz);
+  const filter = c.inUseFilter;
+  const ratio = c.source && filter ? ratioHint(filter, c.source, pair.rateHz, c.isSdm, ratioOf(c, filter)) : undefined;
+  const invalid = mod?.level === "hard" ? mod.text : ratio?.level === "hard" ? ratio.text : null;
+  const f = knownBad(c.caps.knownBad, { ...c.combo, rateHz: pair.rateHz, shaper: pair.shaper });
+  return {
+    invalid,
+    failedHere: f ? `failed here before at these settings (${f.reason})` : null,
+    note: mod?.level === "soft" ? mod.text : null,
+  };
+}

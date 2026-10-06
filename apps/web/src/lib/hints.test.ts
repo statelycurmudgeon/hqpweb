@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Capabilities, Failure, Snapshot } from "./api.ts";
 import {
   apodization,
+  checkPair,
   context,
   filterItems,
   filterTaken,
@@ -297,5 +298,42 @@ describe("more details (second mutation pass)", () => {
     const caps = pcm();
     caps.shapers = caps.shapers.map((s) => ({ ...s, description: "Gen8" }));
     expect(shaperItems(context(caps, snap({})))[0]).not.toHaveProperty("gen");
+  });
+});
+
+describe("a rate and modulator together (checkPair)", () => {
+  const DSD256 = 11_289_600;
+  const DSD1024 = 45_158_400;
+  const caps = sdm();
+  const now = (o: Parameters<typeof snap>[0] = {}) => context(caps, snap({ activeRate: DSD256, ...o }));
+
+  it("says AHM can't play below DSD1024, from the rules", () => {
+    expect(checkPair(now(), { rateHz: DSD256, shaper: "AHM7EC8B" }).invalid).toMatch(/40\.96 MHz/);
+  });
+
+  it("finds nothing wrong with AHM at DSD1024", () => {
+    expect(checkPair(now(), { rateHz: DSD1024, shaper: "AHM7EC8B" })).toEqual({ invalid: null, failedHere: null, note: null });
+  });
+
+  it("calls a pair that failed on this machine 'failed here', never invalid", () => {
+    const failure = {
+      mode: "SDM (DSD)",
+      rateHz: DSD1024,
+      filterNx: "poly-sinc-gauss-xla",
+      filter1x: "poly-sinc-gauss-xla",
+      shaper: "ASDM7EC",
+      reason: "fell behind (0.53×)",
+      at: "2026-10-02T00:00:00Z",
+    };
+    const c = context({ ...caps, knownBad: [failure] }, snap({ activeRate: DSD256 }));
+    expect(checkPair(c, { rateHz: DSD1024, shaper: "ASDM7EC" })).toMatchObject({
+      invalid: null,
+      failedHere: expect.stringContaining("0.53×"),
+    });
+  });
+
+  it("says when the filter in use can't do the new rate's ratio", () => {
+    const c = now({ source: 48_000, filter1x: "FFT" });
+    expect(checkPair(c, { rateHz: DSD1024, shaper: "AHM7EC8B" }).invalid).toMatch(/FFT/);
   });
 });
