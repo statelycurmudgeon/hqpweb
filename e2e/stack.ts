@@ -89,6 +89,8 @@ const FLOWS: Record<string, Flow> = {
   volume: { name: "Volume", profile: "desktop5-mac-sdm", setup: (f) => (f.volume = -30) },
   advanced: { name: "Advanced", profile: "desktop5-linux-pcm", setup: (f) => (f.playback = 2) },
   about: { name: "About", profile: "desktop5-mac-sdm" },
+  // Settings → Your setup: answers saved on the server, per instance.
+  setup: { name: "Setup", profile: "desktop5-mac-sdm" },
 };
 
 /** What a test may change on a fake. Anything else is refused. */
