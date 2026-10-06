@@ -22,9 +22,14 @@ export const RULES = {
   olderEssFifth: { text: "Fifth order for older ESS chips; a guide, not absolute.", url: roon("261032/1422"), date: "2026-09" },
   ampFifth: { text: "Fifth order with a class-D or tube amplifier.", url: roon("132298/2953"), date: "2025-10" },
   p512Volume: {
-    text: "With HQPlayer setting the volume, 512+fs is an option at DSD512 and up: more headroom, less bandwidth.",
+    text: "512+fs is an option at DSD512 and up when HQPlayer's volume is turned well down: more headroom, less bandwidth.",
     url: roon("292696/10"),
     date: "2025-07",
+  },
+  gainOpt: {
+    text: "Gain optimisation: HQPlayer at −3 dB, the amplifier at the loudest you'd ever want, then turn down in HQPlayer or Roon. Safe from too-loud accidents.",
+    url: roon("308411/22"),
+    date: "2025-10",
   },
   dsd1024Ahm: {
     text: "If you run DSD1024, use AHM; neither it nor the EC line at DSD256/512 is clearly better.",

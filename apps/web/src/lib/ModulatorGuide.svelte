@@ -76,7 +76,7 @@
 {#snippet variants()}
   {#if advice.p512.offered && names.includes(p512Name)}
     <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
-    <p class="note">{p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.</p>
+    <RuleList rules={[RULES.p512Volume]} />
   {/if}
   {#if advice.alternatives.length}
     {#if startIsAhm}
@@ -132,7 +132,9 @@
     current={setup.volume}
     summary={described("volume", setup.volume)}
     onchoose={(v) => onanswer("volume", v)}
-  />
+  >
+    {#snippet extra()}<RuleList rules={[RULES.gainOpt]} />{/snippet}
+  </SetupStep>
 
   {#if advice.status !== "needs-dac"}
     <li class="card">

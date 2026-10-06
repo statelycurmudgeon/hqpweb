@@ -28,10 +28,8 @@ describe("rate and modulator pairs for the guide", () => {
     expect(pairs({ dsd: "direct", amp: "class-d-or-tube" }).find((p) => p.label === "DSD512")?.suitsDac).toBe(true);
   });
 
-  it("uses the 512+fs version at DSD512 when HQPlayer sets the volume", () => {
-    expect(pairs({ dsd: "direct", volume: "hqplayer" }).find((p) => p.label === "DSD512")?.start.name).toBe(
-      "ASDM7EC-fast 512+fs",
-    );
+  it("pairs DSD512 with plain -fast even when HQPlayer sets the volume (512+fs is an option)", () => {
+    expect(pairs({ dsd: "direct", volume: "hqplayer" }).find((p) => p.label === "DSD512")?.start.name).toBe("ASDM7EC-fast");
   });
 
   it("offers DSD1024 only with an AHM modulator HQPlayer lists", () => {
