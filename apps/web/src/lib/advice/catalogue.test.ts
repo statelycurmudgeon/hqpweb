@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MODULATORS_V5 as V5, SHAPERS_V5 as SHAPERS } from "./recorded-lists.ts";
 import { groupDithers, groupModulators, modulatorFamily, orderOf } from "./catalogue.ts";
+import { RULES } from "./policy.ts";
 
 const titles = (s: { title: string }[]) => s.map((x) => x.title);
 
@@ -45,6 +46,11 @@ describe("modulator list grouping", () => {
       names: ["AHM7EC9X"],
       open: true,
     });
+  });
+
+  it("notes on the older series why the newest EC line is the one to use, citing the posts", () => {
+    const notes = Object.fromEntries(groupModulators(V5, null).map((x) => [x.key, x.note ?? null]));
+    expect([notes.new, notes.ahm, notes.olderEc, notes.basic]).toEqual([null, null, RULES.olderGen, RULES.basicGen]);
   });
 
   it("loses no name between the sections", () => {

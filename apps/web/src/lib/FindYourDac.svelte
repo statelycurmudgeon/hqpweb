@@ -13,10 +13,9 @@
     type CellLabel,
     type RowNote,
   } from "./dac-table.ts";
-  import { CHECKED, CHIP_FAMILIES } from "./dacs.ts";
+  import { CHECKED, CHIP_FAMILIES, CUTOVERS } from "./dacs.ts";
 
   const ISSUES = "https://github.com/statelycurmudgeon/hqpweb/issues/new?template=dac-table.md";
-  const DATED_TITLE = "Before HQPlayer 5.11 (Feb 2025) reworked the modulators: newer ones may suit better.";
 
   let query = $state("");
   const groups = $derived(groupByMaker(filterModels(DAC_MODELS, query)));
@@ -26,14 +25,14 @@
   <span class="ans {c.tone}">{c.label}</span>
 {/snippet}
 
-{#snippet dated()}
-  <span class="dated" title={DATED_TITLE}>before 5.11's modulators</span>
+{#snippet dated(d: { label: string; title: string })}
+  <span class="dated" title={d.title}>{d.label}</span>
 {/snippet}
 
 <!-- Spaces are explicit: Svelte trims them at block edges. -->
 {#snippet note(n: RowNote)}
   {n.lead}{#each n.advice as a, i (i)}{` ${a.text} `}(<a href={a.url} target="_blank" rel="noopener noreferrer">{a.cite}</a
-    >{#if a.dated}, {@render dated()}{/if}){/each}{#if n.tail}{` ${n.tail}`}{/if}
+    >{#if a.dated}, {@render dated(a.dated)}{/if}){/each}{#if n.tail}{` ${n.tail}`}{/if}
 {/snippet}
 
 <details class="find">
@@ -91,7 +90,8 @@
   <p class="help">
     Not listed, or wrong? <a href={ISSUES} target="_blank" rel="noopener noreferrer">Report it on GitHub</a> with a link to the
     spec sheet. Rows were checked on {dayLabel(CHECKED)} against makers' pages, reviews and Signalyst's posts. Modulator advice marked
-    {@render dated()} predates HQPlayer 5.11 (Feb 2025).
+    {@render dated(CUTOVERS[0]!)} predates HQPlayer 5.11 (Feb 2025); AHM advice marked {@render dated(CUTOVERS[1]!)}
+    predates 6.1's AHM 4B (Sep 2026).
   </p>
 </details>
 

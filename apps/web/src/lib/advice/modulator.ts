@@ -20,12 +20,19 @@ export interface ModulatorAdvice {
   /** needs-dac: the DSD question isn't answered. use-pcm: the DAC converts DSD. */
   status: "needs-dac" | "use-pcm" | "ok";
   order: 5 | 7;
-  /** The DSD rate that suits the DAC, if any; DSD1024 with AHM is also fine for direct DACs. */
-  suggestedRate: { label: "DSD256" | "DSD512"; orDsd1024: boolean; rule: Rule } | null;
+  /**
+   * The DSD rate that suits the DAC, if any. Direct DACs: DSD1024 with AHM is also fine, and
+   * DSD512 too with a class-D or tube amp. `rules` cite each part, and any exception.
+   */
+  suggestedRate: { label: "DSD256" | "DSD512"; orDsd1024: boolean; orDsd512: boolean; rules: Rule[] } | null;
   /** Where to start, and the rules that moved it off HQPlayer's default. Null when nothing fits. */
   start: { name: string; isDefault: boolean; rules: Rule[] } | null;
-  /** The rest of the EC family, lightest first, as character choices. */
-  alternatives: { name: string; variant: Variant }[];
+  /**
+   * Others to compare by ear: the rest of the EC family, lightest first (the plain version
+   * first when the start is 512+fs, an option rather than an upgrade); at DSD1024, the
+   * other AHM versions instead, since the EC line doesn't suit that rate.
+   */
+  alternatives: { name: string }[];
   /** Whether the 512+fs versions are on offer at this rate, and whether they're suggested. */
   p512: { offered: boolean; suggested: boolean };
   /** Modulators this instance lists that the advice doesn't know: newer than our rules. */
@@ -61,9 +68,12 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
   if (!setup.dsd) return { status: "needs-dac", ...empty };
 
   const rate = POLICY.rateFor[setup.dsd];
-  const suggestedRate = rate
-    ? { label: rate, orDsd1024: setup.dsd === "direct", rule: setup.dsd === "direct" ? RULES.rateDirect : RULES.rateEss }
-    : null;
+  const direct = setup.dsd === "direct";
+  const ampRate = direct && is(POLICY.fifthOrderFor.amp, setup.amp);
+  const rateRules = direct
+    ? [RULES.rateDirect, ...(ampRate ? [RULES.ampRate] : [])]
+    : [RULES.rateEss, ...(setup.dsd === "remodulates" ? [RULES.akmPairRate] : [])];
+  const suggestedRate = rate ? { label: rate, orDsd1024: direct, orDsd512: ampRate, rules: rateRules } : null;
   if (setup.dsd === "converts") return { status: "use-pcm", ...empty, suggestedRate };
 
   const rules: Rule[] = [];
@@ -76,7 +86,7 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
   const ec = (v: Variant, p512: boolean) => `${base}-${v}${p512 ? " 512+fs" : ""}`;
   // The EC family at this rate: 512+fs when suggested and listed, else the regular versions.
   const use512 = p512Suggested && has(ec(POLICY.defaultVariant, true));
-  const family = POLICY.variants.map((v) => ({ name: ec(v, use512), variant: v })).filter((x) => has(x.name));
+  const family = POLICY.variants.map((v) => ec(v, use512)).filter(has);
 
   let start: ModulatorAdvice["start"] = null;
   if (rateHz >= POLICY.ahmFromHz) {
@@ -94,7 +104,15 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
       start = { name, isDefault, rules: isDefault ? [RULES.default] : rules };
     }
   }
-  const alternatives = family.filter((x) => x.name !== start?.name);
+  let alternatives: ModulatorAdvice["alternatives"];
+  if (start && modulatorIsAhm(start.name)) {
+    const other = order === 5 ? 7 : 5;
+    const ahm = [order, other].flatMap((o) => POLICY.ahmPreference.map((s) => `AHM${o}${s}`));
+    alternatives = ahm.filter((n) => n !== start?.name && has(n)).map((name) => ({ name }));
+  } else {
+    const plain = use512 ? [ec(POLICY.defaultVariant, false)].filter(has) : [];
+    alternatives = [...plain, ...family.filter((n) => n !== start?.name)].map((name) => ({ name }));
+  }
   return {
     status: "ok",
     order,
@@ -107,6 +125,8 @@ export function modulatorAdvice(input: ModulatorInput): ModulatorAdvice {
     rateKnown: rateHz > 0,
   };
 }
+
+const modulatorIsAhm = (name: string) => name.startsWith("AHM");
 
 function machineState(speed: number | null): ModulatorAdvice["machine"] {
   if (speed === null || !Number.isFinite(speed) || speed <= 0) return null;

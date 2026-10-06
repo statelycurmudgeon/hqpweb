@@ -3,6 +3,7 @@
   // still shows the one in use. Rows carry the app's usual hints (won't play here, failed
   // here before, generation) and the guide's badge on the starting point.
   import type { Section } from "./advice/catalogue.ts";
+  import RuleList from "./RuleList.svelte";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
   let {
@@ -29,7 +30,10 @@
 
 <ul class="list">
   {#each sections as s (s.key)}
-    <li class="group">{s.title} · {s.names.length}</li>
+    <li class="group">
+      {s.title} · {s.names.length}
+      {#if s.note}<div class="gnote"><RuleList rules={[s.note]} /></div>{/if}
+    </li>
     {#each isOpen(s) ? s.names : s.names.filter((n) => n === current) as name (name)}
       {@const it = byName.get(name)}
       {@const b = badges[name]}
@@ -73,6 +77,15 @@
     letter-spacing: 0.1em;
     color: var(--text);
     border-top: 1px solid var(--border);
+  }
+  .gnote {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+  .gnote :global(ul) {
+    list-style: none;
+    padding-left: 0;
   }
   .group:first-child {
     border-top: 0;

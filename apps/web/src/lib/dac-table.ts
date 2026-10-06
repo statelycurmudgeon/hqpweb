@@ -1,6 +1,6 @@
 // "Find your DAC" as shown: filtering the model rows, grouping them by maker, the labels
 // for the answer cells, and each row's note. The table itself is dacs.ts and dac-models.ts.
-import { isDated, type Advice, type ChipFamily, type DacModel, type DsdPath, type PcmPath } from "./dacs.ts";
+import { datedBy, type Advice, type ChipFamily, type DacModel, type DsdPath, type PcmPath } from "./dacs.ts";
 
 /** How a cell is shaded: the UI maps each to theme colours. */
 export type Tone = "warn" | "accent" | "ok" | "dim" | "plain";
@@ -72,8 +72,8 @@ export interface NoteAdvice {
   url: string;
   /** "Jussi, Aug 2025". */
   cite: string;
-  /** Modulator advice from before HQPlayer 5.11's modulators (dacs.ts, isDated). */
-  dated: boolean;
+  /** The newer modulator release this advice predates, if any (dacs.ts, CUTOVERS). */
+  dated: { label: string; title: string } | null;
 }
 
 /** A row's note: plain text before and after Signalyst's advice, which the UI links. */
@@ -85,11 +85,16 @@ export interface RowNote {
 
 export const OUR_READING = "The answers here are our reading, not Signalyst's.";
 
+const dated = (a: Advice): NoteAdvice["dated"] => {
+  const c = datedBy(a);
+  return c ? { label: c.label, title: c.title } : null;
+};
+
 const noteAdvice = (a: Advice): NoteAdvice => ({
   text: a.text,
   url: a.url,
   cite: `Jussi, ${monthLabel(a.date)}`,
-  dated: isDated(a),
+  dated: dated(a),
 });
 
 /** The note under a row: its note, native DSD rate, advice, our-reading flag and the models it isn't. */

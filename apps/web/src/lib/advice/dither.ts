@@ -1,6 +1,7 @@
 // Dither advice from the setup answers, the PCM rate, and the shapers this instance lists.
-// Two answers (review, 5 Oct 2026): a ladder DAC at the shaping rate and up gets LNS15,
-// NS9 or NS5 as equals; everything else gets TPDF or Gauss1 as equals. Never "none".
+// Two answers (review, 5 Oct 2026): a ladder DAC at the shaping rate and up gets noise
+// shaping (NS5 or NS9 at 352.8/384k; LNS15, NS9 or NS5 from 705.6k, LNS15 being built for
+// those rates); everything else gets TPDF or Gauss1 as equals. Never "none".
 import type { Setup } from "../api.ts";
 import { POLICY, RULES, type Rule } from "./policy.ts";
 
@@ -20,31 +21,39 @@ export interface DitherAdvice {
   start: string | null;
   rules: Rule[];
   /** What to set DAC Bits to, in HQPlayer's own settings (hqpweb can't read or set it). */
-  bits: { kind: "ladder" | "default" | "24"; rule: Rule | null } | null;
+  bits: { kind: "ladder" | "default" | "24" | "match"; rule: Rule | null } | null;
   /** The rate is too low for a ladder DAC: raise it if the DAC allows. */
   raiseRate: boolean;
-  /** The DAC takes DSD well: DSD output usually beats PCM. */
-  tryDsd: boolean;
+  /** The DAC takes DSD well, so DSD output usually beats PCM: the rule that says so, else null. */
+  tryDsd: Rule | null;
 }
 
 export function ditherAdvice(input: DitherInput): DitherAdvice {
   const { setup, rateHz, shapers } = input;
   const listed = (names: string[]) => names.filter((n) => shapers.includes(n));
+  const takesDsd = setup.dsd === "older-ess" || setup.dsd === "remodulates" || setup.dsd === "direct";
   const tryDsd =
-    setup.pcm === "delta-sigma" && (setup.dsd === "older-ess" || setup.dsd === "remodulates" || setup.dsd === "direct");
-  if (!setup.pcm) return { status: "needs-dac", group: [], start: null, rules: [], bits: null, raiseRate: false, tryDsd: false };
+    setup.pcm === "delta-sigma" && takesDsd
+      ? RULES.dsdBetter
+      : setup.pcm === "ladder" && setup.dsd === "direct"
+        ? RULES.holoDsd
+        : null;
+  if (!setup.pcm) return { status: "needs-dac", group: [], start: null, rules: [], bits: null, raiseRate: false, tryDsd: null };
 
   const ladder = setup.pcm === "ladder";
-  const bits24 = setup.link === "spdif" || setup.link === "i2s";
   const bits: DitherAdvice["bits"] = ladder
     ? { kind: "ladder", rule: RULES.ladderBits }
-    : { kind: bits24 ? "24" : "default", rule: null };
+    : setup.link === "spdif"
+      ? { kind: "24", rule: null }
+      : setup.link === "i2s"
+        ? { kind: "match", rule: RULES.i2sBits }
+        : { kind: "default", rule: null };
 
   if (ladder && rateHz <= 0) return { status: "needs-rate", group: [], start: null, rules: [], bits, raiseRate: false, tryDsd };
   if (ladder && setup.link !== "spdif" && rateHz >= POLICY.ladderShapingFromHz) {
-    const order = rateHz >= POLICY.lns15FromHz ? ["LNS15", "NS9", "NS5"] : ["NS5", "NS9", "LNS15"];
-    const group = listed(order);
-    const rules = [RULES.ladderShapers, ...(rateHz < POLICY.lns15FromHz ? [RULES.ladderAt384] : [])];
+    const high = rateHz >= POLICY.lns15FromHz;
+    const group = listed(high ? ["LNS15", "NS9", "NS5"] : ["NS5", "NS9"]);
+    const rules = [high ? RULES.ladderShapers : RULES.ladderAt384];
     return { status: "ok", group, start: group[0] ?? null, rules, bits, raiseRate: false, tryDsd };
   }
   const group = listed(["TPDF", "Gauss1"]);

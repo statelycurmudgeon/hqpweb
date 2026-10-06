@@ -114,13 +114,13 @@ describe("Find your DAC: a row's note", () => {
   it("cites each piece of advice as 'Jussi, Mon YYYY', with its link", () => {
     const n = rowNote(row("x", "Zeta", ["One"], "chip", { advice: [advice("2025-08", "dither")] }));
     expect(n.advice).toEqual([
-      { text: "Seventh order.", url: "https://community.roonlabs.com/t/1/2", cite: "Jussi, Aug 2025", dated: false },
+      { text: "Seventh order.", url: "https://community.roonlabs.com/t/1/2", cite: "Jussi, Aug 2025", dated: null },
     ]);
   });
 
   it("flags modulator advice from before HQPlayer 5.11's modulators as dated", () => {
     const n = rowNote(row("x", "Zeta", ["One"], "chip", { advice: [advice("2024-08"), advice("2025-03")] }));
-    expect(n.advice.map((a) => a.dated)).toEqual([true, false]);
+    expect(n.advice.map((a) => a.dated?.label ?? null)).toEqual(["before 5.11's modulators", null]);
   });
 
   it("ends with our-reading, then the models it isn't", () => {

@@ -48,6 +48,7 @@
     compareB = current;
     onpick(advice.start.name);
   }
+  const startIsAhm = $derived(advice.start?.name.startsWith("AHM") ?? false);
   const p512Name = $derived(advice.start ? `${advice.start.name} 512+fs` : "");
 </script>
 
@@ -99,10 +100,12 @@
       <div class="head">Rate</div>
       {#if advice.suggestedRate}
         <p>
-          {advice.suggestedRate.label} suits your DAC{#if advice.suggestedRate.orDsd1024}, or DSD1024 with an AHM modulator{/if}.
-          Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
+          {advice.suggestedRate.label} suits {setup.dsd === "remodulates"
+            ? "a newer ESS chip"
+            : "your DAC"}{#if advice.suggestedRate.orDsd512}, or DSD512 to cut ultrasonic noise further{/if}{#if advice.suggestedRate.orDsd1024},
+            or DSD1024 with an AHM modulator{/if}. Now: {rateText || "unknown"}. Change it under Advanced → Output rate.
         </p>
-        <RuleList rules={[advice.suggestedRate.rule]} />
+        <RuleList rules={advice.suggestedRate.rules} />
       {:else}
         <p>Now: {rateText || "unknown"}.</p>
       {/if}
@@ -141,15 +144,16 @@
           </div>
         {/if}
         {#if advice.p512.offered && names.includes(p512Name)}
-          <p class="note">
-            {advice.p512.suggested
-              ? `With the volume turned well down, try ${p512Name}: it keeps more room in the audible band.`
-              : `${p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.`}
-          </p>
+          <!-- Only when the start isn't already the 512+fs version, i.e. it isn't suggested. -->
+          <p class="note">{p512Name} is also offered at this rate; it matters when HQPlayer turns the volume well down.</p>
         {/if}
         {#if advice.alternatives.length}
-          <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
-          <RuleList rules={[RULES.variantsEqual]} />
+          {#if startIsAhm}
+            <p class="sub">The other AHM versions, to compare by ear:</p>
+          {:else}
+            <p class="sub">Other characters to try, by ear (they're equals, not a ranking):</p>
+            <RuleList rules={[RULES.variantsEqual]} />
+          {/if}
           <div class="alts">
             {#each advice.alternatives as a (a.name)}
               <button
@@ -170,8 +174,8 @@
       {#if advice.machine && advice.machine.state !== "keeps-up"}
         <p class="note warn">
           {advice.machine.state === "behind"
-            ? "HQPlayer is falling behind at these settings. A lighter variant, or a lower rate, should help."
-            : "HQPlayer is only just keeping up. If playback stutters, try a lighter variant."}
+            ? "HQPlayer is falling behind at these settings. A lower rate or a lighter filter helps most; a lighter variant only a little."
+            : "HQPlayer is only just keeping up. If playback stutters, a lower rate or a lighter filter helps most."}
         </p>
         <RuleList rules={[advice.machine.rule]} />
       {/if}

@@ -32,6 +32,7 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
   await expect(sheet(page)).toContainText(/newest ec line/i);
   await expect(sheet(page).getByRole("button", { name: /^DSD7 Gen/ })).toHaveAttribute("aria-current", "true");
   await expect(sheet(page).getByRole("button", { name: /^ASDM7ECv3/ })).toBeHidden();
+  await expect(sheet(page)).toContainText("more CPU for less"); // the older EC series. note
   await shot(page, "advice-1-list");
 
   // The guide: three answers, saved as they're given.
@@ -73,7 +74,7 @@ test("modulators: grouped list, then the guide's answers, starting point and Com
   await expect(step(page, "Your DAC")).toBeHidden();
 });
 
-test("dither: a ladder DAC at 384k is offered the shapers as equals, and one applies", async ({ page }) => {
+test("dither: a ladder DAC at 384k is offered NS5 or NS9 as equals, and one applies", async ({ page }) => {
   await openOn(page, "dither");
   await expect(row(page, "Dither")).toContainText("TPDF");
 
@@ -83,8 +84,11 @@ test("dither: a ladder DAC at 384k is offered the shapers as equals, and one app
     .getByRole("button", { name: /^Ladder/ })
     .click();
   await step(page, "The connection").getByRole("button", { name: /^USB/ }).click();
-  for (const n of ["NS5", "NS9", "LNS15"]) await expect(sheet(page).getByRole("button", { name: n })).toBeVisible();
+  for (const n of ["NS5", "NS9"]) await expect(sheet(page).getByRole("button", { name: n })).toBeVisible();
+  // LNS15 is built for 705.6k and up: not offered here (it stays in the List).
+  await expect(sheet(page).getByRole("button", { name: "LNS15" })).toBeHidden();
   await expect(sheet(page)).toContainText("DAC Bits");
+  await expect(sheet(page)).toContainText("distorts"); // never "none", with the reason
   await shot(page, "advice-3-dither");
 
   await sheet(page).getByRole("button", { name: "NS9" }).click();

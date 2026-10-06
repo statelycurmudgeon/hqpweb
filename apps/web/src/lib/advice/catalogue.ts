@@ -1,6 +1,7 @@
 // How the modulator and dither lists are grouped: by family, newest first, with the
 // older series folded. Names come from the instance's own list; a name the rules don't
 // know goes in its own section, so nothing HQPlayer offers is ever hidden.
+import { RULES, type Rule } from "./policy.ts";
 
 export interface Section {
   key: string;
@@ -9,6 +10,8 @@ export interface Section {
   names: string[];
   /** Shown open; a folded section still shows the one in use. */
   open: boolean;
+  /** A cited line under the heading, e.g. that the older series use more CPU for less. */
+  note?: Rule;
 }
 
 type Family = "new" | "ahm" | "amsdm" | "olderEc" | "basic";
@@ -28,6 +31,7 @@ const FAMILY_TITLES: Record<Family, string> = {
   basic: "Basic",
 };
 const OPEN: Record<Family, boolean> = { new: true, ahm: true, amsdm: false, olderEc: false, basic: false };
+const NOTES: Partial<Record<Family, Rule>> = { olderEc: RULES.olderGen, basic: RULES.basicGen };
 
 export function modulatorFamily(name: string): Family | null {
   return FAMILY_TESTS.find(([, re]) => re.test(name))?.[0] ?? null;
@@ -50,6 +54,7 @@ export function groupModulators(names: string[], order: 5 | 7 | null): Section[]
     title: FAMILY_TITLES[f],
     names: names.filter((n) => modulatorFamily(n) === f && mine(n)),
     open: OPEN[f],
+    ...(NOTES[f] ? { note: NOTES[f] } : {}),
   }));
   const unknown = names.filter((n) => modulatorFamily(n) === null);
   if (unknown.length) sections.push({ key: "unknown", title: "Newer than hqpweb's advice", names: unknown, open: true });

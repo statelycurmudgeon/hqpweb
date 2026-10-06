@@ -7,7 +7,7 @@
   import { api, type Setup } from "./api.ts";
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { groupDithers, groupModulators } from "./advice/catalogue.ts";
-  import { withGuideNotes } from "./advice/list-notes.ts";
+  import { withGuideNotes, withVolumeNotes } from "./advice/list-notes.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { ditherAdvice } from "./advice/dither.ts";
   import { savedMessage, type SetupKey } from "./setup-questions.ts";
@@ -79,7 +79,9 @@
   });
 
   const warnings = $derived(Object.fromEntries(items.filter((i) => i.warn).map((i) => [i.name, i.warn!])));
-  const listItems = $derived(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))));
+  const listItems = $derived(
+    withVolumeNotes(withGuideNotes(items, new Set(Object.keys(badges).filter((n) => badges[n]?.kind === "yours"))), answers),
+  );
 
   export async function open(opts: { tab?: "list" | "guide" } = {}) {
     if (opts.tab) setTab(opts.tab);

@@ -16,16 +16,14 @@ describe("dither advice", () => {
     expect([a.group, a.rules]).toEqual([["TPDF", "Gauss1"], [RULES.flatDither]]);
   });
 
-  it("gives a ladder DAC at 384 kHz NS5, NS9 or LNS15, NS5 first", () => {
+  it("gives a ladder DAC at 384 kHz NS5 or NS9: LNS15 is for 705.6k and up", () => {
     const a = advise({ setup: { pcm: "ladder", link: "usb" } });
-    expect([a.group, a.rules]).toEqual([
-      ["NS5", "NS9", "LNS15"],
-      [RULES.ladderShapers, RULES.ladderAt384],
-    ]);
+    expect([a.group, a.rules]).toEqual([["NS5", "NS9"], [RULES.ladderAt384]]);
   });
 
-  it("puts LNS15 first for a ladder DAC at 768 kHz", () => {
-    expect(advise({ setup: { pcm: "ladder", link: "usb" }, rateHz: 768_000 }).start).toBe("LNS15");
+  it("gives a ladder DAC at 768 kHz LNS15, NS9 or NS5, LNS15 first", () => {
+    const a = advise({ setup: { pcm: "ladder", link: "usb" }, rateHz: 768_000 });
+    expect([a.group, a.rules]).toEqual([["LNS15", "NS9", "NS5"], [RULES.ladderShapers]]);
   });
 
   it("tells a ladder DAC at 192 kHz to raise the rate, with flat dither meanwhile", () => {
@@ -55,9 +53,12 @@ describe("dither advice", () => {
     expect(advise({ setup: { pcm: "delta-sigma", link: "usb" } }).bits?.kind).toBe("default");
   });
 
-  it("sets DAC Bits to 24 over S/PDIF or I2S", () => {
-    const kinds = (["spdif", "i2s"] as const).map((link) => advise({ setup: { pcm: "delta-sigma", link } }).bits?.kind);
-    expect(kinds).toEqual(["24", "24"]);
+  it("sets DAC Bits to 24 over S/PDIF", () => {
+    expect(advise({ setup: { pcm: "delta-sigma", link: "spdif" } }).bits?.kind).toBe("24");
+  });
+
+  it("over I2S, says to match what the DAC takes, citing the manual", () => {
+    expect(advise({ setup: { pcm: "delta-sigma", link: "i2s" } }).bits).toEqual({ kind: "match", rule: RULES.i2sBits });
   });
 
   it("keeps a ladder DAC's own low DAC Bits whatever the link, citing the rule", () => {
@@ -65,11 +66,19 @@ describe("dither advice", () => {
   });
 
   it("suggests trying DSD for a delta-sigma DAC that takes DSD well", () => {
-    expect(advise({ setup: { pcm: "delta-sigma", dsd: "direct" } }).tryDsd).toBe(true);
+    expect(advise({ setup: { pcm: "delta-sigma", dsd: "direct" } }).tryDsd).toBe(RULES.dsdBetter);
   });
 
   it("doesn't suggest DSD for a DAC that converts DSD", () => {
-    expect(advise({ setup: { pcm: "delta-sigma", dsd: "converts" } }).tryDsd).toBe(false);
+    expect(advise({ setup: { pcm: "delta-sigma", dsd: "converts" } }).tryDsd).toBeNull();
+  });
+
+  it("suggests DSD for a ladder DAC with a direct DSD path, like Holo", () => {
+    expect(advise({ setup: { pcm: "ladder", dsd: "direct" } }).tryDsd).toBe(RULES.holoDsd);
+  });
+
+  it("doesn't suggest DSD for a ladder DAC without a direct DSD path", () => {
+    expect(advise({ setup: { pcm: "ladder", dsd: "converts" } }).tryDsd).toBeNull();
   });
 
   it("never offers none, or a shaper HQPlayer doesn't list", () => {

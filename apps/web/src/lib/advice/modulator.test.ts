@@ -36,7 +36,23 @@ describe("modulator advice: the DAC question", () => {
   });
 
   it("suggests DSD256, or DSD1024 with AHM, for a direct-DSD DAC", () => {
-    expect(advise({ setup: { dsd: "direct" } }).suggestedRate).toMatchObject({ label: "DSD256", orDsd1024: true });
+    expect(advise({ setup: { dsd: "direct" } }).suggestedRate).toEqual({
+      label: "DSD256",
+      orDsd1024: true,
+      orDsd512: false,
+      rules: [RULES.rateDirect],
+    });
+  });
+
+  it("adds DSD512 for a direct-DSD DAC with a class-D or tube amplifier, to cut ultrasonic noise", () => {
+    expect(advise({ setup: { dsd: "direct", amp: "class-d-or-tube" } }).suggestedRate).toMatchObject({
+      orDsd512: true,
+      rules: [RULES.rateDirect, RULES.ampRate],
+    });
+  });
+
+  it("warns that the AK4191 pair, which also re-processes DSD, does better below DSD512", () => {
+    expect(advise({ setup: { dsd: "remodulates" } }).suggestedRate?.rules).toEqual([RULES.rateEss, RULES.akmPairRate]);
   });
 
   it("sends a DAC that converts DSD to PCM, with no modulator to start on", () => {
@@ -62,6 +78,16 @@ describe("modulator advice: amplifier and volume", () => {
       name: "ASDM7EC-fast 512+fs",
       rules: [RULES.p512Volume],
     });
+  });
+
+  it("offers the plain version first, since 512+fs is an option, not an upgrade", () => {
+    const a = advise({ setup: { dsd: "direct", volume: "hqplayer" }, rateHz: DSD512 });
+    expect(a.alternatives.map((x) => x.name)).toEqual([
+      "ASDM7EC-fast",
+      "ASDM7EC-ul 512+fs",
+      "ASDM7EC-light 512+fs",
+      "ASDM7EC-super 512+fs",
+    ]);
   });
 
   it("doesn't suggest 512+fs at DSD256, even when HQPlayer sets the volume", () => {
@@ -113,6 +139,16 @@ describe("modulator advice: DSD1024 and names", () => {
       "ASDM7EC-light",
       "ASDM7EC-super",
     ]);
+  });
+
+  it("at DSD1024 offers the other AHM versions, not the EC line", () => {
+    const a = advise({ setup: { dsd: "direct" }, rateHz: DSD1024, modulators: V61 });
+    expect([a.start?.name, a.alternatives.map((x) => x.name)]).toEqual(["AHM7EC4B", ["AHM7EC8B", "AHM5EC4B", "AHM5EC8B"]]);
+  });
+
+  it("never offers AHM 5L as an alternative", () => {
+    const names = advise({ setup: { dsd: "direct" }, rateHz: DSD1024 }).alternatives.map((x) => x.name);
+    expect(names.filter((n) => n.endsWith("5L"))).toEqual([]);
   });
 
   it("names modulators the advice doesn't know: newer than our rules", () => {

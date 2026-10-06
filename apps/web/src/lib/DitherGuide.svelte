@@ -37,7 +37,8 @@
   const BITS = {
     ladder: "Set DAC Bits low in HQPlayer's settings (hqpweb can't read or set it).",
     default: "Leave DAC Bits at HQPlayer's default.",
-    "24": "Set DAC Bits to 24 in HQPlayer's settings: this link carries 24 bits.",
+    "24": "Set DAC Bits to 24 in HQPlayer's settings: S/PDIF carries 24 bits.",
+    match: "Set DAC Bits in HQPlayer's settings to what your DAC takes over I2S.",
   };
 </script>
 
@@ -107,9 +108,9 @@
       {/if}
       {#if advice.tryDsd}
         <p class="note">Your DAC takes DSD well: DSD output usually beats PCM. Try it under Advanced → Mode.</p>
-        <RuleList rules={[RULES.dsdBetter]} />
+        <RuleList rules={[advice.tryDsd]} />
       {/if}
-      <p class="sub">Never "none" for listening: it's for bit-perfect tests.</p>
+      <RuleList rules={[RULES.neverNone]} />
     </li>
   {/if}
 </ol>
