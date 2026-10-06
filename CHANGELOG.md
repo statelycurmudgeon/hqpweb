@@ -12,8 +12,21 @@ may change behaviour; upgrade notes say what you need to do.
   older series folded (the one in use always shows). **Guide** asks a few questions
   about your DAC, amplifier, volume and connection, and suggests where to start, with
   each suggestion linked to the Signalyst post it comes from. Suggestions are starting
-  points, chosen by name from your HQPlayer's own list; **Compare** switches between
-  the suggestion and what you were playing. Nothing is changed until you pick.
+  points, chosen by name from your HQPlayer's own list. Nothing is changed until you pick.
+  - **Rate and modulator together:** the guide offers pairs (for example DSD256 with
+    ASDM7EC-fast, or DSD1024 with AHM), each set as one change. hqpweb orders the two
+    so playback never passes through a pair that can't play.
+  - **A/B:** switch between a suggestion and your current setting while listening.
+  - **What each modulator is like:** CPU load and character for the EC variants and AHM,
+    with the post each comes from.
+  - The List keeps search and a **Works here** chip.
+- **Safety net for rate and modulator.** Picking a rate your modulator can't play at
+  (in Advanced), or a modulator your rate can't take (AHM below DSD1024), offers the
+  other half of a pair that plays. That's the only change hqpweb refuses on its own.
+- **When HQPlayer struggles:** at DSD1024, modulators other than AHM carry Signalyst's
+  note that they need a high-clock CPU; the "falling behind" warning waits until it
+  lasts, and names a recent change; and if HQPlayer stops answering, hqpweb says how to
+  restart it (Desktop or Embedded), and dims what it last showed.
 - **Settings → Your setup**, where the same answers can be seen and changed, per
   instance, with **Find your DAC**: a table of chips and common models.
 
@@ -21,6 +34,9 @@ may change behaviour; upgrade notes say what you need to do.
 
 - The DAC table follows Signalyst's 2025–26 advice: newer ESS chips are listed as
   re-processing DSD, and Denafrips as converting it (PCM output suits it better).
+- **Volume:** the guide suggests Signalyst's gain optimisation (HQPlayer at −3 dB, the
+  amplifier at the loudest you'd ever want, then turn down in HQPlayer or Roon). The
+  512+fs modulators are offered as an option at DSD512 and up, not as the starting point.
 - In the list, a row the guide suggests for your answers shows the guide's reason
   instead of an older, narrower note (for example, NS9 at 384 kHz for a ladder DAC).
 
