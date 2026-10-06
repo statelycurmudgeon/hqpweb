@@ -9,7 +9,7 @@
   import { withGuideNotes } from "./advice/list-notes.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { ditherAdvice } from "./advice/dither.ts";
-  import type { SetupKey } from "./setup-questions.ts";
+  import { savedMessage, type SetupKey } from "./setup-questions.ts";
   import ShaperList from "./ShaperList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
   import DitherGuide from "./DitherGuide.svelte";
@@ -103,7 +103,7 @@
     try {
       const r = await api.saveSetup(instanceId, { [key]: value });
       failed = false;
-      message = r.savedNow ? "Saved in Settings. This HQPlayer is now saved there too." : "Saved in Settings.";
+      message = `${savedMessage(r.savedNow)} Settings shows it too.`;
       onsaved();
     } catch (e) {
       failed = true;

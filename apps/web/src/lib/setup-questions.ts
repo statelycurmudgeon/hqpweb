@@ -107,7 +107,7 @@ export const SETUP_QUESTIONS: { [K in SetupKey]: SetupQuestion<K> } = {
     {
       title: "Your volume",
       question: "Do you set the volume in HQPlayer?",
-      help: "HQPlayer's own volume works well. Keep at least 3 dB of headroom: never above −3 dB. Turned down a lot, at DSD512 and up the 512+fs versions keep more room in the audible band.",
+      help: "HQPlayer's own volume works well. Keep at least 3 dB of headroom: never above −3 dB.",
       source: RULES.headroom,
       notSet: "",
     },

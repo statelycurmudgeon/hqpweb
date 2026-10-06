@@ -1,7 +1,7 @@
 <script lang="ts">
   // The rules behind a piece of advice, each linked to the post it comes from.
   import type { Rule } from "./advice/policy.ts";
-  import { monthLabel } from "./advice/cite.ts";
+  import { monthLabel } from "./dac-table.ts";
 
   let { rules }: { rules: readonly Rule[] } = $props();
 </script>
@@ -11,7 +11,7 @@
     {#each rules as r (r.text)}
       <li>
         {r.text}
-        {#if r.url}(<a href={r.url} target="_blank" rel="noopener noreferrer">{monthLabel(r.date)}</a
+        {#if r.url}(<a href={r.url} target="_blank" rel="noopener noreferrer">Jussi, {monthLabel(r.date)}</a
           >){:else if r.source}({r.source}){/if}
       </li>
     {/each}
