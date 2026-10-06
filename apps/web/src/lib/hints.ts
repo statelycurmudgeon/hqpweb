@@ -208,16 +208,20 @@ export function rateItems(c: Ctx) {
       disabled: !r.allowed,
       /** The modulator to change to with this rate, when the current one can't play there. */
       companion: ratio?.level === "hard" ? null : companionShaper(c, r.rate),
-      /** Can't play at all as things stand (rules): only a pair, or nothing, may be written. */
-      cantPlay: rule?.level === "hard",
+      /**
+       * The modulator can't play at this rate (its floor, by definition): only a pair, or
+       * nothing, may be written. A filter-ratio problem isn't refused: those rules are
+       * partly our inference on v5, so it's a warning, with rollback if it stops.
+       */
+      cantPlay: c.isSdm && !!r.rate && cantPlay(c.shaperName, r.rate),
     };
   });
 }
 
 /**
  * A rate and modulator as one choice, before anything is written. `invalid` comes only
- * from the rules (the manual's floors, measured stops): it can't play anywhere, so the
- * UI may refuse that write. `failedHere` comes from what this machine has done before:
+ * from the rules (the modulator's floor, the filter's ratio): shown as a warning; only a
+ * modulator below its floor is ever refused (cantPlay). `failedHere` comes from what this machine has done before:
  * information, never a refusal. `note` is a soft rule ("designed for DSD512 and up").
  */
 export function checkPair(c: Ctx, pair: { rateHz: number; shaper: string }) {

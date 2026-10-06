@@ -56,18 +56,16 @@
         <RuleList rules={v.rules} />
       {/if}
       {#if known?.invalid}
-        <!-- Can't play anywhere (rules), so this one write is refused; nothing learned is ever a refusal. -->
-        <p class="note warn">Can't play with the filter in use: {known.invalid}. Change the filter first.</p>
+        <!-- Pairs never break the modulator's floor; this is the filter's ratio: a warning, as elsewhere. -->
+        <p class="note warn">⚠ With the filter in use: {known.invalid}. If playback stops, it's rolled back.</p>
       {:else if known?.failedHere}<p class="note warn">⚠ {known.failedHere}</p>{/if}
       <div class="actions">
         {#if isNow(c)}
           <span class="using">✓ Now using</span>
         {:else}
-          <button class="primary" disabled={disabled || !!known?.invalid} onclick={() => onpick(c)}>Use</button>
-          <button
-            class="secondary"
-            disabled={disabled || !current || !currentRate || !!known?.invalid}
-            onclick={() => startCompare(p)}>Compare with what's playing</button
+          <button class="primary" {disabled} onclick={() => onpick(c)}>Use</button>
+          <button class="secondary" disabled={disabled || !current || !currentRate} onclick={() => startCompare(p)}
+            >Compare with what's playing</button
           >
         {/if}
       </div>
