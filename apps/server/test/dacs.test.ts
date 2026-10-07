@@ -95,6 +95,20 @@ describe("named DACs over the API", () => {
     await req("PUT", "/api/instances/mac/dac", { body: { dac: "main" } });
     expect(await bad()).toBe(0);
   });
+
+  it("refuses switching DAC while a change is running, so its failure lands on the right DAC", async () => {
+    const { req, view } = await start({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) });
+    await req("POST", "/api/instances/mac/dacs", { body: { name: "Desk", currentName: "Holo" } });
+    const f = fakes[0]!;
+    const target = f.lists.filters.find((x) => x.name === "poly-sinc-gauss-long")!.index;
+    const change = req("POST", "/api/instances/mac/change", { body: { filter1x: "poly-sinc-gauss-long" } });
+    // Once HQPlayer has the new filter, the change is watching playback: still running.
+    await expect.poll(() => f.rem.filter1x, { interval: 10 }).toBe(target);
+    expect((await req("PUT", "/api/instances/mac/dac", { body: { dac: "desk" } })).status).toBe(409);
+    await change;
+    expect((await view()).dac).toBe("main");
+    expect((await req("PUT", "/api/instances/mac/dac", { body: { dac: "desk" } })).status).toBe(200);
+  });
 });
 
 describe("presets for one DAC", () => {
