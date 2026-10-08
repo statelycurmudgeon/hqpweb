@@ -82,7 +82,6 @@ may change behaviour; upgrade notes say what you need to do.
 - **The meter strip keeps its bars and its Meter toggle** in a narrow column: the peak
   words give way instead. The open meter's dB scale sits beside the chart, not over the
   top bands, and what the views show is behind an (i) button.
-
 - **A volume change is quiet.** No "Applying…" or result message unless it goes wrong,
   and no Undo: the slider undoes itself. Undo stays for filters, shaping, rate and mode.
 - **The meter says it's after HQPlayer's volume** (measured: a −30 dBFS tone read −53 dB
