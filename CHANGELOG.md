@@ -72,6 +72,9 @@ may change behaviour; upgrade notes say what you need to do.
 
 ### Fixed
 
+- **The app's files answer HEAD requests.** A browser asking for the icon that way
+  (Safari does) got "not found", which can leave a tab or a Dock app without hqpweb's
+  icon.
 - **The new layout uses a laptop's width.** Its two columns were capped at about 260 px
   each (a width rule that lost to another), so filter names and labels wrapped and the
   modulator was cut off. They now share up to 76rem, labels stay on one line, and long
