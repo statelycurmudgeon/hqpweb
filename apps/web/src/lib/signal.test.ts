@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoNote, healthWord, otherMode, pathSteps, seenWhen } from "./signal.ts";
+import { autoNote, healthWord, otherMode, pathSteps, seenWhen, switchPlan } from "./signal.ts";
 
 const PCM_RATES = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 352_800, 384_000, 705_600, 768_000];
 const DSD_RATES = [2_822_400, 5_644_800, 11_289_600, 22_579_200, 45_158_400];
@@ -110,5 +110,16 @@ describe("the other mode's tab", () => {
     const now = new Date("2026-10-08T15:00:00");
     expect(seenWhen("2026-10-08T13:42:00", now)).toMatch(/^today /);
     expect(seenWhen("2026-10-06T13:42:00", now)).toMatch(/^[A-Z][a-z]{2} /);
+  });
+});
+
+describe("switching mode: what the rate will be", () => {
+  it("goes back to the mode's last fixed rate", () => {
+    expect(switchPlan("DSD", 11_289_600)).toEqual({ rate: 11_289_600, ask: false });
+  });
+  it("asks for a DSD rate when none is known (auto would be the highest), not for PCM", () => {
+    expect(switchPlan("DSD", undefined)).toEqual({ rate: null, ask: true });
+    expect(switchPlan("DSD", 0)).toEqual({ rate: null, ask: true });
+    expect(switchPlan("PCM", undefined)).toEqual({ rate: null, ask: false });
   });
 });
