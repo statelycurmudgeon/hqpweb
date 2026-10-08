@@ -1,7 +1,7 @@
 // Chips for the modulator and dither lists in the v2 layout (docs/design-v2-layout.md
 // rule 2), as filter chips are in chips.ts. Every fact comes from the advice data
 // (advice/catalogue.ts families, advice/variants.ts load, the guide's starting point) or
-// from this machine's records; the guide's own words are reused ("CPU: …", "For your answers").
+// from this machine's records; the guide's own words are reused where they fit ("For your answers").
 import type { KeptUp } from "./api.ts";
 import { ditherGroupTitle, familyTitle, orderOf } from "./advice/catalogue.ts";
 import { heavyAt, variantNote } from "./advice/variants.ts";
@@ -29,8 +29,11 @@ export function shaperChips(
   if (o.badge && o.badge.kind !== "caution") out.push({ kind: "suggested", label: o.badge.text, key: `start:${o.badge.kind}` });
   if (o.isSdm) {
     if (o.rateHz && heavyAt(i.name, o.rateHz)) out.push({ kind: "fact", label: "heavy at this rate", key: "heavy" });
+    // Signalyst ranks load only among a line's variants, so the chip names the line:
+    // "EC line: heaviest" can't be read as this machine's load ("kept up here" is that).
     const load = variantNote(i.name)?.load;
-    if (load) out.push({ kind: "fact", label: `CPU: ${load}`, key: `load:${load}` });
+    const line = i.name.startsWith("AHM") ? "AHM" : "EC line";
+    if (load) out.push({ kind: "fact", label: `${line}: ${load}`, key: `load:${line}: ${load}` });
     const order = orderOf(i.name);
     if (order) out.push({ kind: "fact", label: order === 5 ? "fifth order" : "seventh order", key: `order:${order}` });
   }
@@ -44,7 +47,7 @@ export function shaperChips(
 export const SHAPER_GROUPS = [
   { prefix: "family:", label: "Family" },
   { prefix: "order:", label: "Order" },
-  { prefix: "load:", label: "CPU" },
+  { prefix: "load:", label: "Load in its line" },
   { prefix: "gen:", label: "Gen" },
 ] as const;
 

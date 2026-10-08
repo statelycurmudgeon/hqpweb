@@ -19,7 +19,7 @@ describe("a modulator's chips", () => {
       "in use",
       "✓ kept up here (1.8×)",
       "For your answers",
-      "CPU: heaviest",
+      "EC line: heaviest",
       "seventh order",
       "Newest EC line",
       "Gen 7",
@@ -39,6 +39,11 @@ describe("a modulator's chips", () => {
     expect(labels(shaperChips({ name: "ASDM7EC-fast" }, { ...sdm, rateHz: DSD1024 }))).toContain("heavy at this rate");
     expect(labels(shaperChips({ name: "ASDM7EC-fast" }, sdm))).not.toContain("heavy at this rate");
     expect(labels(shaperChips({ name: "AHM7EC8B" }, { ...sdm, rateHz: DSD1024 }))).not.toContain("heavy at this rate");
+  });
+
+  it("names the line a load is ranked in, never a bare CPU load", () => {
+    expect(labels(shaperChips({ name: "ASDM5EC-ul" }, sdm))).toContain("EC line: lightest");
+    expect(labels(shaperChips({ name: "AHM7EC8B" }, sdm))).toContain("AHM: light");
   });
 
   it("says nothing it doesn't know: no load, order or family for a name the advice lacks", () => {
@@ -66,7 +71,7 @@ describe("filtering the modulator list", () => {
   }));
   it("puts family, order, CPU and Gen in drop-downs", () => {
     const g = grouped(facets(rows.map((r) => r.chips)), SHAPER_GROUPS);
-    expect(g.groups.map((x) => x.label)).toEqual(["Family", "Order", "CPU"]);
+    expect(g.groups.map((x) => x.label)).toEqual(["Family", "Order", "Load in its line"]);
     expect(g.chips).toEqual([]);
   });
   it("narrows by order and family together", () => {
