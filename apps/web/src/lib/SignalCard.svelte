@@ -8,7 +8,7 @@
   import { formatRate, type Capabilities, type Change, type Snapshot } from "./api.ts";
   import type { rateItems as rateItemsOf } from "./hints.ts";
   import { pickRate } from "./rate-pick.ts";
-  import { autoNote, DSD_CHOICES, healthWord, otherMode, pathSteps, seenWhen, switchPlan } from "./signal.ts";
+  import { autoNote, DSD_CHOICES, healthWord, otherMode, pathSteps, rateInMode, seenWhen, switchPlan } from "./signal.ts";
   import type { SpeedClass } from "./speed.ts";
 
   /** How playback carries on after a mode switch (change-engine.ts, pauseForModeSwitch). */
@@ -52,13 +52,17 @@
   } = $props();
 
   const sdm = $derived(caps.mode.name.startsWith("SDM"));
+  /** The rate in use, unless it's a stale reading from the other mode (signal.ts rateInMode). */
+  const out = $derived(rateInMode(outRate, caps.mode.name));
   const shaper = $derived(caps.shapers.find((s) => s.index === snap.state.shaper)?.name ?? "");
-  const steps = $derived(pathSteps({ source, filter: inUseFilter, shaper, outRate, modeName: caps.mode.name, dac: dacName }));
+  const steps = $derived(
+    pathSteps({ source, filter: inUseFilter, shaper, outRate: out, modeName: caps.mode.name, dac: dacName }),
+  );
   const auto = $derived(
     autoNote({
       sdm,
       auto: snap.state.rate === 0,
-      outRate,
+      outRate: out,
       filter: inUseFilter,
       source,
       shaper,

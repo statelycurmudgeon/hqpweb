@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoNote, healthWord, otherMode, pathSteps, seenWhen, switchPlan } from "./signal.ts";
+import { autoNote, healthWord, otherMode, pathSteps, rateInMode, seenWhen, switchPlan } from "./signal.ts";
 
 const PCM_RATES = [44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 352_800, 384_000, 705_600, 768_000];
 const DSD_RATES = [2_822_400, 5_644_800, 11_289_600, 22_579_200, 45_158_400];
@@ -121,5 +121,16 @@ describe("switching mode: what the rate will be", () => {
     expect(switchPlan("DSD", undefined)).toEqual({ rate: null, ask: true });
     expect(switchPlan("DSD", 0)).toEqual({ rate: null, ask: true });
     expect(switchPlan("PCM", undefined)).toEqual({ rate: null, ask: false });
+  });
+});
+
+// Seen on hqp-dev (2026-10-08): switched to DSD while paused, HQPlayer still reported
+// PCM's last rate (768k) until playback started, and the card showed it as DSD's.
+describe("a rate only counts in its own mode", () => {
+  it("drops a PCM rate reported while in DSD, and a DSD rate while in PCM", () => {
+    expect(rateInMode(768_000, "SDM (DSD)")).toBe(0);
+    expect(rateInMode(45_158_400, "PCM")).toBe(0);
+    expect(rateInMode(11_289_600, "SDM (DSD)")).toBe(11_289_600);
+    expect(rateInMode(705_600, "PCM")).toBe(705_600);
   });
 });

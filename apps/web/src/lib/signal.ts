@@ -117,3 +117,13 @@ export function switchPlan(target: "DSD" | "PCM", seenRate: number | undefined):
   if (seenRate) return { rate: seenRate, ask: false };
   return { rate: null, ask: target === "DSD" };
 }
+
+/**
+ * A reported output rate, only if it belongs to the mode in use; else 0 (unknown). After
+ * a mode switch while paused, HQPlayer keeps reporting the old mode's last rate until
+ * playback starts (seen 2026-10-08: 768k shown for DSD).
+ */
+export function rateInMode(hz: number, modeName: string): number {
+  const dsdRate = hz >= 2_822_400 && hz % 44_100 === 0;
+  return modeName.startsWith("SDM") === dsdRate ? hz : 0;
+}
