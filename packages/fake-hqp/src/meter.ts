@@ -56,9 +56,11 @@ export class FakeMeter {
     // Invented, so the Width view has something to show: the right channel's phase turns
     // with frequency (bass mono, the top wide), with the same magnitudes as the left, so
     // levels and bands are identical on both sides.
+    // Invented too: a "drum hit" ~once a second (12 dB up for one frame), for the timing dot.
+    const hit = k % 40 === 20 ? 12 : 0; // not frame 0: the first frame shows the steady level
     const turn = (i: number) => Math.min(0.6, i / N) * Math.PI;
     const chan = (phase: (i: number) => number) => ({
-      levels: [v + 2, v, v - 10, v - 8] as [number, number, number, number],
+      levels: [v + 2 + hit, v + hit, v - 10, v - 8] as [number, number, number, number],
       re: Float32Array.from({ length: N }, (_, i) => mag(i) * Math.cos(phase(i))),
       im: Float32Array.from({ length: N }, (_, i) => mag(i) * Math.sin(phase(i))),
     });

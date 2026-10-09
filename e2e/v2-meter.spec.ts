@@ -39,13 +39,22 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await expect(about).toContainText("after HQPlayer's volume");
   // Timing follows HQPlayer's output buffer (the fake reports 1.05 s), nudged by ear.
   const timing = meter.locator(".timing");
-  await expect(timing).toContainText("waits 0.5 s");
+  await expect(timing).toContainText("waits 0.55 s");
   await expect(timing).toContainText("what you hear (HQPlayer reports 1.0 s of output buffer)");
   await timing.getByRole("button", { name: "Meter later" }).click();
-  await expect(timing).toContainText("waits 0.6 s");
-  await expect(timing).toContainText("+0.1 s");
+  await expect(timing).toContainText("waits 0.80 s");
+  await expect(timing).toContainText("+0.25 s");
+  // The dot flashes on each hit the meter sees (the fake has one about every second).
+  await expect(timing.locator(".beat.hit")).toHaveCount(1, { timeout: 5000 });
+  // Earlier stops where the meter would have to show music before it plays.
+  const earlier = timing.getByRole("button", { name: "Meter earlier" });
+  for (let i = 0; i < 4 && (await earlier.isEnabled()); i++) await earlier.click();
+  await expect(timing).toContainText("waits 0.00 s");
+  await expect(earlier).toBeDisabled();
+  await expect(timing).toContainText("can't go earlier");
   await timing.getByRole("button", { name: "Auto" }).click();
-  await expect(timing).toContainText("waits 0.5 s");
+  await expect(timing).toContainText("waits 0.55 s");
+  await expect(earlier).toBeEnabled();
   await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
   // Stereo: left and right from the centre; the gutter labels frequency, the axis L and R.
   await meter.getByRole("button", { name: "Stereo" }).click();

@@ -5,7 +5,7 @@
 // Read-only: the port takes no commands. Measured cost to HQPlayer: none (2026-10-08, PCM
 // 384k on Linux; DSD256 and DSD1024 on macOS, alternating runs).
 import { createConnection, type Socket } from "node:net";
-import { bandEdges, condense, edgeHz, frameSize, parseMeterFrame, type MeterFrame } from "@app/protocol";
+import { bandEdges, condense, edgeHz, frameSize, parseMeterFrame, peakAcross, type MeterFrame } from "@app/protocol";
 import { MeterPacer } from "./meter-pace.ts";
 
 export interface MeterEvent {
@@ -103,7 +103,8 @@ export class MeterStream {
         const edges = bandEdges(frame.length, frame.bandwidth);
         this.edges = { key, edges, hz: edgeHz(edges, frame.length, frame.bandwidth).map((x) => Math.round(x)) };
       }
-      Object.assign(e, condense(frame, this.edges.edges), { edgesHz: this.edges.hz });
+      const c = condense(frame, this.edges.edges);
+      Object.assign(e, c, { levels: peakAcross(c.levels, this.pacer.passed()), edgesHz: this.edges.hz });
     }
     for (const l of this.listeners) {
       try {

@@ -36,3 +36,19 @@ describe("pacing burst frames", () => {
     expect(p.live(3500)).toBe(false);
   });
 });
+
+describe("frames passed at each tick", () => {
+  it("hands over every frame it moves past, so a peak in a skipped one isn't lost", () => {
+    const p = new MeterPacer<number>();
+    const seen: number[] = [];
+    let next = 0;
+    for (let t = 0; t < 3000; t += 50) {
+      if (t % 250 === 0) for (let i = 0; i < 12; i++) p.push(next++, t);
+      p.take(t);
+      seen.push(...p.passed());
+    }
+    // Every frame up to the last one shown, in order, once (none trimmed at this rate).
+    expect(seen).toEqual(Array.from({ length: seen.length }, (_, i) => i));
+    expect(seen.length).toBeGreaterThan(100);
+  });
+});

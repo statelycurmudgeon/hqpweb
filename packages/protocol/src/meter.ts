@@ -128,6 +128,19 @@ export function bandCorrelation(l: { re: ArrayLike<number>; im: ArrayLike<number
 }
 
 /**
+ * Condensed levels (condense) with each side's peak raised to the loudest among `frames`, the
+ * frames passed since the last update. Only one of them is shown, so without this a one-frame
+ * peak (a drum hit) is dropped more often than not (two frames a tick in PCM, more in DSD).
+ */
+export function peakAcross(levels: number[][], frames: { chans: { levels: ArrayLike<number> }[] }[]): number[][] {
+  if (frames.length < 2) return levels;
+  return levels.map((l, c) => {
+    const p = Math.max(...frames.map((f) => f.chans[c]?.levels[1] ?? -386));
+    return p > -300 && r1(p) > l[1]! ? [l[0]!, r1(p), l[2]!, l[3]!] : l;
+  });
+}
+
+/**
  * Per channel: the four levels and the loudest bin in each band (bands from bandEdges), in
  * dB; with two or more channels, the first two's correlation per band (bandCorrelation).
  */
