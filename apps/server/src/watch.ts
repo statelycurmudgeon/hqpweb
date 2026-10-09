@@ -106,21 +106,56 @@ function judgeSpeed(run: Sample[], timing: WatchTiming, final: boolean): Verdict
     : { kind: "struggling", detail: `playing at ${(speed * 100).toFixed(0)}% of real time` };
 }
 
-/** Sample until a verdict is reached or time runs out. */
+export interface Clock {
+  now(): number;
+  sleep(ms: number): Promise<void>;
+}
+const REAL_CLOCK: Clock = { now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
+
+/**
+ * A Status reply this slow means HQPlayer was busy, not that playback failed. Normal
+ * replies take ~1-300 ms (measured). Measured 2026-10-09 (Desktop 5.35.10, macOS, DSD256):
+ * SetFilter to sinc-L was acknowledged at once, then every request waited 9.4 s while
+ * HQPlayer built the filter; the position stayed frozen ~1 s more, then played normally.
+ */
+export const BUSY_MS = 2000;
+/** Stop waiting once HQPlayer has been busy this long in all. */
+export const MAX_BUSY_MS = 60_000;
+
+/** A verdict, and how long HQPlayer was too busy to answer (absent when it never was). */
+export type WatchResult = Verdict & { busyMs?: number };
+
+/**
+ * Sample until a verdict is reached or time runs out. If HQPlayer is busy (a reply takes
+ * BUSY_MS or more), what came before is set aside and the window starts again from when it
+ * answers: the grace period then covers its stale replies right after.
+ */
 export async function watchPlayback(
   sample: () => Promise<{ state: number; position: number }>,
   timing: WatchTiming,
-): Promise<Verdict> {
-  const t0 = Date.now();
-  const samples: Sample[] = [];
+  clock: Clock = REAL_CLOCK,
+): Promise<WatchResult> {
+  let t0 = clock.now();
+  let samples: Sample[] = [];
+  let busyMs = 0;
   for (;;) {
+    const asked = clock.now();
     const s = await sample();
-    const t = Date.now() - t0;
+    const took = clock.now() - asked;
+    if (took >= BUSY_MS) {
+      busyMs += took;
+      if (busyMs >= MAX_BUSY_MS)
+        return { kind: "inconclusive", detail: `HQPlayer was busy for ${Math.round(busyMs / 1000)} s`, busyMs };
+      t0 = clock.now();
+      samples = [];
+      continue;
+    }
+    const t = clock.now() - t0;
     samples.push({ t, ...s });
     const final = t >= timing.maxMs;
     const v = judge(samples, timing, final);
-    if (v.kind !== "pending") return v;
-    await new Promise((r) => setTimeout(r, timing.sampleMs));
+    if (v.kind !== "pending") return busyMs ? { ...v, busyMs } : v;
+    await clock.sleep(timing.sampleMs);
   }
 }
 

@@ -5,6 +5,7 @@ import {
   ageSentence,
   ageStop,
   filterFit,
+  slowQuestion,
   forgettable,
   fitsAsSet,
   sheetFit,
@@ -41,6 +42,7 @@ const caps = (knownBad: Failure[] = [], keptUp: KeptUp[] = [], o: Partial<Capabi
   volumeRange: { min: -60, max: 0, enabled: true },
   knownBad,
   keptUp,
+  slowSwitches: [],
   lastSeen: {},
   modeLists: {},
   ...o,
@@ -147,5 +149,11 @@ describe("the filter sheet's fit", () => {
     const f = failure({ at: daysAgo(30) });
     expect(filterFit(sheetFit(context(caps([f]), snap()), "1x", 90)!, "sinc-L").verdict).toBe("wont");
     expect(filterFit(sheetFit(context(caps([f]), snap()), "1x", 7)!, "sinc-L").verdict).toBe("try");
+  });
+
+  it("asks before a filter HQPlayer was slow to switch to, with the time it took", () => {
+    expect(slowQuestion("sinc-L", 9400)).toBe(
+      "HQPlayer took 9 s to switch to sinc-L here last time, and the music can stop for longer than that. Switch anyway?",
+    );
   });
 });

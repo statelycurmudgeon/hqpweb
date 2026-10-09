@@ -48,7 +48,11 @@ export async function startStack() {
   const fakes = new Map<string, FakeHqp>();
   const instances: InstanceConfig[] = [];
   for (const [id, flow] of Object.entries(await loadFlows())) {
-    const fake = new FakeHqp(loadProfile(flow.profile), { timeScale: 0, ...(flow.speed ? { speed: flow.speed } : {}) });
+    const fake = new FakeHqp(loadProfile(flow.profile), {
+      timeScale: 0,
+      ...(flow.speed ? { speed: flow.speed } : {}),
+      ...(flow.busyAfterFilter ? { busyAfterFilter: flow.busyAfterFilter } : {}),
+    });
     flow.setup?.(fake);
     await fake.listen();
     fakes.set(id, fake);

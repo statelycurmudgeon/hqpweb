@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMING, MAJOR_TIMING, judge, type Sample, type WatchTiming } from "../src/watch.ts";
+import { DEFAULT_TIMING, MAJOR_TIMING, judge, watchPlayback, type Sample, type WatchTiming } from "../src/watch.ts";
 
 const T: WatchTiming = { graceMs: 1000, healthyMs: 1000, maxMs: 4000, sampleMs: 250, minSpeed: 0.85 };
 
@@ -179,5 +179,51 @@ describe("after a rate or mode change (MAJOR_TIMING)", () => {
       MAJOR_TIMING,
     );
     expect([v.kind, v.at <= 12_000]).toEqual(["struggling", true]);
+  });
+});
+
+describe("watchPlayback while HQPlayer is busy", () => {
+  /** A clock the samples and the waits advance, so a 9.4 s block takes no real time. */
+  function clocked(reply: (n: number, t: number) => { ms: number; state: number; position: number }) {
+    let now = 0;
+    let n = 0;
+    const clock = { now: () => now, sleep: async (ms: number) => void (now += ms) };
+    const sample = async () => {
+      const r = reply(n++, now);
+      now += r.ms;
+      return { state: r.state, position: r.position };
+    };
+    return { clock, sample };
+  }
+
+  it("waits out a busy HQPlayer and judges from when it answers again (measured: sinc-L, 9.4 s)", async () => {
+    // Desktop 5.35.10 on a Mac, 2026-10-09: SetFilter acknowledged at once, then the next
+    // Status took 9.4 s; the position stayed frozen for ~1 s more, then played at ~3.5×.
+    const { clock, sample } = clocked((n, t) =>
+      n === 0
+        ? { ms: 9400, state: 2, position: 100 }
+        : { ms: 30, state: 2, position: t < 10_400 ? 100 : 100 + (t - 10_400) / 1000 },
+    );
+    const v = await watchPlayback(sample, DEFAULT_TIMING, clock);
+    expect(v).toEqual({ kind: "playing", busyMs: 9400 });
+  });
+
+  it("still catches a stall after the busy spell", async () => {
+    const { clock, sample } = clocked((n) =>
+      n === 0 ? { ms: 5000, state: 2, position: 100 } : { ms: 30, state: 0, position: 0 },
+    );
+    const v = await watchPlayback(sample, DEFAULT_TIMING, clock);
+    expect(v).toMatchObject({ kind: "stopped", busyMs: 5000 });
+  });
+
+  it("gives up, saying so, when HQPlayer stays busy", async () => {
+    const { clock, sample } = clocked(() => ({ ms: 20_000, state: 2, position: 100 }));
+    const v = await watchPlayback(sample, DEFAULT_TIMING, clock);
+    expect(v).toEqual({ kind: "inconclusive", detail: "HQPlayer was busy for 60 s", busyMs: 60_000 });
+  });
+
+  it("reports no busy time for an ordinary change", async () => {
+    const { clock, sample } = clocked((_n, t) => ({ ms: 30, state: 2, position: 100 + t / 1000 }));
+    expect(await watchPlayback(sample, DEFAULT_TIMING, clock)).toEqual({ kind: "playing" });
   });
 });

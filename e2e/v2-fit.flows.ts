@@ -17,6 +17,13 @@ export const flows: Flows = {
   // The same machine, for "Forget this" and for the switch that turns sorting off.
   v2forget: { ...slowSincL, name: "V2 forget" },
   v2plain: { ...slowSincL, name: "V2 plain" },
+  // Busy for 2.5 s after switching to sinc-Lm (measured on a Mac: sinc-L, 9.4 s), keeping up otherwise.
+  v2slow: {
+    name: "V2 slow switch",
+    profile: "desktop5-mac-sdm",
+    setup: slowSincL.setup,
+    busyAfterFilter: (f) => (f === "sinc-Lm" ? 2500 : 0),
+  },
   // Playing a 44.1k track at a fixed DSD256 with ASDM7EC-super, on a machine that can't keep
   // up with sinc-L or sinc-Lh at DSD256 and above (half real time), but can at DSD128.
   v2fit: {

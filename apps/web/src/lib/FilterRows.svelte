@@ -74,6 +74,7 @@
     current={cur1x}
     inUse={inUse === "1x"}
     keptUp={caps.keptUp}
+    slowSwitches={caps.slowSwitches}
     mode={caps.mode.name}
     rateHz={outRate}
     disabled={busy}
@@ -90,6 +91,7 @@
     current={curNx}
     inUse={inUse === "Nx"}
     keptUp={caps.keptUp}
+    slowSwitches={caps.slowSwitches}
     mode={caps.mode.name}
     rateHz={outRate}
     disabled={busy}

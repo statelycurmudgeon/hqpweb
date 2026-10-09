@@ -20,7 +20,7 @@ import type { Combo, LearnedStore } from "./learned.ts";
 import { MODE_BOUND } from "./preset-preview.ts";
 import { settingsOf } from "./settings.ts";
 import { decideVolume, VOLUME_EPS } from "./volume.ts";
-import { watchPlayback, type Verdict, type WatchTiming } from "./watch.ts";
+import { BUSY_MS, watchPlayback, type WatchResult, type WatchTiming } from "./watch.ts";
 
 /** Fields whose change can stop playback or overload the machine. */
 export const RISKY: readonly Field[] = ["mode", "rate", "filterNx", "filter1x", "shaper", "convolution", "matrixProfile"];
@@ -91,7 +91,9 @@ export class ChangeEngine {
     // the choice moves while the change is being watched.
     const scope = this.scope();
     const playingBefore = (await this.client.status()).state === 2;
+    const asked = Date.now();
     const applied = await this.applyFields(change, isUndo, lenient);
+    const applyMs = Date.now() - asked;
     const skipped = applied.skipped.length ? { skipped: applied.skipped } : {};
     const risky = applied.results.some((r) => RISKY.includes(r.field));
     const timing = applied.major ? this.timing.major : this.timing.quick;
@@ -102,6 +104,14 @@ export class ChangeEngine {
     else if (!risky) playback = { kind: "not-checked", detail: "this change can't stop playback" };
     else if (!playingBefore) playback = { kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" };
     else playback = await this.watch(timing);
+    // HQPlayer busy building a filter it switched to, while applying (a slow reply or
+    // read-back) or after (watch.ts): remember it for the filter sheet. Not for rate or
+    // mode changes, which are slow by design (MAJOR_TIMING).
+    const busyMs = (applyMs >= BUSY_MS ? applyMs : 0) + (("busyMs" in playback && playback.busyMs) || 0);
+    if (busyMs && !applied.major && applied.results.some((r) => r.field === "filter1x" || r.field === "filterNx")) {
+      playback = { ...playback, busyMs };
+      await this.recordSlow(busyMs, scope).catch((e: Error) => console.error(`could not record a slow switch: ${e.message}`));
+    }
 
     if (playback.kind === "stopped" || playback.kind === "struggling") {
       // A rule-explained stop is HQPlayer's design, not this machine's limit: don't learn it.
@@ -351,7 +361,7 @@ export class ChangeEngine {
    * restart an instance stalled by an invalid combination.
    */
 
-  private watch(timing: WatchTiming): Promise<Verdict> {
+  private watch(timing: WatchTiming): Promise<WatchResult> {
     return watchPlayback(async () => {
       const s = await this.client.status();
       return { state: s.state, position: s.position };
@@ -378,6 +388,22 @@ export class ChangeEngine {
       sourceRate: source,
       outputRate: status.activeRate,
       filterDescription: caps.filters.find((f) => f.name === filter)?.description,
+    });
+  }
+
+  /** The filter in use now, at this rate and source: HQPlayer was busy `busyMs` switching to it. */
+  private async recordSlow(busyMs: number, scope: string) {
+    const [caps, status] = await Promise.all([this.capabilities(), this.client.status()]);
+    if (!status.activeFilter || !status.source?.sampleRate) return;
+    this.learned.recordSlow({
+      instance: scope,
+      engine: caps.engine,
+      mode: caps.mode.name,
+      rateHz: status.activeRate,
+      filter: status.activeFilter,
+      sourceRate: status.source.sampleRate,
+      busyMs,
+      at: new Date().toISOString(),
     });
   }
 

@@ -16,11 +16,11 @@ import {
   type VolumeRange,
 } from "@app/protocol";
 import type { InstanceConfig } from "./config.ts";
-import { LearnedStore, type Combo, type Failure, type KeptUp } from "./learned.ts";
+import { LearnedStore, type Combo, type Failure, type KeptUp, type SlowSwitch } from "./learned.ts";
 import { KEPT_TIMING, KeptUpTracker, type KeptTiming } from "./kept-up.ts";
 import { HistoryStore, changedFields, type ChangeSource } from "./history.ts";
 import { MeterStream, type MeterEvent, type MeterTiming } from "./meter-stream.ts";
-import { DEFAULT_TIMING, MAJOR_TIMING, type Verdict, type WatchTiming } from "./watch.ts";
+import { DEFAULT_TIMING, MAJOR_TIMING, type WatchResult, type WatchTiming } from "./watch.ts";
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf, type Settings } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
@@ -79,6 +79,8 @@ export interface Capabilities {
   knownBad: Failure[];
   /** Combinations that kept up here, settled, with how fast (kept-up.ts). */
   keptUp: KeptUp[];
+  /** Filters HQPlayer was slow to switch to here (learned.ts SlowSwitch). */
+  slowSwitches: SlowSwitch[];
   /** Each mode's settings as hqpweb last saw them, for the DAC in use (history.ts). */
   lastSeen: ReturnType<HistoryStore["lastSeen"]>;
   /**
@@ -100,7 +102,8 @@ export interface FieldResult {
   note?: string;
 }
 
-export type PlaybackCheck = Verdict | { kind: "not-checked"; detail: string };
+/** What the check said, and how long HQPlayer was too busy to answer, if it was (watch.ts). */
+export type PlaybackCheck = WatchResult | { kind: "not-checked"; detail: string; busyMs?: number };
 
 export interface ApplyResult {
   /** Major = mode or rate changed (design §4.2). */
@@ -342,6 +345,7 @@ export class Instance {
         ...this.caps.value,
         knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
         keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
+        slowSwitches: this.learned.slowFor(this.scope(), info.engine, this.caps.value.mode.name),
         lastSeen: this.history.lastSeen(this.scope()),
         modeLists: this.modeLists(info.engine),
       };
@@ -383,6 +387,7 @@ export class Instance {
       matrixProfiles,
       knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
       keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
+      slowSwitches: this.learned.slowFor(this.scope(), info.engine, mode.name),
       lastSeen: this.history.lastSeen(this.scope()),
       modeLists: this.modeLists(info.engine),
     };

@@ -112,3 +112,32 @@ test("v2: with sorting off in Settings, one plain list and no question", async (
   await expect(sheet(page).getByRole("alertdialog")).toHaveCount(0);
   await expect(footer(page)).toContainText(/rolled back/i, { timeout: 10_000 });
 });
+
+test("v2: a filter HQPlayer was slow to switch to says so, and asks next time", async ({ page }) => {
+  await openV2(page, "v2slow");
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("sinc-Lm");
+  await sheet(page)
+    .getByRole("button", { name: /^sinc-Lm\b/ })
+    .click();
+  await expect(footer(page)).toContainText("✓", { timeout: 15_000 });
+
+  // Switch away (quick), then come back to the sheet: the chip, and a question before switching again.
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("gauss-long");
+  await sheet(page)
+    .getByRole("button", { name: /^poly-sinc-gauss-long\b/ })
+    .click();
+  await expect(footer(page)).toContainText("✓", { timeout: 15_000 });
+  await open1x(page);
+  await sheet(page).getByRole("searchbox").fill("sinc-Lm");
+  await expect(rowOf(page, "sinc-Lm")).toContainText(/slow to switch here \(\d+ s\)/);
+  await sheet(page)
+    .getByRole("button", { name: /^sinc-Lm\b/ })
+    .click();
+  const ask = sheet(page).getByRole("alertdialog", { name: "Try sinc-Lm anyway?" });
+  await expect(ask).toContainText("to switch to sinc-Lm here last time");
+  await shot(page, "v2-fit-3-slow-switch");
+  await ask.getByRole("button", { name: "Cancel" }).click();
+  await expect(ask).toHaveCount(0);
+});

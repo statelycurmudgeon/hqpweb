@@ -98,6 +98,17 @@ export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
   sessions: number;
   first: string;
 };
+/** A filter HQPlayer was slow to switch to here (server: learned.ts SlowSwitch). */
+export type SlowSwitch = {
+  mode: string;
+  rateHz: number;
+  filter: string;
+  sourceRate: number;
+  /** How long HQPlayer answered nothing while switching, the latest time. */
+  busyMs: number;
+  at: string;
+  count: number;
+};
 /** One entry of an instance's change history (server: history.ts), newest first from the API. */
 export type HistoryEntry = {
   at: string;
@@ -131,6 +142,7 @@ export type Capabilities = {
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
   keptUp: KeptUp[];
+  slowSwitches: SlowSwitch[];
   /** Each mode's settings as hqpweb last saw them, for the DAC in use (server: history.ts). */
   lastSeen: Record<string, { rate: number; filterNx: string; filter1x: string; shaper: string; at: string }>;
   /** Each mode's lists as last read on this engine, by name (server: history.ts); for choosing before switching. */
@@ -159,7 +171,12 @@ export type FieldResult = {
   applied: boolean;
   note?: string;
 };
-export type PlaybackCheck = { kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked"; detail?: string };
+export type PlaybackCheck = {
+  kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked";
+  detail?: string;
+  /** How long HQPlayer answered nothing after the change (a filter slow to build); absent when it always answered. */
+  busyMs?: number;
+};
 export type RoonZone = {
   id: string;
   name: string;

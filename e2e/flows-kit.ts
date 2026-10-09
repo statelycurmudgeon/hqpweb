@@ -27,6 +27,8 @@ export interface Flow {
   setup?: (fake: FakeHqp) => void;
   /** Simulated machine speed (1 = real time), e.g. a filter this machine can't keep up with. */
   speed?: FakeOptions["speed"];
+  /** How long it answers nothing after switching to a filter, in ms (a filter slow to build). */
+  busyAfterFilter?: FakeOptions["busyAfterFilter"];
   /** A fake meter stream beside it (the fake's meter.ts); without one, nothing listens there. */
   meter?: boolean;
 }

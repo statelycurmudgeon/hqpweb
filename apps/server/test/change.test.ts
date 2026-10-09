@@ -501,3 +501,23 @@ describe("transport", () => {
     expect((await req("POST", "/api/instances/mac/transport", { body: {} })).status).toBe(400);
   });
 });
+
+describe("a filter HQPlayer is slow to build", () => {
+  it("waits it out, judges playback, and remembers it as slow to switch here (measured: sinc-L, 9.4 s)", async () => {
+    await setup({ busyAfterFilter: (f) => (f === "sinc-L" ? 2500 : 0) });
+    const body = (await change({ filter1x: "sinc-L" })).json();
+    expect(body.playback.kind).toBe("playing");
+    expect(body.playback.busyMs).toBeGreaterThanOrEqual(2000);
+    expect(body.rolledBack).toBeNull();
+    expect((await caps()).slowSwitches).toEqual([
+      expect.objectContaining({ filter: "sinc-L", sourceRate: 44_100, rateHz: expect.any(Number), count: 1 }),
+    ]);
+  });
+
+  it("doesn't call an ordinary change slow", async () => {
+    await setup({ busyAfterFilter: (f) => (f === "sinc-L" ? 2500 : 0) });
+    const body = (await change({ filter1x: "poly-sinc-gauss-long" })).json();
+    expect(body.playback).toEqual({ kind: "playing" });
+    expect((await caps()).slowSwitches).toEqual([]);
+  });
+});

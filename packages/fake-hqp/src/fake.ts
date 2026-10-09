@@ -39,6 +39,8 @@ export class FakeHqp {
   playback: 0 | 1 | 2 | 3;
   /** Playback stopped by an incompatible combination; resumes by itself once valid. */
   stalled = false;
+  /** Until when (opts.now) HQPlayer answers nothing: building a filter (busyAfterFilter). */
+  private busyUntil = 0;
   /** After such a stop on its own playlist, Play shows state 2 but the position doesn't move until a Stop (measured, 5.35.10). */
   stuck = false;
   position = 0;
@@ -81,6 +83,7 @@ export class FakeHqp {
       convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
       modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
+      busyAfterFilter: opts.busyAfterFilter ?? (() => 0),
     };
     const i = profile.initial;
     this.modeIndex = Number(i.mode);
@@ -208,6 +211,11 @@ export class FakeHqp {
   /** Handle one request document; returns the reply without the trailing newline. */
   async handle(requestXml: string): Promise<Reply> {
     this.received.push(requestXml);
+    const wait = this.busyUntil - this.opts.now();
+    if (wait > 0) {
+      await new Promise((r) => setTimeout(r, wait));
+      this.lastTick = this.opts.now(); // playback didn't advance while busy (measured)
+    }
     this.tick();
     let req: Element;
     try {
@@ -400,6 +408,12 @@ export class FakeHqp {
       if (valid(x1)) this.rem.filter1x = x1!;
       // Filters have ratio rules too (manual §4.6), so a filter change can stall.
       this.checkCombo();
+      const inUse = this.lists.filters.find((f) => f.index === this.filterInUse)?.name ?? "";
+      const busy = this.opts.busyAfterFilter(inUse);
+      if (busy > 0) {
+        this.tick();
+        this.busyUntil = this.opts.now() + busy;
+      }
       return this.ok("SetFilter");
     },
 

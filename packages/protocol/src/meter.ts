@@ -1,6 +1,6 @@
 // HQPlayer's meter stream: binary frames on the control port + 1 (4322), sent while
 // playing, no command or auth (measured 2026-10-08 on Desktop 5.35.10 Linux and Desktop 5
-// macOS; matches the MIT SDK's clMeterInterface). Little-endian:
+// macOS; on Embedded 6.2.5 macOS, 2026-10-09; matches the MIT SDK's clMeterInterface). Little-endian:
 //   u32 version, u32 channels, u32 length (bins), u32 bits, f32 bandwidth (Hz),
 //   f32 xformTime (s), f32 gain, 4 reserved bytes; then per channel:
 //   f32 peakMax, peak, rms, rmsMax (dB; -386 until there is a reading),

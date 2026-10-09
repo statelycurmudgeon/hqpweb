@@ -43,6 +43,25 @@ export interface KeptUp extends Combo {
   at: string;
 }
 
+/**
+ * A filter HQPlayer took long to switch to here: it answered nothing meanwhile (watch.ts
+ * BUSY_MS), and the music can stop for longer still (measured: 9.4 s busy, ~20 s heard).
+ */
+export interface SlowSwitch {
+  instance: string;
+  engine: string;
+  mode: string;
+  /** Output rate, Hz. */
+  rateHz: number;
+  filter: string;
+  sourceRate: number;
+  /** How long HQPlayer was busy, the latest time. */
+  busyMs: number;
+  at: string;
+  /** How many times it's been seen. */
+  count: number;
+}
+
 const sameCombo = (a: Combo, b: Combo) =>
   a.mode === b.mode && a.rateHz === b.rateHz && a.filterNx === b.filterNx && a.filter1x === b.filter1x && a.shaper === b.shaper;
 
@@ -52,6 +71,7 @@ const ofInstance = (scope: string, instance: string) => scope === instance || sc
 export class LearnedStore {
   private failures: Failure[] = [];
   private kept: KeptUp[] = [];
+  private slow: SlowSwitch[] = [];
   private readonly path: string | null;
 
   /** path null = in memory only (tests). */
@@ -61,6 +81,7 @@ export class LearnedStore {
     // Saved before counts existed: once each, first seen when last seen.
     this.failures = loadList<Failure>(path, "failures").map((x) => ({ ...x, count: x.count ?? 1, first: x.first ?? x.at }));
     this.kept = loadOptionalList<KeptUp>(path, "kept");
+    this.slow = loadOptionalList<SlowSwitch>(path, "slow");
   }
 
   /** A failure: counted against the same instance, engine and combination when there is one. */
@@ -96,6 +117,24 @@ export class LearnedStore {
     this.save();
   }
 
+  /** A slow switch: counted against the same instance, engine, mode, rate, filter and source rate. */
+  recordSlow(s: Omit<SlowSwitch, "count">) {
+    const same = (x: SlowSwitch) =>
+      x.instance === s.instance &&
+      x.engine === s.engine &&
+      x.mode === s.mode &&
+      x.rateHz === s.rateHz &&
+      x.filter === s.filter &&
+      x.sourceRate === s.sourceRate;
+    const prev = this.slow.find(same);
+    this.slow = [...this.slow.filter((x) => !same(x)), { ...s, count: (prev?.count ?? 0) + 1 }];
+    this.save();
+  }
+
+  slowFor(instance: string, engine: string, mode: string): SlowSwitch[] {
+    return this.slow.filter((x) => x.instance === instance && x.engine === engine && x.mode === mode);
+  }
+
   keptFor(instance: string, engine: string, mode: string): KeptUp[] {
     return this.kept.filter((k) => k.instance === instance && k.engine === engine && k.mode === mode);
   }
@@ -125,6 +164,7 @@ export class LearnedStore {
   forget(instance: string) {
     this.failures = this.failures.filter((f) => !ofInstance(f.instance, instance));
     this.kept = this.kept.filter((k) => !ofInstance(k.instance, instance));
+    this.slow = this.slow.filter((x) => !ofInstance(x.instance, instance));
     this.save();
   }
 
@@ -132,7 +172,10 @@ export class LearnedStore {
     if (!this.path) return;
     mkdirSync(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.tmp`;
-    writeFileSync(tmp, JSON.stringify({ format: SETTINGS_FORMAT, failures: this.failures, kept: this.kept }, null, 1) + "\n");
+    writeFileSync(
+      tmp,
+      JSON.stringify({ format: SETTINGS_FORMAT, failures: this.failures, kept: this.kept, slow: this.slow }, null, 1) + "\n",
+    );
     renameSync(tmp, this.path);
   }
 }

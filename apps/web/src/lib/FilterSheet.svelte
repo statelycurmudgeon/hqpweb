@@ -11,9 +11,9 @@
   import { SLOT_NOTE, filterNote } from "./advice/filter-notes.ts";
   import ChipFacets from "./ChipFacets.svelte";
   import FitPanel from "./FitPanel.svelte";
-  import { formatRate, type Change, type Combo, type KeptUp } from "./api.ts";
-  import { filterFit, forgettable, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
-  import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, type FilterItemLike } from "./chips.ts";
+  import { formatRate, type Change, type Combo, type KeptUp, type SlowSwitch } from "./api.ts";
+  import { filterFit, forgettable, slowQuestion, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
+  import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, slowMsFor, type FilterItemLike } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
 
@@ -24,6 +24,7 @@
     current,
     inUse,
     keptUp,
+    slowSwitches = [],
     mode,
     rateHz,
     disabled = false,
@@ -39,6 +40,8 @@
     /** This slot is the one the playing track uses. */
     inUse: boolean;
     keptUp: KeptUp[];
+    /** Filters HQPlayer was slow to switch to here (server learned.ts). */
+    slowSwitches?: SlowSwitch[];
     mode: string;
     rateHz: number;
     disabled?: boolean;
@@ -67,6 +70,7 @@
       chips: filterChips(i, {
         inUse: inUse && i.name === current,
         keptLow: keptLowFor(keptUp, { mode, rateHz, slot, name: i.name }),
+        slowMs: slowMsFor(slowSwitches, { mode, rateHz, slot, name: i.name }),
       }),
     })),
   );
@@ -79,6 +83,18 @@
   const forgets = $derived(new Map([...fits].map(([n, f]) => [n, forgettable(f)])));
   const above = $derived(visible.filter((r) => !why.get(r.name)));
   const below = $derived(visible.filter((r) => why.get(r.name)));
+  // The question before picking (only while the sort is on): trouble here, or a slow switch.
+  const questions = $derived(
+    new Map(
+      fit
+        ? items.map((i) => {
+            const w = why.get(i.name);
+            const slow = slowMsFor(slowSwitches, { mode, rateHz, slot, name: i.name });
+            return [i.name, w ? tryAnyway(w) : slow != null ? slowQuestion(i.name, slow) : null];
+          })
+        : [],
+    ),
+  );
   /** The row asking "Try anyway?", and the row showing "What would it take?". */
   let asking = $state<string | null>(null);
   let taking = $state<string | null>(null);
@@ -99,7 +115,7 @@
   }
   function pick(i: Item, sure = false) {
     // A ratio it can't do goes to the caller's rate sheet; trouble here asks first.
-    if (!sure && !i.blocked && i.name !== current && why.get(i.name)) {
+    if (!sure && !i.blocked && i.name !== current && questions.get(i.name)) {
       asking = i.name;
       return;
     }
@@ -168,18 +184,18 @@
         {/if}
       </div>
       {#if about === r.name && notes.get(r.name)}<FilterNoteView note={notes.get(r.name)!} />{/if}
+      {#if asking === r.name && questions.get(r.name)}
+        <div class="ask" role="alertdialog" aria-label="Try {r.name} anyway?">
+          <p>{questions.get(r.name)}</p>
+          <button class="yes" onclick={() => pick(r.item, true)}>Try</button>
+          <button onclick={() => (asking = null)}>Cancel</button>
+        </div>
+      {/if}
       {#if why.get(r.name)}
         <p class="why">
           {why.get(r.name)}
           {#if forgets.get(r.name)}<button class="forget" onclick={() => onforget(forgets.get(r.name)!)}>Forget this</button>{/if}
         </p>
-        {#if asking === r.name}
-          <div class="ask" role="alertdialog" aria-label="Try {r.name} anyway?">
-            <p>{tryAnyway(why.get(r.name)!)}</p>
-            <button class="yes" onclick={() => pick(r.item, true)}>Try</button>
-            <button onclick={() => (asking = null)}>Cancel</button>
-          </div>
-        {/if}
         <button class="take" aria-expanded={taking === r.name} onclick={() => (taking = taking === r.name ? null : r.name)}
           >What would it take?</button
         >

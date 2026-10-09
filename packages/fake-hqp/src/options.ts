@@ -31,6 +31,14 @@ export interface FakeOptions {
    * Embedded untested), so the fake assumes the worst. Default true.
    */
   modeSwitchWhilePlayingCrashes?: boolean;
+  /**
+   * After acknowledging SetFilter, how long HQPlayer answers nothing while it builds the
+   * filter now in use, in ms; playback doesn't advance meanwhile. Measured 2026-10-09
+   * (Desktop 5.35.10, macOS, DSD256, ASDM7EC-fast, 44.1k): sinc-L, 9.4 s, both times;
+   * poly-sinc-ext2, none. Default: never busy (the older measurement, a slow SetFilter
+   * reply, is DELAY.filterPrepare).
+   */
+  busyAfterFilter?: (filterName: string) => number;
 }
 
 /**
