@@ -17,25 +17,34 @@ Thanks for trying hqpweb. It's a beta: it works on the setups in the README's
 
 ## Install
 
-Follow the [README](README.md): three commands, then add your HQPlayer in
-Settings → General.
+Follow the [README](README.md#install): one file and one command, then add your
+HQPlayer in Settings → HQPlayer. [docs/install.md](docs/install.md) has the details
+and a troubleshooting list.
 
 ## What to try
 
 1. **Connect:** Scan now, or add by address. Does your instance show as answering?
 2. **Now playing:** while music plays, do the rate, mode and source look right, and
-   does "Processing" settle on Real-time ✓ after about 30 s?
-3. **Quick changes:** 1x and Nx filters, modulator or dither, volume. Does each show
-   a ✓ when HQPlayer has taken it?
-4. **Advanced:** mode, output rate and the toggles. Did a change apply, or roll back
-   with a clear reason?
-5. **Presets:** save the current settings, change something, apply the preset.
+   does the signal card's path line settle on "keeping up" after about 30 s?
+3. **Quick changes:** 1x and Nx filters, modulator or dither, rate, volume. Does each
+   show a ✓ when HQPlayer has taken it?
+4. **Guide me:** answer the questions. Do the suggestions make sense for your DAC, and
+   does Filters → at the end open the right filter list?
+5. **Filters that fit:** if a filter fails or rolls back, does it move under "Won't fit
+   as set" with a sensible reason next time? Does "What would it take?" suggest
+   something that then plays?
+6. **Meters:** open the meter. Does it move with the music, and line up with what you
+   hear (Earlier/Later to nudge it)?
+7. **Compare and History:** play two settings in turn; check History lists what you
+   changed.
+8. **Presets:** save the current settings, change something, apply the preset.
    If you have two instances, try a preset saved on one on the other.
-6. **Roon** (optional): connect, approve in Roon, pick the zone. Do the track, cover
+9. **Roon** (optional): connect, approve in Roon, pick the zone. Do the track, cover
    art, slider and buttons follow Roon?
-7. **Install itself:** anything in the README you had to guess at, or skip?
+10. **Install itself:** anything in the README or docs/install.md you had to guess at,
+    or skip?
 
 ## Reporting
 
 Open an issue with the "Test report" template. Your HQPlayer version and platform
-matter most. Embedded, HQPlayer 6 and Windows are all untested so far.
+matter most. HQPlayer 6 Desktop and Windows are untested so far, and the meter hasn't been verified on HQPlayer 6 Embedded.

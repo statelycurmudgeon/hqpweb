@@ -143,12 +143,9 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 
 ## Install
 
-You need **Docker** on a machine that can reach HQPlayer on TCP 4321.
-The image runs on amd64 and arm64 (e.g. a Raspberry Pi 4/5, an ARM NAS, Apple
-Silicon).
-
-**With Docker Compose** (recommended): save this as `docker-compose.yml` in a new
-folder, then run `docker compose up -d` there.
+You need **Docker** on a machine that can reach HQPlayer on TCP 4321 (amd64 or arm64:
+a NAS, a Raspberry Pi 4/5, a home server). Save this as `docker-compose.yml` in a new
+folder and run `docker compose up -d` there:
 
 ```yaml
 name: hqpweb
@@ -161,17 +158,12 @@ services:
     ports:
       - "4380:4380"
     volumes:
-      - config:/config # your instances, presets and settings
+      - config:/config # your HQPlayers, presets and what hqpweb has learned
 volumes:
   config:
 ```
 
-Update: `docker compose pull && docker compose up -d`. (The repository's
-[docker-compose.yml](docker-compose.yml) is the same, plus the optional settings
-below; `curl -fsSLO https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/docker-compose.yml`
-fetches it.)
-
-**With `docker run`** (e.g. for Synology, Unraid or Portainer):
+Or in one line (Synology, Unraid, Portainer):
 
 ```sh
 docker run -d --name hqpweb --restart unless-stopped --init \
@@ -179,51 +171,19 @@ docker run -d --name hqpweb --restart unless-stopped --init \
   ghcr.io/statelycurmudgeon/hqpweb:latest
 ```
 
-Update: `docker pull ghcr.io/statelycurmudgeon/hqpweb:latest`, then
-`docker rm -f hqpweb` and run the same command again. Settings live in the
-`hqpweb_config` volume (the same one Compose uses), so they're kept.
+Then open `http://<that machine's address>:4380` and add your HQPlayer in **Settings →
+HQPlayer**. On a phone, "Add to Home Screen" makes it a full-screen app.
 
-Then open `http://<this machine's IP>:4380` and **Settings → HQPlayer → Add** your
-HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Add to
-Home Screen" makes it a full-screen app.
+**[docs/install.md](docs/install.md)** has the rest:
 
-Before updating, skim [CHANGELOG.md](CHANGELOG.md). Settings → About shows the version
-and commit you're running; an open app offers to reload when the server has been
-updated.
-
-**From source** instead: clone the repository and run
-`docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`.
-
-## Options
-
-The repository's [docker-compose.yml](docker-compose.yml) reads these from a `.env`
-file next to it (then `docker compose up -d`). With the short example or `docker run`:
-pick the version in the image name (`hqpweb:0.1.0-beta.5`), the address and port in
-the port mapping (`127.0.0.1:8080:4380`), and set `ALLOWED_HOSTS` as an environment
-variable (`environment:` or `-e`).
-
-| Variable        | Default   | Use                                                                                                   |
-| --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.5` to stay on a release.                                       |
-| `PORT`          | `4380`    | Port the app listens on.                                                                              |
-| `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
-| `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
-
-**Discovery** ("Scan now") uses multicast, so it needs host networking (Linux only)
-and only sees the same network segment. Otherwise add instances by address. To turn
-it on, create `docker-compose.override.yml`:
-
-```yaml
-services:
-  controller:
-    network_mode: host
-    ports: !reset []
-    # BIND_ADDRESS doesn't apply with host networking; limit it here instead:
-    # environment: { HOST: 127.0.0.1 }
-```
-
-**Reverse proxy:** pass the `Host` header through, list the name in `ALLOWED_HOSTS`,
-and don't buffer `/api/instances/*/events`.
+- updating, pinning a version and rolling back;
+- where your settings live, and how to back them up;
+- the ports it uses;
+- options;
+- discovery;
+- reverse proxies (nginx, Caddy);
+- running without Docker;
+- what to check when something doesn't work.
 
 ## Roon (optional)
 
