@@ -7,6 +7,8 @@
   import RoonSettings from "./RoonSettings.svelte";
   import SetupSettings from "./SetupSettings.svelte";
   import RestartCapSettings from "./RestartCapSettings.svelte";
+  import { AGE_STOPS } from "./fit/evidence.ts";
+  import { ageSentence, ageStop } from "./fit/sheet.ts";
 
   let {
     instance,
@@ -166,6 +168,33 @@
       <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
 
       <label class="row">
+        <span>Sort filters by what's worked here</span>
+        <input type="checkbox" role="switch" checked={prefs.fitSort} onchange={(e) => set("fitSort", e.currentTarget.checked)} />
+      </label>
+      <p class="help">
+        In the new layout: filters that failed here, or probably would, go below the others, and picking one asks first. Off: one
+        plain list.
+      </p>
+      <label class="age">
+        <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
+        <input
+          type="range"
+          min="0"
+          max={AGE_STOPS.length - 1}
+          step="1"
+          value={ageStop(prefs.fitMaxAgeDays)}
+          disabled={!prefs.fitSort}
+          aria-label="Forget load results older than"
+          aria-valuetext={ageSentence(prefs.fitMaxAgeDays)}
+          oninput={(e) => set("fitMaxAgeDays", AGE_STOPS[Number(e.currentTarget.value)] ?? null)}
+        />
+      </label>
+      <p class="help">
+        A new machine, CUDA or a bigger buffer can change what keeps up. Older results are ignored, not deleted: change this back
+        and they count again.
+      </p>
+
+      <label class="row">
         <span>Open “Advanced” by default</span>
         <input
           type="checkbox"
@@ -246,6 +275,16 @@
   }
   .body[hidden] {
     display: none;
+  }
+  .age {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .age input {
+    width: 100%;
+    accent-color: var(--accent);
   }
   .tabs {
     display: flex;
