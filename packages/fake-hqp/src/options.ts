@@ -39,6 +39,12 @@ export interface FakeOptions {
    * reply, is DELAY.filterPrepare).
    */
   busyAfterFilter?: (filterName: string) => number;
+  /**
+   * Whether HQPlayer could fetch a URL added to its playlist. Measured 2026-10-09 (Embedded
+   * 6.2.5): one it can't fetch, or that isn't served as it wants, gets OK and isn't kept.
+   * Default: every URL can be fetched.
+   */
+  fetchable?: (uri: string) => boolean;
 }
 
 /**

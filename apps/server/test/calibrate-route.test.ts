@@ -59,3 +59,38 @@ describe("playing it through HQPlayer", () => {
     expect(fake.playlist).toEqual([`${base}/api/calibration.wav`]);
   });
 });
+
+describe("which address HQPlayer is given", () => {
+  /** A server whose page is opened at a name HQPlayer can't fetch (an HTTPS proxy, a tailnet name). */
+  async function behindName(fetchable: (uri: string) => boolean) {
+    const f = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, fetchable });
+    await f.listen();
+    const a = buildApp(
+      { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: f.port }] },
+      { allowedHosts: ["hqpweb.example"] },
+    );
+    const b = await a.listen(0, "127.0.0.1");
+    const r = await client(b)("POST", "/api/instances/mac/calibrate", {
+      body: {},
+      headers: { host: "hqpweb.example", origin: "http://hqpweb.example" },
+    });
+    const out = { status: r.status, body: r.json(), playlist: [...f.playlist], port: new URL(b).port };
+    await a.close();
+    await f.close();
+    return out;
+  }
+
+  it("falls back to this server's own address on its connection to HQPlayer", async () => {
+    const r = await behindName((u) => !u.includes("hqpweb.example"));
+    expect(r.status).toBe(200);
+    expect(r.playlist).toEqual([`http://127.0.0.1:${r.port}/api/calibration.wav`]);
+  });
+
+  it("says where it tried when HQPlayer can fetch neither", async () => {
+    const r = await behindName(() => false);
+    expect(r.status).toBe(502);
+    expect(r.body.error).toMatch(
+      /couldn't fetch the clap track from http:\/\/hqpweb\.example\/api\/calibration\.wav or http:\/\/127\.0\.0\.1:/,
+    );
+  }, 10_000); // up to 3 s per address, waiting for HQPlayer to keep it
+});

@@ -290,7 +290,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       return i.transport(body.action as TransportAction);
     },
     // Play the clap track for the tap calibration, from the address this page was opened at.
-    "POST calibrate": async (q, _r, i) => playClapTrack(i.client, `http://${q.headers.host}/api/calibration.wav`),
+    "POST calibrate": async (q, _r, i) => {
+      await i.client.status(); // an open connection, for its local address
+      const self = i.client.localAddress?.replace(/^::ffff:/, "");
+      const at = self && `http://${self.includes(":") ? `[${self}]` : self}:${q.socket.localPort}/api/calibration.wav`;
+      return playClapTrack(i.client, [`http://${q.headers.host}/api/calibration.wav`, ...(at ? [at] : [])]);
+    },
     "POST seek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };
       if (
