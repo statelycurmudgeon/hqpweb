@@ -1,6 +1,6 @@
 # Quick start: `docker compose up -d`, then open http://<this-machine's-IP>:4380
 # Update: `docker compose pull && docker compose up -d`.
-# Optional settings go in a .env file next to this one (see README → Options).
+# Optional settings go in a .env file next to this one (see docs/install.md → Options).
 # Building from source instead: see docker-compose.build.yml.
 # A fixed project name keeps the volume (and your settings) the same whatever folder
 # the repository was cloned into.
@@ -8,7 +8,7 @@ name: hqpweb
 
 services:
   controller:
-    # A release (HQPWEB_TAG=0.1.0-beta.3, say) or the newest (latest).
+    # A release (HQPWEB_TAG=0.1.0-beta.5, say) or the newest (latest).
     image: ghcr.io/statelycurmudgeon/hqpweb:${HQPWEB_TAG:-latest}
     container_name: hqpweb
     restart: unless-stopped
