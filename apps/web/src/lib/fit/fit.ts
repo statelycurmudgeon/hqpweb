@@ -22,6 +22,8 @@ export interface FitInput {
   sdm: boolean;
   /** HQPlayer 6's own ratio class for a filter (its description), when it gives one. */
   ratioOf?: (filter: string) => RatioClass | undefined;
+  /** False when the rate is Auto: HQPlayer then picks a rate the filter can do. */
+  ratioFixed?: boolean;
 }
 
 export interface Fit {
@@ -37,7 +39,7 @@ export const slotOf = (sourceRate: number) => (filterSlot(sourceRate) === "1x" ?
 export function fit(x: FitInput, failures: Failure[], kept: KeptUp[]): Fit {
   const filter = x.combo[slotOf(x.sourceRate)];
   const rules = [
-    ratioHint(filter, x.sourceRate, x.combo.rateHz, x.sdm, x.ratioOf?.(filter)),
+    x.ratioFixed === false ? undefined : ratioHint(filter, x.sourceRate, x.combo.rateHz, x.sdm, x.ratioOf?.(filter)),
     x.sdm ? modulatorHint(x.combo.shaper, x.combo.rateHz) : ditherHint(x.combo.shaper, x.combo.rateHz),
   ].filter((h): h is Hint => !!h);
   const load = loadEvidence(x.combo, x.sourceRate, failures, kept);
@@ -122,7 +124,7 @@ export function nearestFits(
         ...(t.change.shaper !== undefined ? { shaper: t.change.shaper } : {}),
         ...(t.change.rateHz !== undefined ? { rateHz: t.change.rateHz } : {}),
       };
-      const f = fit({ ...x, combo }, failures, kept);
+      const f = fit({ ...x, combo, ...(t.change.rateHz !== undefined ? { ratioFixed: true } : {}) }, failures, kept);
       const lighter = !!runNoHeavier(runOf(combo, x.sourceRate), start);
       return { ...t, s: { change: t.change, combo, fit: f, lighter } };
     })

@@ -56,6 +56,10 @@ describe("fit", () => {
     expect(fit(input({ filter1x: "poly-sinc-gauss-long" }), [], [kept()]).verdict).toBe("try");
   });
 
+  it("skips the ratio rule when the rate is Auto: HQPlayer picks one that fits", () => {
+    expect(fit({ ...input({ filter1x: "sinc-M" }, 48_000), ratioFixed: false }, [], []).verdict).toBe("try");
+  });
+
   it("keeps soft rules as notes, not a verdict", () => {
     const f = fit(input({ shaper: "ASDM7EC-super 512+fs" }), [], []);
     expect(f.verdict).toBe("try");
@@ -96,6 +100,18 @@ describe("nearest fits", () => {
     expect(s.map((x) => x.change.shaper)).not.toContain("ASDM7EC-fast");
     expect(s.map((x) => x.change.shaper)).not.toContain("AHM7EC8B");
     expect(s.every((x) => x.fit.verdict === "try" || x.fit.verdict === "fits")).toBe(true);
+  });
+
+  it("checks the ratio again for a rate it suggests, even from Auto", () => {
+    const s = nearestFits(
+      { ...input({ filter1x: "sinc-M" }, 48_000), ratioFixed: false },
+      new Set<Pin>(["filter", "shaper"]),
+      opts,
+      [],
+      [],
+    );
+    expect(s.map((x) => x.change.rateHz)).not.toContain(DSD128);
+    expect(s[0]?.change).toEqual({ rateHz: DSD256_48 });
   });
 
   it("tries two changes only when one won't do", () => {

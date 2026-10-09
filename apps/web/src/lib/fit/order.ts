@@ -33,10 +33,11 @@ const EC_CITES: Cite[] = [
   { label: "Jussi", url: roon("166213/2099"), date: "2026-01" },
 ];
 
-const taps = (from: string, to: string, n: string): [string, string, Basis] => [
+// `n`: the tap counts per unit of ratio (manual), for the reader; the sentence leaves them out.
+const taps = (from: string, to: string, _n: string): [string, string, Basis] => [
   from,
   to,
-  { says: `${from} has fewer taps than ${to} (${n}, times the ratio)`, cites: [M, H6], inferred: true },
+  { says: `${from} has fewer taps than ${to}`, cites: [M, H6], inferred: true },
 ];
 const same = (a: string, b: string): [string, string, Basis][] => {
   const basis: Basis = { says: `${a} and ${b} cost about the same CPU`, cites: [J_SAME_CPU], inferred: false };
