@@ -1,6 +1,6 @@
 // What each upsampling filter is like, for the (i) beside it: one family line and one line
 // of its own, in plain words, every claim cited. Paraphrased, never copied: HQPlayer 6's
-// built-in help (the newest Signalyst text), the HQPlayer 5.13 manual §4.6, and Jussi
+// built-in help, the HQPlayer 6.1.1 Desktop manual §4.6 (5.13's for filters 6 dropped), and Jussi
 // Laako's (Signalyst's developer) forum posts, dated, with older ones marked "possibly
 // dated" (RULES' age rule, policy.ts). Research and links: docs/filter-research.local.md
 // (private). Characters, not a ranking: HQPlayer's own n/5 ratings are relative, and past
@@ -19,7 +19,8 @@ export interface FilterNote {
 }
 
 const H6: Cite = { label: "HQPlayer 6 help" };
-const M: Cite = { label: "Manual 5.13 §4.6" };
+const M: Cite = { label: "Manual 6.1.1 §4.6" };
+const M5: Cite = { label: "Manual 5.13 §4.6" };
 const roon = (topicPost: string, slug: string) => `https://community.roonlabs.com/t/${slug}/${topicPost}`;
 const J = (slug: string, topicPost: string, date: string): Cite => ({ label: "Jussi", url: roon(topicPost, slug), date });
 const FILTERS_2024 = "which-hqp-filter-are-you-using-2024";
@@ -47,6 +48,9 @@ const is =
     names.includes(n);
 const re = (r: RegExp) => (n: string) => r.test(n);
 
+// HQPlayer 6.1.1 manual §4.6, for the Gaussians other than hires and halfband.
+const GAUSS_DSD = " In DSD output it runs in two stages, at least 16x in between.";
+
 const PHASE: Record<string, string> = {
   lp: "Linear phase: ringing before and after each transient, evenly.",
   mp: "Minimum phase: no ringing before a transient, more after it.",
@@ -60,7 +64,9 @@ const ENTRIES: Entry[] = [
   // ---- Gaussian ----
   {
     match: is("poly-sinc-gauss-long"),
-    line: "Long, very high attenuation, apodizing. HQPlayer's default 1x filter; Jussi calls it probably the most neutral, since it also corrects what the Apod counter finds.",
+    line:
+      "Long, very high attenuation, apodizing. HQPlayer's default 1x filter; Jussi calls it probably the most neutral, since it also corrects what the Apod counter finds." +
+      GAUSS_DSD,
     cites: [H6, M, J_DEFAULTS, J_NEUTRAL],
   },
   {
@@ -70,16 +76,24 @@ const ENTRIES: Entry[] = [
   },
   {
     match: is("poly-sinc-gauss-xla"),
-    line: "Extra long, apodizing. On 96 kHz sources Jussi suggests a hires filter instead: the extra length costs more than it gives.",
+    line:
+      "Extra long, apodizing. On 96 kHz sources Jussi suggests a hires filter instead: the extra length costs more than it gives." +
+      GAUSS_DSD,
     cites: [H6, M, J_XLA_96K],
   },
   {
     match: is("poly-sinc-gauss-xl"),
-    line: "Extra long and not apodizing: only for the cleanest recordings. Where the Apod counter stays at 0 it sounds practically the same as -xla (Jussi, possibly dated).",
+    line:
+      "Extra long and not apodizing: only for the cleanest recordings. Where the Apod counter stays at 0 it sounds practically the same as -xla (Jussi, possibly dated)." +
+      GAUSS_DSD,
     cites: [H6, M, J("which-hqp-filter-are-you-using-2015-2023", "6061/2124", "2021-12")],
   },
-  { match: is("poly-sinc-gauss-medium"), line: "Medium length, apodizing.", cites: [H6] },
-  { match: is("poly-sinc-gauss-short"), line: "Short, partly apodizing; whole-number upsampling only.", cites: [H6, M] },
+  { match: is("poly-sinc-gauss-medium"), line: "Medium length, apodizing." + GAUSS_DSD, cites: [H6, M] },
+  {
+    match: is("poly-sinc-gauss-short"),
+    line: "Short, partly apodizing; whole-number upsampling only." + GAUSS_DSD,
+    cites: [H6, M],
+  },
   {
     match: re(/^poly-sinc-gauss-halfband(-s)?$/),
     line: "Half-band: a little leakage near the top of the band (-s more), very high attenuation; not apodizing, so only for the cleanest recordings.",
@@ -88,7 +102,7 @@ const ENTRIES: Entry[] = [
   {
     match: is("poly-sinc-gauss"),
     line: "HQPlayer 5's Gaussian for any ratio, apodizing; HQPlayer 6 lists gauss-medium in its place (probably a rename, inferred).",
-    cites: [M],
+    cites: [M5],
   },
   {
     match: re(/^poly-sinc-gauss/),
@@ -106,7 +120,7 @@ const ENTRIES: Entry[] = [
   {
     match: is("poly-sinc-ext3"),
     line: "Very steep, eight times longer than ext2, apodizing; renamed poly-sinc-ext2-xla in 5.15.",
-    cites: [M, J_EXT3_RENAME],
+    cites: [M5, J_EXT3_RENAME],
   },
   { match: is("poly-sinc-ext2-xl"), line: "As ext2-xla but not apodizing: only for the cleanest recordings.", cites: [H6] },
   {
@@ -192,9 +206,9 @@ const ENTRIES: Entry[] = [
   {
     match: re(/^sinc-(S|M|Mx|MG|MGa)$/),
     family:
-      "Million-tap sinc: very long and sharp, mostly apodizing; power-of-two upsampling in practice (HQPlayer 6 says so to control apps, and hqpweb measured it).",
+      "Million-tap sinc: very long and sharp, mostly apodizing; power-of-two upsampling only (HQPlayer 6 and its manual say so; hqpweb measured it).",
     line: "",
-    cites: [H6],
+    cites: [H6, M],
   },
   {
     match: is("sinc-Lh"),
@@ -214,7 +228,12 @@ const ENTRIES: Entry[] = [
     line: "Average attenuation, increasingly long. Unlike sinc-L, it converts between 44.1k and 48k families.",
     cites: [H6, M, J_SINC_L],
   },
-  { match: re(/^sinc-(short|medium|long)/), family: "Adaptive-length sinc, any ratio, not apodizing.", line: "", cites: [H6, M] },
+  {
+    match: re(/^sinc-(short|medium|long)/),
+    family: "Adaptive-length sinc, not apodizing; any ratio (short, medium and long upsample only).",
+    line: "",
+    cites: [H6, M],
+  },
   // ---- classic and special ----
   {
     match: is("IIR"),
@@ -259,9 +278,9 @@ const ENTRIES: Entry[] = [
     line: "Better rejection than polynomial-1, one cycle of ringing each side. Not recommended.",
     cites: [H6, M],
   },
-  { match: is("closed-form-16M"), line: "16 million taps; offered only in DSD output.", cites: [H6, J_16M] },
-  { match: is("closed-form-M"), line: "One million taps.", cites: [H6] },
-  { match: is("closed-form-fast"), line: "A lighter, lower-precision version.", cites: [H6, M] },
+  { match: is("closed-form-16M"), line: "16 million taps; offered only in DSD output.", cites: [H6, M, J_16M] },
+  { match: is("closed-form-M"), line: "One million taps.", cites: [H6, M] },
+  { match: is("closed-form-fast"), line: "Lighter and less precise, tuned to about 24-bit PCM.", cites: [H6, M] },
   { match: is("closed-form"), line: "Closed-form interpolation with many taps.", cites: [H6, M] },
   { match: re(/^closed-form/), family: "Closed-form: power-of-two upsampling only, not apodizing.", line: "", cites: [H6, M] },
   { match: is("ASRC"), line: "Follows a varying input rate (asynchronous); heavy, and not recommended.", cites: [H6, M] },

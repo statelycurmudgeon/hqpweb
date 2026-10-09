@@ -45,6 +45,14 @@ describe("filter notes", () => {
   it("say nothing for a name they don't know (a newer HQPlayer)", () => {
     expect(filterNote("poly-sinc-future-9")).toBeNull();
   });
+  it("follow the 6.1.1 manual: Gaussians run in two stages for DSD, hires and halfband don't say so", () => {
+    const text = (n: string) => filterNote(n)!.lines.join(" ");
+    for (const n of ["short", "medium", "long", "xla", "xl"]) expect(text(`poly-sinc-gauss-${n}`)).toMatch(/two stages/);
+    for (const n of ["hires-lp", "halfband"]) expect(text(`poly-sinc-gauss-${n}`)).not.toMatch(/two stages/);
+    expect(text("sinc-medium")).toMatch(/upsample only/);
+    expect(filterNote("sinc-M")!.cites.map((c) => c.label)).toContain("Manual 6.1.1 §4.6");
+    expect(filterNote("poly-sinc-ext3")!.cites.map((c) => c.label)).toContain("Manual 5.13 §4.6");
+  });
   it("explain the two slots, with HQPlayer's defaults and the Apod rule", () => {
     expect(SLOT_NOTE.lines.join(" ")).toMatch(/1x filter is used for CD-rate sources/);
     expect(SLOT_NOTE.lines.join(" ")).toMatch(/Apod counter passes about 10/);
