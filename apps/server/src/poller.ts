@@ -47,6 +47,8 @@ export class StatusPoller {
   private readonly ownWrites: (() => { count: number; active: boolean }) | undefined;
   /** Every failed poll (restart-guard.ts: HQPlayer stopped answering). */
   private readonly onError: (() => void) | undefined;
+  /** Retry this soon after a failure instead of backing off (restart-guard.ts: catch HQPlayer the moment it's back). */
+  private readonly retryMs: (() => number | undefined) | undefined;
 
   constructor(
     client: HqpClient,
@@ -56,6 +58,7 @@ export class StatusPoller {
       onTick?: (status: Status, state: State) => void;
       ownWrites?: () => { count: number; active: boolean };
       onError?: () => void;
+      retryMs?: () => number | undefined;
     },
   ) {
     this.client = client;
@@ -64,6 +67,7 @@ export class StatusPoller {
     this.onTick = opts.onTick;
     this.ownWrites = opts.ownWrites;
     this.onError = opts.onError;
+    this.retryMs = opts.retryMs;
   }
 
   /** hqpweb itself just set the volume: not a jump. */
@@ -200,7 +204,7 @@ export class StatusPoller {
           this.onError?.();
           this.trail = [];
           this.processTrail = [];
-          next = Math.min(10_000, intervalMs * 4);
+          next = this.retryMs?.() ?? Math.min(10_000, intervalMs * 4);
         }
         if (gen !== this.pollGen) return; // stopped (or restarted) while this tick was in flight
         // One broken listener (e.g. a closed response) mustn't stop polling for everyone.

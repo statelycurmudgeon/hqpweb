@@ -26,6 +26,9 @@ import { settingsOf, type Settings } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
 import { ChangeEngine, type RoonTransport } from "./change-engine.ts";
 import { RestartGuard } from "./restart-guard.ts";
+
+/** How long after HQPlayer answers again before its settings count (see settleUntil). */
+const SETTLE_MS = 10_000;
 import { HttpError } from "./errors.ts";
 import { activeDac, scopeOf } from "./dac-scope.ts";
 
@@ -167,12 +170,18 @@ export class Instance {
       queueEveryMs: opts.queueEveryMs ?? 5000,
       ownWrites: () => ({ count: this.started, active: this.running > 0 }),
       onTick: (status, state) => {
+        if (this.downSince !== null) this.backAfterOutage();
         void this.noteSpeed(status, state).catch(() => undefined);
         void this.noteSettings(state).catch(() => undefined);
         const cap = this.restart.answered(state.volume, this.cfg.restartVolumeCap);
         if (cap !== null) void this.lowerAfterRestart(state.volume, cap).catch(() => undefined);
       },
-      onError: () => this.restart.failed(),
+      onError: () => {
+        this.restart.failed();
+        this.downSince ??= Date.now();
+      },
+      // With a cap set, retry quickly while HQPlayer is away: every second counts after a relaunch.
+      retryMs: () => (this.cfg.restartVolumeCap !== undefined ? 500 : undefined),
     });
     this.playWaitMs = opts.playWaitMs ?? 5000;
     this.engine = new ChangeEngine({
@@ -233,7 +242,7 @@ export class Instance {
    */
   private async noteSettings(state: State) {
     const gen = this.writes;
-    if (this.busy) return;
+    if (this.busy || Date.now() < this.settleUntil) return;
     const caps = await this.capabilities();
     // A poll that overlapped one of hqpweb's writes saw a moment in between: ignore it
     // (the write sets the next baseline itself).
@@ -521,6 +530,19 @@ export class Instance {
   }
 
   // ---- restart recovery (restart-guard.ts) ----------------------------------------
+  /** When HQPlayer stopped answering; null while it answers. */
+  private downSince: number | null = null;
+  /**
+   * Until then, settings aren't logged or remembered: HQPlayer starting up reports passing
+   * states (seen 2026-10-09 on the office: mode flipping DSD/PCM within a second of a
+   * relaunch, which History logged as two changes made elsewhere).
+   */
+  private settleUntil = 0;
+  private backAfterOutage() {
+    this.downSince = null;
+    this.settleUntil = Date.now() + SETTLE_MS;
+    this.baseline = null; // start afresh once settled: nothing is compared across the outage
+  }
   private readonly restart = new RestartGuard();
   private restartWatch: (() => void) | null = null;
 

@@ -30,8 +30,9 @@
 
 <h4>After HQPlayer restarts{instance ? ` · ${instance.name}` : ""}</h4>
 <p class="help">
-  HQPlayer comes back at its saved volume, which can be louder than you left it, and Roon carries on at once. hqpweb can lower it
-  to a cap you choose. It never raises the volume, and a network blip that leaves the volume alone is left alone.
+  HQPlayer comes back from a restart at its saved volume, which can be louder than you left it. hqpweb can turn it down to a cap
+  you choose, about a second after HQPlayer answers again (measured). It never raises the volume, and a network blip that leaves
+  the volume alone is left alone.
 </p>
 {#if !instance}
   <p class="help">Choose an HQPlayer first.</p>
@@ -66,8 +67,9 @@
       </span>
     </label>
     <p class="help">
-      In HQPlayer's own dB, as on hqpweb's volume control (Roon may show the same volume as a percentage). It needs hqpweb
-      running: it checks HQPlayer once a second and acts within a few seconds of HQPlayer answering again.
+      In HQPlayer's own dB, as on hqpweb's volume control (Roon may show the same volume as a percentage). It only works while
+      hqpweb is running, which checks HQPlayer once a second while this is on. If something starts playback the instant HQPlayer
+      is back, that first second can still be at its saved volume.
     </p>
   {/if}
   {#if error}<p class="err">{error}</p>{/if}

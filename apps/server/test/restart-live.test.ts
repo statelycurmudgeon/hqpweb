@@ -5,6 +5,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
+import { HqpClient, cmd } from "@app/protocol";
 import { buildApp } from "../src/app.ts";
 import type { HistoryEntry } from "../src/history.ts";
 import { client } from "./http.ts";
@@ -55,6 +56,25 @@ describe("after HQPlayer restarts", () => {
     expect(h[0]).toMatchObject({ source: "hqpweb", changes: [{ field: "volume", from: -15, to: -30, applied: true }] });
     expect(h[0]!.detail).toMatch(/restarted/);
   }, 20_000);
+
+  it("doesn't log HQPlayer's start-up states as changes made elsewhere", async () => {
+    await setup(-40, -30);
+    expect(await until(() => fake.received.some((r) => r.includes("<Status")))).toBe(true);
+    fake.playback = 0; // the fake, like the Mac's HQPlayer, crashes on a mode switch while playing
+    await sleep(1500); // a settled baseline first
+    await restartAt(-15);
+    // Starting up, HQPlayer passes through other states (seen: the mode flipping); here, a
+    // mode switch and back, made straight after it answers again.
+    const hqp = new HqpClient("127.0.0.1", { port: fake.port });
+    await hqp.send(cmd.setMode(1));
+    await sleep(1200);
+    await hqp.send(cmd.setMode(2));
+    hqp.close();
+    expect(await until(() => fake.volume === -30)).toBe(true);
+    await sleep(1500);
+    const h: HistoryEntry[] = (await req("GET", "/api/instances/mac/history")).json();
+    expect(h.filter((e) => e.source === "elsewhere")).toEqual([]);
+  }, 25_000);
 
   it("leaves a blip alone: same volume back, even above the cap", async () => {
     await setup(-20, -30);
