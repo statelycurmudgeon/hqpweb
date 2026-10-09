@@ -9,7 +9,8 @@
  * meter port (measured, Desktop 5.32.5) plus the server's pacing buffer (~0.3 s, estimated).
  */
 export const OWN_LAG_MS = 500;
-export const NUDGE_STEP_MS = 100;
+/** 0.1 s steps couldn't be seen on a smoothed meter (owner, 2026-10-09); a quarter second can. */
+export const NUDGE_STEP_MS = 250;
 export const NUDGE_RANGE = { min: -2000, max: 3000 } as const;
 
 /** How long to hold each meter update: never negative. */

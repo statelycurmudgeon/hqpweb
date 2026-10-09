@@ -15,19 +15,29 @@ export class MeterPacer<T> {
   private queue: T[] = [];
   private shown: T | null = null;
   private last = -Infinity;
+  private moved: T[] = [];
+  /** Trimmed from a full queue, never shown: they still count as passed at the next take. */
+  private trimmed: T[] = [];
 
   push(frame: T, now: number) {
     this.queue.push(frame);
     this.last = now;
-    if (this.queue.length > MAX) this.queue.splice(0, this.queue.length - MAX);
+    if (this.queue.length > MAX) this.trimmed.push(...this.queue.splice(0, this.queue.length - MAX));
   }
 
   /** The frame to show at this tick (call every ~50 ms). */
   take(now: number): T | null {
+    this.moved = this.trimmed;
+    this.trimmed = [];
     if (this.queue.length > KEEP || (this.queue.length && now - this.last > 400)) {
-      for (let i = 0; i < 2 && this.queue.length; i++) this.shown = this.queue.shift()!;
+      for (let i = 0; i < 2 && this.queue.length; i++) this.moved.push((this.shown = this.queue.shift()!));
     }
     return this.shown;
+  }
+
+  /** The frames the last take moved past (any trimmed since, then the shown one), oldest first. */
+  passed(): T[] {
+    return this.moved;
   }
 
   /** Frames are still coming. */

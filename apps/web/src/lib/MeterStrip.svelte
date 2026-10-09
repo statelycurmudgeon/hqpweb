@@ -20,6 +20,7 @@
 
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
+  import { OnsetDetector } from "./meter-onset.ts";
 
   let {
     instanceId,
@@ -46,6 +47,10 @@
   let open = $state(prefs.meterOpen);
   /** The captions, shown on (i): the chart stays uncluttered (owner's call). */
   let about = $state(false);
+  // While the timing controls show: a dot that flashes on each hit in the (delayed) meter.
+  const onset = new OnsetDetector();
+  let hit = $state(false);
+  let hitTimer: ReturnType<typeof setTimeout> | undefined;
   // Levels moved to the strip (owner's feedback, 2026-10-08): an old stored choice of it opens Bars.
   type View = (typeof VIEWS)[number]["id"];
   const stored = VIEWS.find((v) => v.id === prefs.meterView)?.id;
@@ -116,6 +121,11 @@
       holdRight.update(right, now);
       if (e.corr) corr.update(e.corr);
       dyn.push(now, e.levels);
+      if (about && onset.feed(now, Math.max(...e.levels.map((c) => c[1] ?? -120)))) {
+        hit = true;
+        clearTimeout(hitTimer);
+        hitTimer = setTimeout(() => (hit = false), 120);
+      }
       crestDb = crest(dyn.points);
       if (mini) levels(mini, e.levels);
       if (!big || !open) return;
@@ -232,14 +242,19 @@
           the numbers beside it are each side's peak in dB. All of it is the music before upsampling, after HQPlayer's volume.
         </p>
         <p class="scale timing" hidden={!about}>
-          Timing: the meter waits {(delay / 1000).toFixed(1)} s to line up with what you hear{bufferNote}. Your DAC and network
-          add their own, so set it by ear:
+          Timing: the meter waits {(delay / 1000).toFixed(2)} s to line up with what you hear{bufferNote}. Your DAC and network
+          add their own, so set it by ear: the dot flashes on each hit the meter sees; move it until the flashes land on the drum
+          hits you hear.
           <span class="nudge">
-            <button aria-label="Meter earlier" onclick={() => setNudge(nudge - NUDGE_STEP_MS)}>Earlier</button>
+            <span class="beat" class:hit aria-hidden="true"></span>
+            <button aria-label="Meter earlier" disabled={delay === 0} onclick={() => setNudge(nudge - NUDGE_STEP_MS)}
+              >Earlier</button
+            >
             <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
             {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
-              <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(1)} s</span>{/if}
+              <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(2)} s</span>{/if}
           </span>
+          {#if delay === 0}<span class="floor">It can't go earlier: it would have to show music before it plays.</span>{/if}
         </p>
       {/if}
     {/if}
@@ -345,6 +360,24 @@
     background: var(--bg);
     color: var(--text);
     cursor: pointer;
+  }
+  .nudge button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .beat {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: transparent;
+  }
+  .beat.hit {
+    background: var(--accent);
+  }
+  .floor {
+    display: block;
+    margin-top: 4px;
   }
   .nudge .by {
     font-family: var(--font-mono);

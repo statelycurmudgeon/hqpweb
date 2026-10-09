@@ -9,6 +9,7 @@ import {
   frameSize,
   NO_LEVEL,
   parseMeterFrame,
+  peakAcross,
   type MeterFrame,
 } from "../src/meter.ts";
 
@@ -134,5 +135,25 @@ describe("left/right correlation per band", () => {
     const f = frame({ re: (i) => 0.001 * (i + 1) });
     expect(condense(f, [0, 8, 16]).corr).toEqual([1, 1]);
     expect(condense({ ...f, channels: 1, chans: [f.chans[0]!] }, [0, 8, 16]).corr).toBeUndefined();
+  });
+});
+
+describe("the peak across the frames a tick passed", () => {
+  const frame = (peaks: number[]) => ({ chans: peaks.map((p) => ({ levels: [p + 2, p, p - 10, p - 8] })) });
+  it("raises each side's peak to the loudest of them, rounded like condense", () => {
+    const shown = [
+      [-20, -22, -32, -30],
+      [-21, -23, -33, -31],
+    ];
+    const out = peakAcross(shown, [frame([-10.04, -23]), frame([-22, -23])]);
+    expect(out).toEqual([
+      [-20, -10, -32, -30],
+      [-21, -23, -33, -31],
+    ]);
+  });
+  it("leaves them alone with one frame, or none, or no reading yet (-386)", () => {
+    const shown = [[-20, -22, -32, -30]];
+    expect(peakAcross(shown, [])).toBe(shown);
+    expect(peakAcross(shown, [frame([-386])])).toEqual(shown);
   });
 });
