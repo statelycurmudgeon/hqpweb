@@ -120,3 +120,39 @@ describe("forgetting one combination", () => {
     expect(s.keptFor("mac", "5.35.10", "SDM (DSD)").map((k) => k.low)).toEqual([1.5]);
   });
 });
+
+describe("filters slow to switch to", () => {
+  const slow = (o: object = {}) => ({
+    instance: "mac",
+    engine: "5.35.10",
+    mode: "SDM (DSD)",
+    rateHz: 11_289_600,
+    filter: "sinc-L",
+    sourceRate: 44_100,
+    busyMs: 9400,
+    at: "2026-10-09T18:37:47.000Z",
+    ...o,
+  });
+
+  it("counts repeats of the same switch, keeping the latest time, and keeps others apart", () => {
+    const s = new LearnedStore(null);
+    s.recordSlow(slow());
+    s.recordSlow(slow({ busyMs: 9300, at: "2026-10-09T18:40:00.000Z" }));
+    s.recordSlow(slow({ rateHz: 22_579_200 }));
+    s.recordSlow(slow({ instance: "lxc" }));
+    const mine = s.slowFor("mac", "5.35.10", "SDM (DSD)");
+    expect(mine).toEqual([
+      expect.objectContaining({ rateHz: 11_289_600, busyMs: 9300, count: 2 }),
+      expect.objectContaining({ rateHz: 22_579_200, count: 1 }),
+    ]);
+    s.forget("mac");
+    expect(s.slowFor("mac", "5.35.10", "SDM (DSD)")).toEqual([]);
+    expect(s.slowFor("lxc", "5.35.10", "SDM (DSD)")).toHaveLength(1);
+  });
+
+  it("keeps them across a restart", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
+    new LearnedStore(path).recordSlow(slow());
+    expect(new LearnedStore(path).slowFor("mac", "5.35.10", "SDM (DSD)")).toHaveLength(1);
+  });
+});

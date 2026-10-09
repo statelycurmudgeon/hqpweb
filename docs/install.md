@@ -220,8 +220,8 @@ Start with the log: `docker logs hqpweb` (or the terminal, without Docker).
   machine tells you.
 - **"No meter from this HQPlayer"** on the strip: hqpweb can't reach the meter port,
   TCP 4322 on the HQPlayer machine (the control port + 1). If it connects but the meter
-  stays still, HQPlayer sends it only while playing. Measured on HQPlayer Desktop 5; not yet
-  verified on HQPlayer 6 Embedded.
+  stays still, HQPlayer sends it only while playing. Measured on HQPlayer Desktop 5 and
+  HQPlayer 6 Embedded (6.2.5).
 - **Scan now finds nothing:** discovery needs host networking and the same network
   segment ([Discovery](#discovery)). Add the HQPlayer by address instead.
 - **Roon shows nothing:** in Roon → Settings → Extensions, enable `hqpweb …`; the

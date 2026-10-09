@@ -47,4 +47,4 @@ and a troubleshooting list.
 ## Reporting
 
 Open an issue with the "Test report" template. Your HQPlayer version and platform
-matter most. HQPlayer 6 Desktop and Windows are untested so far, and the meter hasn't been verified on HQPlayer 6 Embedded.
+matter most. HQPlayer 6 Desktop and Windows are untested so far.

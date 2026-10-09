@@ -126,6 +126,13 @@ export const ageStop = (days: number | null) => {
 /** The one question before picking a filter that's below the line (not for a ratio it can't do). */
 export const tryAnyway = (why: string) => `${why} It may stall HQPlayer; hqpweb tries to roll back. Try anyway?`;
 
+/**
+ * The question before switching to a filter HQPlayer was slow to switch to here. Measured
+ * (Desktop 5.35.10, macOS, 2026-10-09): busy 9.4 s building sinc-L; ~20 s of silence heard.
+ */
+export const slowQuestion = (name: string, busyMs: number) =>
+  `HQPlayer took ${Math.round(busyMs / 1000)} s to switch to ${name} here last time, and the music can stop for longer than that. Switch anyway?`;
+
 /** "DSD128 instead of DSD256 · ASDM7EC-fast instead of ASDM7EC-super". */
 export function suggestionLabel(sg: Suggestion, from: Combo): string {
   const c = sg.change;

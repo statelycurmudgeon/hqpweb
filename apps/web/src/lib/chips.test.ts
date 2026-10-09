@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { KeptUp } from "./api.ts";
-import { chooseInGroup, facets, filterChips, grouped, keptLowFor, lengthOf, narrow, phaseOf, shown } from "./chips.ts";
+import { chooseInGroup, facets, filterChips, grouped, keptLowFor, lengthOf, slowMsFor, narrow, phaseOf, shown } from "./chips.ts";
 
 describe("what a filter's name says", () => {
   it("reads the phase from the suffix", () => {
@@ -132,5 +132,34 @@ describe("grouping the chip filters (too many to show on a phone)", () => {
     expect([...keys]).toEqual(["5/5", "phase:minimum phase"]);
     chooseInGroup(keys, "phase:", "");
     expect([...keys]).toEqual(["5/5"]);
+  });
+});
+
+describe("slow to switch here", () => {
+  const slow = (o = {}) => ({
+    mode: "SDM (DSD)",
+    rateHz: 11_289_600,
+    filter: "sinc-L",
+    sourceRate: 44_100,
+    busyMs: 9400,
+    at: "x",
+    count: 1,
+    ...o,
+  });
+  it("finds the longest busy time for this filter, slot, mode and rate", () => {
+    const list = [
+      slow(),
+      slow({ busyMs: 7000 }),
+      slow({ sourceRate: 96_000, busyMs: 20_000 }),
+      slow({ rateHz: 5_644_800, busyMs: 30_000 }),
+    ];
+    expect(slowMsFor(list, { mode: "SDM (DSD)", rateHz: 11_289_600, slot: "1x", name: "sinc-L" })).toBe(9400);
+    expect(slowMsFor(list, { mode: "SDM (DSD)", rateHz: 11_289_600, slot: "Nx", name: "sinc-L" })).toBe(20_000);
+    expect(slowMsFor(list, { mode: "SDM (DSD)", rateHz: 11_289_600, slot: "1x", name: "sinc-Lh" })).toBeNull();
+  });
+  it("shows as a trouble chip with whole seconds, and isn't offered as a filter", () => {
+    const chips = filterChips({ index: 0, name: "sinc-L" }, { inUse: false, slowMs: 9400 });
+    expect(chips).toContainEqual({ kind: "trouble", label: "⏳ slow to switch here (9 s)", key: "slow" });
+    expect(facets([chips, filterChips({ index: 1, name: "x" }, { inUse: false })]).map((f) => f.key)).not.toContain("slow");
   });
 });

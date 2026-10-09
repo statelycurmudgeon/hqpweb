@@ -208,7 +208,7 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 | Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                       |
 | Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                          |
 | Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | works: changes and playback verified (PCM, and SDM up to DSD1024) |
-| Embedded 6.1 (engine 6.2.5)     | macOS (Apple Silicon)   | works: playback to a DAC over NAA (changes verified on 6.2.3)     |
+| Embedded 6.1 (engine 6.2.5)     | macOS (Apple Silicon)   | works: playback over NAA, volume, the meter (more on 6.2.3)       |
 | Embedded 6 (engine 6.2.3)       | Linux (container, CUDA) | works: reads, changes and playback to a DAC over NAA              |
 | Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))          |
 

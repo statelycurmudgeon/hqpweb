@@ -283,8 +283,8 @@
       undoAvailable = quiet ? false : r.undoAvailable;
       const said = describe(r, show, wasFromRoon);
       if (!quiet || said.kind !== "ok") message = said;
-      // A rollback teaches the server a failed combination: refresh the warnings.
-      if (r.rolledBack && selected) caps = await api.capabilities(selected);
+      // A rollback teaches the server a failed combination, a busy switch a slow one: refresh.
+      if ((r.rolledBack || r.playback.busyMs) && selected) caps = await api.capabilities(selected);
     } catch (e) {
       message = { kind: "error", text: (e as Error).message };
     } finally {

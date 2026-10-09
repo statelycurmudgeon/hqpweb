@@ -4,7 +4,8 @@
 // Sources: HQPlayer's (or borrowed) filter rating and focus tags, the ratio class, the
 // apodizing table, what the name says (phase, length), and this machine's own records.
 import { ratioClass } from "@app/protocol/compat";
-import type { KeptUp } from "./api.ts";
+import { filterSlot } from "@app/protocol/compat";
+import type { KeptUp, SlowSwitch } from "./api.ts";
 
 export type ChipKind = "fact" | "good" | "trouble" | "suggested" | "inuse";
 export interface Chip {
@@ -57,12 +58,14 @@ export interface FilterItemLike {
 }
 
 /** A filter's chips, status first, then facts. */
-export function filterChips(i: FilterItemLike, o: { inUse: boolean; keptLow?: number | null }): Chip[] {
+export function filterChips(i: FilterItemLike, o: { inUse: boolean; keptLow?: number | null; slowMs?: number | null }): Chip[] {
   const out: Chip[] = [];
   if (o.inUse) out.push({ kind: "inuse", label: "in use", key: "inuse" });
   if (i.warn) out.push({ kind: "trouble", label: "✗ fell behind here", key: "trouble" });
   if (i.blocked) out.push({ kind: "trouble", label: "✗ won't play this ratio", key: "blocked" });
   if (o.keptLow != null) out.push({ kind: "good", label: `✓ kept up here (${o.keptLow.toFixed(1)}×)`, key: "kept" });
+  if (o.slowMs != null)
+    out.push({ kind: "trouble", label: `⏳ slow to switch here (${Math.round(o.slowMs / 1000)} s)`, key: "slow" });
   if (i.rating === 5) out.push({ kind: "fact", label: "★ 5/5", key: "5/5" });
   const phase = phaseOf(i.name);
   if (phase) out.push({ kind: "fact", label: phase, key: `phase:${phase}` });
@@ -89,7 +92,7 @@ export function narrow<T extends { chips: Chip[] }>(rows: T[], keys: Set<string>
 const NOT_FILTERS = new Set(["fast-cpu"]);
 
 /** The order filters are offered in: status, the guide's start, then rating, phase, apodizing, ratio, focus, length. */
-const RANK = ["kept", "start:", "5/5", "phase:", "apod:", "ratio:", "tag:", "length:", "order:", "load:", "gen:"];
+const RANK = ["kept", "slow", "start:", "5/5", "phase:", "apod:", "ratio:", "tag:", "length:", "order:", "load:", "gen:"];
 const rank = (key: string) => {
   const i = RANK.findIndex((r) => key === r || (r.endsWith(":") && key.startsWith(r)) || key.startsWith(r));
   return i < 0 ? RANK.length : i;
@@ -122,6 +125,20 @@ export function keptLowFor(list: KeptUp[], q: { mode: string; rateHz: number; sl
     .filter((k) => k.mode === q.mode && k.rateHz === q.rateHz && (q.slot === "1x" ? k.filter1x : k.filterNx) === q.name)
     .map((k) => k.low);
   return lows.length ? Math.min(...lows) : null;
+}
+
+/**
+ * "Slow to switch here" for a filter: the longest HQPlayer was busy switching to it in that
+ * slot, at this mode and output rate (server learned.ts); null when never.
+ */
+export function slowMsFor(
+  list: SlowSwitch[],
+  q: { mode: string; rateHz: number; slot: "1x" | "Nx"; name: string },
+): number | null {
+  const ms = list
+    .filter((s) => s.mode === q.mode && s.rateHz === q.rateHz && s.filter === q.name && filterSlot(s.sourceRate) === q.slot)
+    .map((s) => s.busyMs);
+  return ms.length ? Math.max(...ms) : null;
 }
 
 /** Chip families shown as one drop-down each (a choice of one); yes/no facts stay chips. */
