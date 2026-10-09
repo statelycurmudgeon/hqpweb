@@ -94,6 +94,11 @@ may change behaviour; upgrade notes say what you need to do.
   which showed "—".
 - **A stalled meter viewer** (a phone asleep with the page open) no longer makes the
   server buffer meter frames without end.
+- **Each palette has a second accent**, a complementary colour: coral with Dark's cyan,
+  magenta with Light's blue, teal with Copper and with Brass light. The meter uses it for
+  peaks and the loud end of the waterfall, so Copper and Brass are no longer all brown.
+  Width shows out of phase in red, against whichever accent is further from red (in
+  Brass light the warning colour it used was the same brown as the bars).
 
 - **The waterfall follows the theme:** silence is the plot's own background, then the
   accent, and the loudest the text colour (it was a fixed blue-to-yellow that clashed with
