@@ -7,6 +7,8 @@ import { LearnedStore, type Combo } from "./learned.ts";
 import { HistoryStore } from "./history.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
+import { serveClapTrack } from "./calibration.ts";
+import { playClapTrack } from "./calibrate-play.ts";
 import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
 import { parseSetupChange } from "./setup.ts";
@@ -287,6 +289,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         throw new HttpError(400, `action must be one of ${TRANSPORT_ACTIONS.join(", ")}`);
       return i.transport(body.action as TransportAction);
     },
+    // Play the clap track for the tap calibration, from the address this page was opened at.
+    "POST calibrate": async (q, _r, i) => playClapTrack(i.client, `http://${q.headers.host}/api/calibration.wav`),
     "POST seek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };
       if (
@@ -379,6 +383,9 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     }
 
     const path = new URL(req.url ?? "/", "http://x").pathname;
+    // The clap track for the meter's tap calibration, fetched by HQPlayer (calibration.ts).
+    if ((req.method === "GET" || req.method === "HEAD") && path === "/api/calibration.wav")
+      return serveClapTrack(req, res, SECURITY_HEADERS);
     if (req.method === "GET" && path === "/api/health")
       return send(res, 200, { ok: true, version: VERSION, ...(COMMIT ? { commit: COMMIT } : {}) });
     if (path === "/api/instances") {

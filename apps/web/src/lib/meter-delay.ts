@@ -40,3 +40,7 @@ export class DelayLine<T> {
     this.q = [];
   }
 }
+
+/** The nudge that makes the wait `delayMs` (a calibration's answer), given HQPlayer's buffer. */
+export const nudgeForDelay = (delayMs: number, outputDelayMs: number | null | undefined) =>
+  clampNudge(delayMs - meterDelayMs(outputDelayMs, 0));
