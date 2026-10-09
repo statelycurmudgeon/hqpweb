@@ -2,10 +2,11 @@
 
 # hqpweb
 
-**A web controller for HQPlayer.** Change filters, dither/modulator, volume, mode and
-rate from any phone or browser, and see whether HQPlayer is keeping up.
+**A web controller for HQPlayer.** Change filters, modulator or dither, rate and volume
+from any phone or browser, see what HQPlayer is doing to the music, and get help
+choosing, with every suggestion sourced.
 
-**Status: beta (0.1.0-beta.3).** Works with HQPlayer Desktop 5 and HQPlayer 6
+**Status: beta (0.1.0-beta.5).** Works with HQPlayer Desktop 5 and HQPlayer 6
 Embedded. Desktop 6 and Windows are untested.
 
 > Not affiliated with, endorsed by, or supported by Signalyst or Roon Labs.
@@ -13,10 +14,31 @@ Embedded. Desktop 6 and Windows are untested.
 > used here only to identify compatible software.
 
 <p align="center">
-  <img src="docs/images/now.png" width="300" alt="The Now card: now playing from Roon, output rate, source, HQPlayer's processing speed, the Apod counter, volume, and the filters and dither in use" />
-  <img src="docs/images/filters.png" width="300" alt="The filter picker: star ratings, chips to narrow the list, and details for the selected filter" />
-  <img src="docs/images/guide.png" width="300" alt="The modulator guide: three answered questions about the DAC, amplifier and volume, then rate and modulator pairs with the posts they come from" />
+  <img src="docs/images/now.png" width="260" alt="The now card (track, rate, transport and volume), the level meter, and the signal-path card: 44.1 kHz into poly-sinc-ext2 and ASDM7EC-fast out to DSD256, keeping up 3.2×, with the filter, modulator and rate rows" />
+  <img src="docs/images/filters.png" width="260" alt="The 1x filter sheet: chips and drop-downs to narrow 77 filters to 21, each filter with its rating, phase, apodizing and ratio, an (i) note, and 'kept up here (3.1×)' on the one in use" />
+  <img src="docs/images/guide.png" width="260" alt="The guide's last step: rate and modulator pairs for your answers, each with the posts they come from, and Filters → beside Done" />
 </p>
+
+## What it is
+
+HQPlayer does the hard part: it upsamples, filters and modulates your music in
+software before it reaches the DAC. hqpweb is a small app you run next to it, on any
+machine on your network, and open in a browser. It changes HQPlayer's settings through
+HQPlayer's own control protocol and shows you what HQPlayer reports back.
+
+It isn't a music player or a library browser: Roon, HQPlayer's Client or your usual
+app still plays the music. hqpweb is for the part of HQPlayer they leave behind.
+
+## Who it's for
+
+- **New to HQPlayer:** a guide asks about your DAC, amplifier, volume and connection,
+  then suggests where to start, with the post each suggestion comes from. Every filter
+  has a short note. If a change stops playback, hqpweb tries to put things back.
+- **Long-time HQPlayer listeners:** the whole signal path on one card, a filter sheet
+  you can narrow in two taps, Compare to hear two settings in turn, History of every
+  change, and HQPlayer's own meters.
+- **Roon households (optional):** track, cover art and transport for the Roon zone
+  that feeds HQPlayer, on the same page.
 
 ## Why hqpweb?
 
@@ -26,12 +48,71 @@ desired. I'm not an audio engineer, I'm a guy who likes usability, so I put a la
 on top. I hope it's useful, and I hope more people get into HQPlayer. If this makes
 it easier, that's all I'm hoping for!
 
+## What it does
+
+**Change things, safely**
+
+- **One card for the signal path:** source → filter → modulator or dither → rate, and
+  whether HQPlayer is keeping up, with DSD and PCM as tabs. Volume, presets and the
+  rarer switches (convolution, matrix profile, polarity, 20 kHz filter, adaptive
+  volume) below. Two columns on a laptop, one on a phone; "Add to Home Screen" makes
+  it a full-screen app.
+- **Checked, with a safety net:** every change is read back from HQPlayer. If one stops
+  playback or HQPlayer can't keep up, the app tries to put the old settings back,
+  remembers the combination, and warns you next time. A rate and modulator that only
+  work together (AHM below DSD1024) are offered as a pair. Undo is one tap.
+- **Warns before silence:** if the next track can't start with your settings, the app
+  says why and offers what would fit.
+- **Volume safety:** never raised by more than 6 dB at once; undo and rollback never
+  raise it. If HQPlayer restarts at a louder saved volume, the app can turn it down to a
+  cap you set.
+- **History and Compare:** every change, who made it (here or elsewhere) and whether it
+  kept up; and two settings played in turn, so you can listen for the difference.
+
+**Choose, with help**
+
+- **A guide for the modulator and dither (beta):** a few questions, then where to start:
+  rate and modulator together (for example DSD256 with ASDM7EC-fast, or DSD1024 with
+  AHM), or the dither for your DAC, each linked to its source
+  ([where the advice comes from](#where-the-guides-advice-comes-from)). It ends by
+  handing over to the filters. A place to start, not the last word.
+- **Filters with notes:** chips for what each filter favours, its phase, which ratios it
+  can do and whether it's apodizing, and an (i) on each with a short, cited note
+  ([where these come from](#where-filter-descriptions-come-from)).
+- **Filters that fit here:** filters that can't play as set (a ratio they can't do, a
+  failure on this machine, or trouble inferred from one) sit below the rest with the
+  reason. Picking one asks first, and "What would it take?" suggests the nearest rate or
+  modulator that would let it play. Load is only ever what this machine measured; you
+  can turn the sort off, forget old results, or forget one.
+
+**See what HQPlayer is doing**
+
+- **Meters:** HQPlayer's own levels and spectrum, as a waterfall, line, bars, stereo
+  (left and right back to back), width (how alike the channels are, band by band) and
+  dynamics, delayed to line up with what you hear.
+- **Live readouts:** processing speed (e.g. "keeping up 3.2×"), and the Apod and Clips
+  counters when they're above zero, with a nudge toward an apodizing filter.
+
+<p align="center">
+  <img src="docs/images/meter-waterfall.png" width="260" alt="The meter's waterfall view: spectrum over time, 20 Hz to 20 kHz" />
+  <img src="docs/images/meter-stereo.png" width="260" alt="The stereo view: left and right spectrum back to back, with peak marks" />
+  <img src="docs/images/meter-width.png" width="260" alt="The width view: per band, from mono through wide to out of phase, out-of-phase bands in red" />
+</p>
+
+**And**
+
+- **Seek** within files HQPlayer plays itself.
+- **Roon (optional):** track, cover art, seek and working play/pause/skip for the Roon
+  zone that feeds HQPlayer. Off until you switch it on.
+- **Classic layout:** the earlier one-column layout is still there (Settings →
+  Appearance), without the newer parts (filter sort, guide flow, meters, Compare).
+
 ## How it fits
 
 ```mermaid
 flowchart LR
   you["You<br/>(phone / browser)"] -->|"HTTP :4380"| hqpweb
-  hqpweb -->|"control, TCP 4321"| hqp["HQPlayer"]
+  hqpweb -->|"control, TCP 4321<br/>meters, TCP 4322"| hqp["HQPlayer"]
   roon["Roon Core<br/>(optional)"] -->|"music"| hqp
   hqp -->|"audio"| dac["DAC / endpoint"]
   hqpweb -.->|"now playing, transport<br/>TCP 9330 (optional)"| roon
@@ -40,45 +121,25 @@ flowchart LR
 hqpweb never plays music itself. It talks to HQPlayer through HQPlayer's published
 control protocol, and to Roon (if you want) through Roon's extension API.
 
-## What it does
+## What it's built on
 
-- **One card for the signal path:** source, rate, filters, dither or modulator, with
-  DSD and PCM as tabs; volume, presets, History of every change, and Compare (two
-  settings played in turn). Two columns on a laptop, one on a phone.
-- **Meters:** HQPlayer's own levels and spectrum (waterfall, line, bars, stereo, width,
-  dynamics), lined up with what you hear.
-- **A guide for the modulator and dither (beta):** a few questions about your DAC,
-  amplifier, volume and connection, then where to start: rate and modulator together
-  (for example DSD256 with ASDM7EC-fast, or DSD1024 with AHM), or the dither for your
-  DAC. Each suggestion links the post it comes from
-  ([where the advice comes from](#where-the-guides-advice-comes-from)). It's a place to
-  start, not the last word; the full list, grouped by family, is always there.
-- **Advanced:** convolution, matrix profile, polarity, 20 kHz filter, adaptive volume.
-- **Checked, with a safety net:** every change is read back from HQPlayer. If one stops
-  playback or HQPlayer can't keep up, the app tries to put the old settings back,
-  remembers the combination (and how often it failed), and warns you next time. A rate
-  and modulator that can't play together (AHM below DSD1024) are offered as a pair
-  instead. An overloaded HQPlayer can stop answering altogether; the app then says how
-  to restart it. Undo is one tap.
-- **Filters with notes:** chips for what each filter favours, which ratios it can do and
-  which are apodizing, and an (i) on each with a short, cited note
-  ([where these come from](#where-filter-descriptions-come-from)).
-- **Filters that fit here:** filters that can't play as set (a ratio they can't do, a
-  failure on this machine, or trouble inferred from one) sit below the rest with the
-  reason; picking one asks first, and "What would it take?" suggests the nearest rate or
-  modulator that would let it play. Load is only ever what this machine measured.
-- **Warns before silence:** if the next track can't start with your settings, or Play
-  does nothing, the app says why and how to fix it.
-- **Volume safety:** never raised by more than 6 dB at once; undo and rollback never
-  raise it. If HQPlayer's volume jumps on its own (a restart), the app flags it with
-  one tap back.
-- **Live readouts:** HQPlayer's processing speed (e.g. 3.4×), and its Apod and Clips
-  counters when they're above zero, with a nudge toward an apodizing filter.
-- **Seek** within files HQPlayer plays itself.
-- **Classic layout:** the earlier one-column layout is still there, in Settings →
-  Appearance, without the newer parts (filter sort, guide flow, meters, Compare).
-- **Roon (optional):** track, cover art, seek and working play/pause/skip for the
-  Roon zone that feeds HQPlayer.
+- **HQPlayer's control protocol:** XML over TCP 4321, as in Signalyst's MIT-licensed
+  control SDK, the meter stream on the next port up (4322), and its discovery multicast.
+  hqpweb uses nothing else of HQPlayer's: no files, no private APIs. What HQPlayer does with each command
+  was measured on real instances ([docs/design-v1.md](docs/design-v1.md) §2).
+- **Roon's extension protocol** (optional), written from Roon's Apache-2.0
+  `node-roon-api` as a reference, without copying it.
+- **A small Node.js server** (TypeScript, Node 24) with one runtime dependency, an XML
+  parser. It holds the connection to each HQPlayer, checks every change, keeps your
+  settings in one folder, and serves the app.
+- **A Svelte web app** (Svelte 5, built with Vite): no account, no cloud, no
+  trackers; nothing leaves your network unless you follow a source link.
+- **One Docker image** for amd64 and arm64.
+- **Tests:** unit tests (Vitest) and browser tests (Playwright) against fake HQPlayers
+  built from read-only captures of real ones, plus a release check against a real
+  HQPlayer before each release ([docs/release-checklist.md](docs/release-checklist.md)).
+- **Licence:** MIT ([LICENSE](LICENSE)); third-party notices in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Install
 
@@ -122,7 +183,7 @@ Update: `docker pull ghcr.io/statelycurmudgeon/hqpweb:latest`, then
 `docker rm -f hqpweb` and run the same command again. Settings live in the
 `hqpweb_config` volume (the same one Compose uses), so they're kept.
 
-Then open `http://<this machine's IP>:4380` and **Settings → General → Add** your
+Then open `http://<this machine's IP>:4380` and **Settings → HQPlayer → Add** your
 HQPlayer's address (leave the name blank to use HQPlayer's own). On a phone, "Add to
 Home Screen" makes it a full-screen app.
 
@@ -137,13 +198,13 @@ updated.
 
 The repository's [docker-compose.yml](docker-compose.yml) reads these from a `.env`
 file next to it (then `docker compose up -d`). With the short example or `docker run`:
-pick the version in the image name (`hqpweb:0.1.0-beta.3`), the address and port in
+pick the version in the image name (`hqpweb:0.1.0-beta.5`), the address and port in
 the port mapping (`127.0.0.1:8080:4380`), and set `ALLOWED_HOSTS` as an environment
 variable (`environment:` or `-e`).
 
 | Variable        | Default   | Use                                                                                                   |
 | --------------- | --------- | ----------------------------------------------------------------------------------------------------- |
-| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.3` to stay on a release.                                       |
+| `HQPWEB_TAG`    | `latest`  | Image version to run, e.g. `0.1.0-beta.5` to stay on a release.                                       |
 | `PORT`          | `4380`    | Port the app listens on.                                                                              |
 | `BIND_ADDRESS`  | `0.0.0.0` | Interface to publish on, e.g. `127.0.0.1` behind a local proxy.                                       |
 | `ALLOWED_HOSTS` | (none)    | Host names you open it by, comma-separated (IP addresses always work). Needed behind a reverse proxy. |
@@ -187,14 +248,19 @@ authenticating proxy in front. Never expose it to the internet. To report a secu
 | Desktop 5.17.2 (engine 5.35.10) | Linux (container, CUDA) | works (PCM)                                                       |
 | Desktop 5.17.2 (engine 5.35.10) | Linux (VM)              | reads and Roon verified; changes not yet                          |
 | Desktop 5.17.2 (engine 5.35.10) | macOS (Apple Silicon)   | works: changes and playback verified (PCM, and SDM up to DSD1024) |
-| Embedded 6 (engine 6.2.3)       | macOS (Apple Silicon)   | works: reads, changes and playback to a DAC over NAA              |
+| Embedded 6.1 (engine 6.2.5)     | macOS (Apple Silicon)   | works: playback to a DAC over NAA (changes verified on 6.2.3)     |
 | Embedded 6 (engine 6.2.3)       | Linux (container, CUDA) | works: reads, changes and playback to a DAC over NAA              |
 | Desktop 6, Windows              | —                       | **untested**: reports welcome ([TESTING.md](TESTING.md))          |
 
-hqpweb shows the _engine_ version (Settings → General); HQPlayer's own Help → About
+hqpweb shows the _engine_ version (Settings → HQPlayer); HQPlayer's own Help → About
 shows the product version.
 
 ## Where filter descriptions come from
+
+The (i) notes paraphrase HQPlayer 6's built-in help, the HQPlayer 6.1.1 manual (§4.6)
+and Signalyst's developer's forum posts, each line cited, posts dated and older ones
+marked "possibly dated". Paraphrased, never copied: the manual's licence doesn't allow
+copying.
 
 HQPlayer 6 describes its own filters and modulators to control apps, and hqpweb shows
 that as-is. HQPlayer 5 doesn't, so for v5 hqpweb borrows HQPlayer 6's ratings and
