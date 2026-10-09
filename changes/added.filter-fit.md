@@ -1,4 +1,4 @@
-- **Filters that fit, and what it would take.** In the v2 filter sheet, filters that won't
+- **Filters that fit, and what it would take.** In the filter sheet, filters that won't
   play as set (a ratio they can't do, a failure here, or trouble inferred from one) move
   below "Won't fit as set", each with why. Load is only ever what this machine measured;
   inference goes through a short, sourced list of what's no heavier than what (e.g.

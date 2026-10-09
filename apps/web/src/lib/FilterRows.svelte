@@ -1,6 +1,6 @@
 <script lang="ts">
-  // The 1x and Nx filter rows, shared by both layouts: today's Picker in the current
-  // layout, the chip sheet (FilterSheet) in v2. The parent gets the one in use back
+  // The 1x and Nx filter rows, shared by both layouts: the chip sheet (FilterSheet) by
+  // default, the plain Picker in the classic layout. The parent gets the one in use back
   // through `picker1x`/`pickerNx`, to open it from elsewhere (the apodizing suggestion,
   // "choose another filter" for a track that can't start).
   import Picker from "./Picker.svelte";

@@ -100,8 +100,8 @@
           />
         </label>
         <p class="help">
-          In the new layout's filter sheet: filters that failed here, or probably would, go below the others, and picking one asks
-          first. Off: one plain list. On this device.
+          In the filter sheet (not the classic layout): filters that failed here, or probably would, go below the others, and
+          picking one asks first. Off: one plain list. On this device.
         </p>
         <label class="age">
           <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
@@ -182,25 +182,31 @@
         </div>
 
         <label class="row">
-          <span>Try the new layout (preview)</span>
+          <span>Classic layout</span>
           <input
             type="checkbox"
             role="switch"
-            checked={prefs.layout === "v2"}
-            onchange={(e) => set("layout", e.currentTarget.checked ? "v2" : "current")}
+            checked={prefs.layout === "classic"}
+            onchange={(e) => set("layout", e.currentTarget.checked ? "classic" : "v2")}
           />
         </label>
-        <p class="help">The signal path as one card, with DSD and PCM as tabs. On this device only; switch back any time.</p>
+        <p class="help">
+          The earlier one-column layout, with plain lists. No filter sort, guide flow, meter or Compare there. On this device
+          only.
+        </p>
 
-        <h4>Filter lists</h4>
-        <div class="seg" role="radiogroup" aria-label="Filter list order">
-          <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
-            >HQPlayer's order</button
-          >
-          <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}>Grouped by rating</button
-          >
-        </div>
-        <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
+        {#if prefs.layout === "classic"}
+          <h4>Filter lists (classic layout)</h4>
+          <div class="seg" role="radiogroup" aria-label="Filter list order">
+            <button class:on={prefs.filterOrder === "hqplayer"} onclick={() => set("filterOrder", "hqplayer")}
+              >HQPlayer's order</button
+            >
+            <button class:on={prefs.filterOrder === "rating"} onclick={() => set("filterOrder", "rating")}
+              >Grouped by rating</button
+            >
+          </div>
+          <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
+        {/if}
 
         <label class="row">
           <span>Open “Advanced” by default</span>

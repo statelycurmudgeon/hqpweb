@@ -6,8 +6,17 @@ import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { CONTROL_PORT } from "./stack.ts";
 
-async function openOn(page: Page, id: string) {
-  await page.addInitScript((i) => localStorage.setItem("instance", i), id);
+/** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
+async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
+  await page.addInitScript(
+    ([i, l]) => {
+      localStorage.setItem("instance", i);
+      // Merged, not replaced: this runs again on every reload, and the page's own prefs must survive it.
+      const prefs = JSON.parse(localStorage.getItem("prefs-v1") ?? "{}") as Record<string, unknown>;
+      localStorage.setItem("prefs-v1", JSON.stringify({ ...prefs, layout: l }));
+    },
+    [id, layout] as const,
+  );
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }
@@ -22,8 +31,8 @@ async function poke(id: string, body: object) {
 }
 const step = (page: Page, title: string) => sheet(page).getByRole("group", { name: title });
 
-test("modulators: grouped list, then the guide's answers and its rate-and-modulator pairs", async ({ page }) => {
-  await openOn(page, "guide");
+test("classic: modulators: grouped list, then the guide's answers and its rate-and-modulator pairs", async ({ page }) => {
+  await openOn(page, "guide", "classic");
   await expect(row(page, "Modulator")).toContainText("DSD7");
 
   // The list: newest family open, older ones folded, but the one in use still shown.
@@ -95,8 +104,8 @@ test("modulators: grouped list, then the guide's answers and its rate-and-modula
   await expect(step(page, "Your DAC")).toBeHidden();
 });
 
-test("dither: a ladder DAC at 384k is offered NS5 or NS9 as equals, and one applies", async ({ page }) => {
-  await openOn(page, "dither");
+test("classic: dither: a ladder DAC at 384k is offered NS5 or NS9 as equals, and one applies", async ({ page }) => {
+  await openOn(page, "dither", "classic");
   await expect(row(page, "Dither")).toContainText("TPDF");
 
   await row(page, "Dither").click();
@@ -124,8 +133,8 @@ test("dither: a ladder DAC at 384k is offered NS5 or NS9 as equals, and one appl
   await expect(sheet(page).getByRole("button", { name: /^NS9/ })).not.toContainText("176.4");
 });
 
-test("a queued track the modulator can't start opens the list, where it says why", async ({ page }) => {
-  await openOn(page, "wedgemod");
+test("classic: a queued track the modulator can't start opens the list, where it says why", async ({ page }) => {
+  await openOn(page, "wedgemod", "classic");
   await poke("wedgemod", { playlist: ["/music/Example Artist/Example Album/01 - Example.flac"], sourceRate: 44_100 });
 
   await page.getByRole("button", { name: /^Fix/ }).click();

@@ -8,9 +8,17 @@ import { expect, test, type Page } from "@playwright/test";
 import pkg from "../package.json" with { type: "json" };
 import { CONTROL_PORT } from "./stack.ts";
 
-/** Open the app on one flow's instance. */
-async function openOn(page: Page, id: string) {
-  await page.addInitScript((i) => localStorage.setItem("instance", i), id);
+/** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
+async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
+  await page.addInitScript(
+    ([i, l]) => {
+      localStorage.setItem("instance", i);
+      // Merged, not replaced: this runs again on every reload, and the page's own prefs must survive it.
+      const prefs = JSON.parse(localStorage.getItem("prefs-v1") ?? "{}") as Record<string, unknown>;
+      localStorage.setItem("prefs-v1", JSON.stringify({ ...prefs, layout: l }));
+    },
+    [id, layout] as const,
+  );
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }
@@ -48,8 +56,8 @@ test("pick a filter, see it confirmed, undo it", async ({ page }) => {
   await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");
 });
 
-test("a filter this machine can't keep up with is rolled back, and flagged next time", async ({ page }) => {
-  await openOn(page, "rollback");
+test("classic: a filter this machine can't keep up with is rolled back, and flagged next time", async ({ page }) => {
+  await openOn(page, "rollback", "classic");
   await row(page, "1x filter").click();
   await sheet(page)
     .getByRole("button", { name: /^poly-sinc-gauss-long/ })
@@ -87,8 +95,8 @@ test("a rollback that leaves HQPlayer's own playlist stopped offers Restart play
   await expect(page.getByRole("button", { name: "Restart playback" })).toBeHidden();
 });
 
-test("a filter that can't convert this ratio is hidden, and picking it offers rates that fit", async ({ page }) => {
-  await openOn(page, "ratio");
+test("classic: a filter that can't convert this ratio is hidden, and picking it offers rates that fit", async ({ page }) => {
+  await openOn(page, "ratio", "classic");
   await row(page, "1x filter").click();
 
   await expect(sheet(page).getByRole("button", { name: "compatible" })).toHaveAttribute("aria-pressed", "true");
@@ -162,8 +170,8 @@ test("the volume buttons step by 1 dB", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0);
 });
 
-test("a recording that keeps needing apodization suggests apodizing filters", async ({ page }) => {
-  await openOn(page, "apod");
+test("classic: a recording that keeps needing apodization suggests apodizing filters", async ({ page }) => {
+  await openOn(page, "apod", "classic");
   const notice = page.locator("p", { hasText: /apodization/ });
   await expect(notice).toContainText("25");
   await shot(page, "apod-1-notice");
@@ -280,7 +288,8 @@ test("Settings: Find your DAC filters the models", async ({ page }) => {
 test("Settings: four tabs; Listening sets the volume cap after HQPlayer restarts", async ({ page }) => {
   await openOn(page, "restartcap");
   await page.getByRole("button", { name: "Settings" }).click();
-  const tabs = page.getByRole("tablist").getByRole("tab");
+  // The Settings dialog's own tabs (the signal card has DSD/PCM tabs too).
+  const tabs = page.getByRole("dialog").getByRole("tablist").getByRole("tab");
   await expect(tabs).toHaveText(["HQPlayer", "Listening", "Appearance", "Roon"]);
   await page.getByRole("tab", { name: "Listening" }).click();
   await page.getByRole("switch", { name: /Lower the volume after a restart/ }).check();
