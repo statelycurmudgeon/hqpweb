@@ -87,7 +87,34 @@
     <div class="body" hidden={tab !== "hqplayer"}>
       <InstanceSettings {instances} {onchange} />
       <SetupSettings {instance} {onchange} />
-      <h4>Learned failures{instance ? ` · ${instance.name}` : ""}</h4>
+      <h4>Learned performance{instance ? ` · ${instance.name}` : ""}</h4>
+      <label class="row">
+        <span>Sort filters by what's worked here</span>
+        <input type="checkbox" role="switch" checked={prefs.fitSort} onchange={(e) => set("fitSort", e.currentTarget.checked)} />
+      </label>
+      <p class="help">
+        In the new layout's filter sheet: filters that failed here, or probably would, go below the others, and picking one asks
+        first. Off: one plain list. On this device.
+      </p>
+      <label class="age">
+        <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
+        <input
+          type="range"
+          min="0"
+          max={AGE_STOPS.length - 1}
+          step="1"
+          value={ageStop(prefs.fitMaxAgeDays)}
+          disabled={!prefs.fitSort}
+          aria-label="Forget load results older than"
+          aria-valuetext={ageSentence(prefs.fitMaxAgeDays)}
+          oninput={(e) => set("fitMaxAgeDays", AGE_STOPS[Number(e.currentTarget.value)] ?? null)}
+        />
+      </label>
+      <p class="help">
+        A new machine, CUDA or a bigger buffer can change what keeps up. Older results are ignored, not deleted: change this back
+        and they count again.
+      </p>
+      <h5>Failures</h5>
       <p class="help">
         Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the
         pickers; nothing is blocked.
@@ -168,33 +195,6 @@
       <p class="help">Ratings come from HQPlayer 6, borrowed by name for HQPlayer 5.</p>
 
       <label class="row">
-        <span>Sort filters by what's worked here</span>
-        <input type="checkbox" role="switch" checked={prefs.fitSort} onchange={(e) => set("fitSort", e.currentTarget.checked)} />
-      </label>
-      <p class="help">
-        In the new layout: filters that failed here, or probably would, go below the others, and picking one asks first. Off: one
-        plain list.
-      </p>
-      <label class="age">
-        <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
-        <input
-          type="range"
-          min="0"
-          max={AGE_STOPS.length - 1}
-          step="1"
-          value={ageStop(prefs.fitMaxAgeDays)}
-          disabled={!prefs.fitSort}
-          aria-label="Forget load results older than"
-          aria-valuetext={ageSentence(prefs.fitMaxAgeDays)}
-          oninput={(e) => set("fitMaxAgeDays", AGE_STOPS[Number(e.currentTarget.value)] ?? null)}
-        />
-      </label>
-      <p class="help">
-        A new machine, CUDA or a bigger buffer can change what keeps up. Older results are ignored, not deleted: change this back
-        and they count again.
-      </p>
-
-      <label class="row">
         <span>Open “Advanced” by default</span>
         <input
           type="checkbox"
@@ -229,9 +229,11 @@
     margin: auto auto 0;
     color: var(--text);
   }
+  /* The sheet's top stays put when tabs change height: a fixed height on phones (it sits on
+     the bottom edge), and pinned below the top of the page on wider screens. */
   @media (min-width: 40rem) {
     dialog {
-      margin: auto;
+      margin: 48px auto auto;
     }
   }
   dialog::backdrop {
@@ -240,7 +242,7 @@
   .sheet {
     background: var(--bg-elev);
     border-radius: 16px 16px 0 0;
-    max-height: 88vh;
+    height: 88vh;
     display: flex;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom);
@@ -249,7 +251,14 @@
   @media (min-width: 40rem) {
     .sheet {
       border-radius: 16px;
+      height: auto;
+      max-height: calc(100vh - 96px);
     }
+  }
+  h5 {
+    margin: 16px 0 4px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
   }
   header {
     display: flex;

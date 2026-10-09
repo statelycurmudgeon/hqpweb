@@ -93,7 +93,7 @@ test("v2: with sorting off in Settings, one plain list and no question", async (
   await sheet(page).getByRole("button", { name: "Done" }).click();
 
   await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("tab", { name: "Appearance" }).click();
+  await page.getByRole("tab", { name: "HQPlayer" }).click();
   const age = page.getByRole("slider", { name: "Forget load results older than" });
   await expect(page.getByText("Forget load results older than 3 months")).toBeVisible();
   await age.fill("5");
