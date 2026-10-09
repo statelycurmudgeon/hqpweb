@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { CLAPS_MS, TRACK_MS, clapTrack } from "../src/calibration.ts";
 
@@ -28,5 +29,12 @@ describe("the clap track", () => {
     const gaps = CLAPS_MS.slice(1).map((t, i) => t - CLAPS_MS[i]!);
     expect(Math.min(...gaps)).toBeGreaterThanOrEqual(2000);
     expect(new Set(gaps).size).toBe(gaps.length);
+  });
+});
+
+describe("the copy kept in the repository for HQPlayer to fetch from GitHub", () => {
+  it("is exactly what the generator makes (a new pattern needs a new file name)", () => {
+    const kept = readFileSync(new URL("../../../calibration/claps-v1.wav", import.meta.url));
+    expect(kept.equals(clapTrack())).toBe(true);
   });
 });
