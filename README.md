@@ -42,26 +42,31 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 
 ## What it does
 
-- **Quick changes:** 1x and Nx filters, dither or modulator, volume, presets.
+- **One card for the signal path:** source, rate, filters, dither or modulator, with
+  DSD and PCM as tabs; volume, presets, History of every change, and Compare (two
+  settings played in turn). Two columns on a laptop, one on a phone.
+- **Meters:** HQPlayer's own levels and spectrum (waterfall, line, bars, stereo, width,
+  dynamics), lined up with what you hear.
 - **A guide for the modulator and dither (beta):** a few questions about your DAC,
   amplifier, volume and connection, then where to start: rate and modulator together
   (for example DSD256 with ASDM7EC-fast, or DSD1024 with AHM), or the dither for your
   DAC. Each suggestion links the post it comes from
   ([where the advice comes from](#where-the-guides-advice-comes-from)). It's a place to
   start, not the last word; the full list, grouped by family, is always there.
-- **Advanced:** mode, output rate, convolution, matrix profile, polarity, 20 kHz
-  filter, adaptive volume.
+- **Advanced:** convolution, matrix profile, polarity, 20 kHz filter, adaptive volume.
 - **Checked, with a safety net:** every change is read back from HQPlayer. If one stops
   playback or HQPlayer can't keep up, the app tries to put the old settings back,
   remembers the combination (and how often it failed), and warns you next time. A rate
   and modulator that can't play together (AHM below DSD1024) are offered as a pair
   instead. An overloaded HQPlayer can stop answering altogether; the app then says how
   to restart it. Undo is one tap.
-- **Filter guide:** star ratings, what each filter favours, which ratios it can do,
-  which are apodizing, and modulator generations
+- **Filters with notes:** chips for what each filter favours, which ratios it can do and
+  which are apodizing, and an (i) on each with a short, cited note
   ([where these come from](#where-filter-descriptions-come-from)).
-- **Compatible filters first:** with a fixed output rate, filters that can't do the
-  current conversion are hidden. Pick one anyway and the app offers rates that fit.
+- **Filters that fit here:** filters that can't play as set (a ratio they can't do, a
+  failure on this machine, or trouble inferred from one) sit below the rest with the
+  reason; picking one asks first, and "What would it take?" suggests the nearest rate or
+  modulator that would let it play. Load is only ever what this machine measured.
 - **Warns before silence:** if the next track can't start with your settings, or Play
   does nothing, the app says why and how to fix it.
 - **Volume safety:** never raised by more than 6 dB at once; undo and rollback never
@@ -70,6 +75,8 @@ control protocol, and to Roon (if you want) through Roon's extension API.
 - **Live readouts:** HQPlayer's processing speed (e.g. 3.4×), and its Apod and Clips
   counters when they're above zero, with a nudge toward an apodizing filter.
 - **Seek** within files HQPlayer plays itself.
+- **Classic layout:** the earlier one-column layout is still there, in Settings →
+  Appearance, without the newer parts (filter sort, guide flow, meters, Compare).
 - **Roon (optional):** track, cover art, seek and working play/pause/skip for the
   Roon zone that feeds HQPlayer.
 

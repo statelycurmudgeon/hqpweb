@@ -1,6 +1,7 @@
 // Per-device preferences, kept in this browser only. Storage may be unavailable
 // (private mode, blocked site data), so every access is guarded and the app
 // works with the defaults.
+import { layoutOf } from "./prefs-migrate.ts";
 
 export const THEMES = [
   { id: "system", label: "Match system", note: "Dark or light, following this device", theme: null, palette: "classic" },
@@ -26,8 +27,8 @@ export interface Prefs {
   adviceTab: "list" | "guide";
   /** The guide's intro has been read once: show it as one line from then on. */
   guideIntroSeen: boolean;
-  /** The v2 layout (docs/design-v2-layout.md), a preview until it replaces the current one. */
-  layout: "current" | "v2";
+  /** The layout (docs/design-v2-layout.md) by default, or the earlier one-column "classic", chosen in Settings. */
+  layout: "v2" | "classic";
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
   /** "levels" was a view before it moved to the strip; MeterStrip opens Bars for it. */
@@ -46,7 +47,7 @@ const DEFAULTS: Prefs = {
   fitMaxAgeDays: 90,
   adviceTab: "list",
   guideIntroSeen: false,
-  layout: "current",
+  layout: "v2",
   meterOpen: false,
   meterView: "waterfall",
   meterNudge: {},
@@ -55,7 +56,9 @@ const DEFAULTS: Prefs = {
 function load(): Prefs {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Prefs>) } : { ...DEFAULTS };
+    if (!raw) return { ...DEFAULTS };
+    const stored = JSON.parse(raw) as Partial<Prefs>;
+    return { ...DEFAULTS, ...stored, layout: layoutOf(stored.layout) };
   } catch {
     return { ...DEFAULTS };
   }
