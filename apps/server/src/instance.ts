@@ -25,6 +25,7 @@ import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf, type Settings } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
 import { ChangeEngine, type RoonTransport } from "./change-engine.ts";
+import { RestartGuard } from "./restart-guard.ts";
 import { HttpError } from "./errors.ts";
 import { activeDac, scopeOf } from "./dac-scope.ts";
 
@@ -168,7 +169,10 @@ export class Instance {
       onTick: (status, state) => {
         void this.noteSpeed(status, state).catch(() => undefined);
         void this.noteSettings(state).catch(() => undefined);
+        const cap = this.restart.answered(state.volume, this.cfg.restartVolumeCap);
+        if (cap !== null) void this.lowerAfterRestart(state.volume, cap).catch(() => undefined);
       },
+      onError: () => this.restart.failed(),
     });
     this.playWaitMs = opts.playWaitMs ?? 5000;
     this.engine = new ChangeEngine({
@@ -180,6 +184,7 @@ export class Instance {
       onVolumeWrite: (v) => this.poller.noteOwnVolume(v),
       ...(opts.roon ? { roon: opts.roon } : {}),
     });
+    this.watchForRestarts();
   }
 
   /**
@@ -515,7 +520,43 @@ export class Instance {
     return this.meter.subscribe(fn);
   }
 
+  // ---- restart recovery (restart-guard.ts) ----------------------------------------
+  private readonly restart = new RestartGuard();
+  private restartWatch: (() => void) | null = null;
+
+  /**
+   * While a cap is set, keep a light watch (one Status a second, as an open page does), so a
+   * restart is seen with nobody looking; stop it when the cap is cleared.
+   */
+  watchForRestarts() {
+    const want = this.cfg.restartVolumeCap !== undefined;
+    if (want && !this.restartWatch) this.restartWatch = this.poller.subscribe(() => undefined, 1000);
+    if (!want && this.restartWatch) {
+      this.restartWatch();
+      this.restartWatch = null;
+    }
+  }
+
+  /** Lower to the cap after a restart: read back, and logged in History. Never raises. */
+  private lowerAfterRestart(from: number, to: number) {
+    return this.exclusive(async () => {
+      if (to >= from) return;
+      this.poller.noteOwnVolume(to);
+      await this.client.send(cmd.volume(to));
+      const now = await this.client.state();
+      this.history.push({
+        at: new Date().toISOString(),
+        instance: this.scope(),
+        source: "hqpweb",
+        changes: [{ field: "volume", from, to: now.volume, applied: Math.abs(now.volume - to) < 0.5 }],
+        detail: `HQPlayer restarted: volume lowered to ${to} dB, its cap here`,
+      });
+    });
+  }
+
   close() {
+    this.restartWatch?.();
+    this.restartWatch = null;
     this.client.close();
     this.poller.close();
     this.meter?.close();
