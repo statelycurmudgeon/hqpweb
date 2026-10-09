@@ -138,7 +138,8 @@
     </ol>
     <p class="note">
       The claps stop whatever is playing; press Play in Roon (or your player) afterwards. Use the phone's own speaker, not
-      Bluetooth headphones.
+      Bluetooth headphones. HQPlayer fetches the clap track from hqpweb's GitHub (or from hqpweb itself, if it can't reach
+      GitHub).
     </p>
     <button class="go" onclick={startReaction}>Start</button>
   {:else if step === "reaction" || step === "claps"}

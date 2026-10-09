@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import { CLAPS_MS, clapTrack } from "../src/calibration.ts";
+import { CLAPS_MS, GITHUB_CLAPS_URL, clapTrack } from "../src/calibration.ts";
 import { client } from "./http.ts";
 
 const fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
@@ -56,7 +56,7 @@ describe("playing it through HQPlayer", () => {
     expect(r.json()).toMatchObject({ clapsMs: CLAPS_MS, trackMs: 17_000 });
     expect(fake.feeder).toBe("playlist");
     expect(fake.playback).toBe(2);
-    expect(fake.playlist).toEqual([`${base}/api/calibration.wav`]);
+    expect(fake.playlist).toEqual([GITHUB_CLAPS_URL]); // GitHub first (owner's choice)
   });
 });
 
@@ -80,17 +80,23 @@ describe("which address HQPlayer is given", () => {
     return out;
   }
 
+  it("without GitHub, uses the page's address when HQPlayer can fetch it", async () => {
+    const r = await behindName((u) => u !== GITHUB_CLAPS_URL);
+    expect(r.status).toBe(200);
+    expect(r.playlist).toEqual(["http://hqpweb.example/api/calibration.wav"]);
+  }, 10_000);
+
   it("falls back to this server's own address on its connection to HQPlayer", async () => {
-    const r = await behindName((u) => !u.includes("hqpweb.example"));
+    const r = await behindName((u) => !u.includes("hqpweb.example") && u !== GITHUB_CLAPS_URL);
     expect(r.status).toBe(200);
     expect(r.playlist).toEqual([`http://127.0.0.1:${r.port}/api/calibration.wav`]);
-  });
+  }, 10_000);
 
   it("says where it tried when HQPlayer can fetch neither", async () => {
     const r = await behindName(() => false);
     expect(r.status).toBe(502);
     expect(r.body.error).toMatch(
-      /couldn't fetch the clap track from http:\/\/hqpweb\.example\/api\/calibration\.wav or http:\/\/127\.0\.0\.1:/,
+      /couldn't fetch the clap track from https:\/\/raw\.githubusercontent\.com\/\S+ or http:\/\/hqpweb\.example\/api\/calibration\.wav or http:\/\/127\.0\.0\.1:/,
     );
-  }, 10_000); // up to 3 s per address, waiting for HQPlayer to keep it
+  }, 15_000); // up to 3 s per address, waiting for HQPlayer to keep it
 });

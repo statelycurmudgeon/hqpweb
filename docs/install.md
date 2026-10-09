@@ -109,15 +109,19 @@ works and rollback still works, but it can't save what it learns. Its log says
 
 ## Network
 
-| Direction    | Port                                  | What for                                              |
-| ------------ | ------------------------------------- | ----------------------------------------------------- |
-| In           | TCP 4380 (or `PORT`)                  | The app and its API, from your phone or browser       |
-| Out          | TCP 4321 to HQPlayer                  | Control: every read and change                        |
-| Out          | TCP 4322 to HQPlayer                  | The meter stream, only while a meter is open          |
-| Out          | UDP 4321 to 239.192.0.199 (multicast) | Discovery (**Scan now**), only with host networking   |
-| Out (option) | TCP 9330 to the Roon core             | Now playing and transport, only if you switch Roon on |
+| Direction    | Port                                  | What for                                               |
+| ------------ | ------------------------------------- | ------------------------------------------------------ |
+| In           | TCP 4380 (or `PORT`)                  | The app and its API, from your phone or browser        |
+| Out          | TCP 4321 to HQPlayer                  | Control: every read and change                         |
+| Out          | TCP 4322 to HQPlayer                  | The meter stream, only while a meter is open           |
+| Out          | UDP 4321 to 239.192.0.199 (multicast) | Discovery (**Scan now**), only with host networking    |
+| Out (option) | TCP 9330 to the Roon core             | Now playing and transport, only if you switch Roon on  |
+| HQPlayer out | HTTPS to raw.githubusercontent.com    | The clap track, only when you line up the meter by ear |
+| HQPlayer in  | TCP 4380, from HQPlayer to hqpweb     | The same track, if HQPlayer can't reach GitHub         |
 
-hqpweb needs nothing from the internet. Links to sources open in your browser.
+hqpweb needs nothing from the internet. Links to sources open in your browser. Lining the
+meter up by ear is the one exception: HQPlayer's machine fetches the clap track from
+GitHub, or from hqpweb itself when it can't.
 
 ## Options
 

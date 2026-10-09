@@ -16,9 +16,9 @@ export interface ClapPlay {
 }
 
 /**
- * Play the track from the first address HQPlayer takes. Candidates: the address the page was
- * opened at, then this server's address on its connection to HQPlayer (an HTTPS proxy or a
- * tailnet name can give a page address HQPlayer can't fetch over plain HTTP). Each is checked
+ * Play the track from the first address HQPlayer takes. Candidates, in order (app.ts): the copy
+ * on GitHub, the address the page was opened at, then this server's address on its connection
+ * to HQPlayer (an HTTPS proxy or a tailnet name can give a page address HQPlayer can't fetch). Each is checked
  * in the playlist before Play: HQPlayer answers OK either way and keeps only what it could fetch.
  */
 export async function playClapTrack(client: HqpClient, urls: string[], timeoutMs = 8000): Promise<ClapPlay> {

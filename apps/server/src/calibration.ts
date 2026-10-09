@@ -3,6 +3,14 @@
 // repeats every bar, so tapping along to it can be a bar out). Generated, not a file: 16-bit
 // stereo PCM at 44.1 kHz, served to HQPlayer over HTTP (it plays URLs: Roon feeds it one).
 
+/**
+ * The same track kept in the repository (calibration/claps-v1.wav; a test keeps it identical),
+ * tried first: one address that works wherever HQPlayer has internet, whatever sits between it
+ * and hqpweb (owner's choice). Measured 2026-10-09 (Embedded 6.2.5): HQPlayer takes and plays it
+ * over HTTPS from here. A new pattern gets a new file name, so older versions keep theirs.
+ */
+export const GITHUB_CLAPS_URL = "https://raw.githubusercontent.com/statelycurmudgeon/hqpweb/main/calibration/claps-v1.wav";
+
 /** When each clap starts, ms into the track. Gaps 2.4, 2.1, 2.8, 2.2, 3.1 s. */
 export const CLAPS_MS = [2000, 4400, 6500, 9300, 11_500, 14_600];
 export const TRACK_MS = 17_000;

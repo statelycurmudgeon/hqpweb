@@ -7,7 +7,7 @@ import { LearnedStore, type Combo } from "./learned.ts";
 import { HistoryStore } from "./history.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
-import { serveClapTrack } from "./calibration.ts";
+import { GITHUB_CLAPS_URL, serveClapTrack } from "./calibration.ts";
 import { playClapTrack } from "./calibrate-play.ts";
 import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
@@ -294,7 +294,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       await i.client.status(); // an open connection, for its local address
       const self = i.client.localAddress?.replace(/^::ffff:/, "");
       const at = self && `http://${self.includes(":") ? `[${self}]` : self}:${q.socket.localPort}/api/calibration.wav`;
-      return playClapTrack(i.client, [`http://${q.headers.host}/api/calibration.wav`, ...(at ? [at] : [])]);
+      return playClapTrack(i.client, [GITHUB_CLAPS_URL, `http://${q.headers.host}/api/calibration.wav`, ...(at ? [at] : [])]);
     },
     "POST seek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };
