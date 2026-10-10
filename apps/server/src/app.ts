@@ -3,10 +3,14 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isIP } from "node:net";
 import {
   HttpError,
-  ROON_ACTIONS,
   RoonLink,
   Service,
-  type RoonAction,
+  parseRoonAction,
+  parseRoonSettings,
+  parseRoonZone,
+  parseSeek,
+  roonTransportFor,
+  watchRoonZone,
   wireError,
   type AppConfig,
   type DocStore,
@@ -106,35 +110,12 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function parseRoonSettings(body: unknown): { enabled?: boolean; host?: string; port?: number } {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
-  const { enabled, host, port, ...rest } = body as Record<string, unknown>;
-  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
-  if (enabled !== undefined && typeof enabled !== "boolean") throw new HttpError(400, "enabled must be a boolean");
-  if (host !== undefined && typeof host !== "string") throw new HttpError(400, "host must be a string");
-  if (port !== undefined && !Number.isInteger(port)) throw new HttpError(400, "port must be a whole number");
-  return {
-    ...(enabled !== undefined ? { enabled: enabled as boolean } : {}),
-    ...(host !== undefined ? { host: (host as string).trim() } : {}),
-    ...(port !== undefined ? { port: port as number } : {}),
-  };
-}
-
 type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Promise<unknown> | void;
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const roon = opts.roon ?? new RoonLink(null);
   // Pausing for a mode switch goes through Roon when hqpweb has the instance's zone (change-engine.ts).
-  const roonTransport =
-    opts.roonTransport ??
-    ((id: string): RoonTransport | null =>
-      roon.zoneFor(id)
-        ? {
-            pause: () => roon.control(id, "pause"),
-            play: () => roon.control(id, "play"),
-            playing: () => roon.zoneFor(id)?.state === "playing",
-          }
-        : null);
+  const roonTransport = opts.roonTransport ?? roonTransportFor(roon);
   // Everything else is the core's (packages/core service.ts): this file is HTTP around it.
   const service = new Service(config, {
     net: opts.net ?? nodeNet,
@@ -173,28 +154,8 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       },
       opts.pollMs,
     );
-    // Roon now-playing for this instance's zone, only when Roon is switched on.
-    // Roon reports the seek position every second. The page advances it itself, so
-    // send it only with other changes or when it jumps (a seek, a stall).
-    let lastRoon = "";
-    let sent: { seek: number; at: number; playing: boolean } | null = null;
-    const sendRoon = () => {
-      if (!roon.enabled && lastRoon === "") return;
-      const status = roon.currentStatus;
-      const zone = roon.zoneFor(inst.cfg.id);
-      const seek = zone?.nowPlaying?.seek;
-      const { seek: _s, ...rest } = zone?.nowPlaying ?? {};
-      const key = JSON.stringify({ status, zone: zone && { ...zone, nowPlaying: zone.nowPlaying && rest } });
-      const playing = zone?.state === "playing";
-      const expected = sent ? sent.seek + (sent.playing ? (Date.now() - sent.at) / 1000 : 0) : null;
-      const jumped = seek != null && (expected == null || Math.abs(seek - expected) > 2);
-      if (key === lastRoon && !jumped) return;
-      lastRoon = key;
-      sent = seek != null ? { seek, at: Date.now(), playing } : null;
-      res.write(`event: roon\ndata: ${JSON.stringify({ status, zone })}\n\n`);
-    };
-    sendRoon();
-    const offRoon = roon.onChange(sendRoon);
+    // Roon now-playing for this instance's zone, only when Roon is switched on (roon-host.ts).
+    const offRoon = watchRoonZone(roon, inst.cfg.id, (e) => res.write(`event: roon\ndata: ${JSON.stringify(e)}\n\n`));
     req.on("close", () => {
       unsubscribe();
       offRoon();
@@ -241,34 +202,9 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       });
       req.on("close", off);
     },
-    "PUT roonzone": async (q, _r, i) => {
-      const body = (await readJson(q)) as { zone?: unknown };
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        !(body.zone === null || (typeof body.zone === "string" && body.zone.length > 0))
-      )
-        throw new HttpError(400, "zone must be a Roon zone id or null");
-      return roon.setZone(i.cfg.id, body.zone as string | null);
-    },
-    "POST roonseek": async (q, _r, i) => {
-      const body = (await readJson(q)) as { seconds?: unknown };
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        typeof body.seconds !== "number" ||
-        !Number.isFinite(body.seconds) ||
-        body.seconds < 0
-      )
-        throw new HttpError(400, "seconds must be a number ≥ 0");
-      return roon.seek(i.cfg.id, body.seconds);
-    },
-    "POST roontransport": async (q, _r, i) => {
-      const body = (await readJson(q)) as { action?: unknown };
-      if (typeof body !== "object" || body === null || !ROON_ACTIONS.includes(body.action as RoonAction))
-        throw new HttpError(400, `action must be one of ${ROON_ACTIONS.join(", ")}`);
-      return roon.control(i.cfg.id, body.action as RoonAction);
-    },
+    "PUT roonzone": async (q, _r, i) => roon.setZone(i.cfg.id, parseRoonZone(await readJson(q))),
+    "POST roonseek": async (q, _r, i) => roon.seek(i.cfg.id, parseSeek(await readJson(q))),
+    "POST roontransport": async (q, _r, i) => roon.control(i.cfg.id, parseRoonAction(await readJson(q))),
   };
 
   async function handle(req: IncomingMessage, res: ServerResponse) {

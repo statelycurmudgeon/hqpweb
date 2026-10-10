@@ -169,7 +169,7 @@
   {#if viaRoon?.nowPlaying}
     {@const np = viaRoon.nowPlaying}
     <div class="track">
-      {#if np.imageKey}<img src={`/api/roon/art/${np.imageKey}?size=192`} alt="" width="64" height="64" />{/if}
+      {#if np.imageKey}<img src={api.roonArtUrl(np.imageKey, 192)} alt="" width="64" height="64" />{/if}
       <div>
         <b>{np.track}</b>
         <small>{[np.artist, np.album].filter(Boolean).join(" · ")}</small>

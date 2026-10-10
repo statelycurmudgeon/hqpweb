@@ -94,6 +94,7 @@ export function httpApi(opts: HttpApiOptions = {}): Api {
     seek: (id, seconds) => call(`${inst(id)}/seek`, send("POST", { seconds })),
     roonSeek: (id, seconds) => call(`${inst(id)}/roonseek`, send("POST", { seconds })),
     roonTransport: (id, action) => call(`${inst(id)}/roontransport`, send("POST", { action })),
+    roonArtUrl: (key, size) => `${base}/api/roon/art/${encodeURIComponent(key)}?size=${size}`,
   };
 }
 
