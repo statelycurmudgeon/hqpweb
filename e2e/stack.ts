@@ -2,9 +2,9 @@
 // web app, and a loopback control endpoint the tests use to change a fake's state
 // (what a listener or HQPlayer itself would do: queue a track, restart louder).
 //   node e2e/stack.ts        (needs the web app and e2e/app-host built first)
-// Each flow gets its own instance, so flows can't disturb each other. The phone app's
-// test build (app-host.ts) runs the same flows against a second set of fakes of its own,
-// so the two hosts' runs can't disturb each other either.
+// Each flow gets its own instance, so flows can't disturb each other; and each lane (a host
+// in an engine, lanes.ts) its own set of fakes, so lanes can't either. The phone app's lanes
+// are served by its test build (app-host.ts).
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { readdirSync } from "node:fs";
@@ -15,10 +15,7 @@ import type { InstanceConfig } from "@app/core";
 import { startAppHost } from "./app-host.ts";
 import { TUNING } from "./tuning.ts";
 
-export const APP_PORT = 4390;
-export const CONTROL_PORT = 4391;
-/** The phone app's test build (app-host.ts). */
-export const APP_HOST_PORT = 4392;
+import { CONTROL_PORT, LANES } from "./lanes.ts";
 
 /** Every flow, from the *.flows.ts files beside the specs: each spec declares its own fakes. */
 async function loadFlows(): Promise<Flows> {
@@ -69,20 +66,24 @@ async function startFakes(flows: Flows) {
 
 export async function startStack() {
   const flows = await loadFlows();
-  const web = await startFakes(flows);
-  const app = buildApp(
-    { instances: web.instances },
-    { staticDir: fileURLToPath(new URL("../apps/web/dist", import.meta.url)), ...TUNING },
-  );
-  await app.listen(APP_PORT, "127.0.0.1");
-  const phone = await startFakes(flows);
-  const appHost = await startAppHost(APP_HOST_PORT, phone.instances);
+  const running: { name: string; fakes: Map<string, FakeHqp>; close: () => Promise<unknown> }[] = [];
+  for (const l of LANES) {
+    const { fakes, instances } = await startFakes(flows);
+    if (l.host === "web") {
+      const app = buildApp({ instances }, { staticDir: fileURLToPath(new URL("../apps/web/dist", import.meta.url)), ...TUNING });
+      await app.listen(l.port, "127.0.0.1");
+      running.push({ name: l.name, fakes, close: () => app.close() });
+    } else {
+      const host = await startAppHost(l.port, instances);
+      running.push({ name: l.name, fakes, close: async () => host.close() });
+    }
+  }
 
-  // /fake/<id> for the web's fakes; ?host=app for the app's (control.ts picks by project).
+  // POST /fake/<id>?lane=<project>: change that lane's fake (hosts.ts fakeUrl).
   const control = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const id = url.pathname.match(/^\/fake\/([a-z0-9-]+)$/)?.[1];
-    const fake = id ? (url.searchParams.get("host") === "app" ? phone : web).fakes.get(id) : undefined;
+    const fake = id ? running.find((r) => r.name === url.searchParams.get("lane"))?.fakes.get(id) : undefined;
     if (req.method !== "POST" || !fake) return res.writeHead(404).end();
     let body = "";
     req.on("data", (d) => (body += d));
@@ -100,16 +101,15 @@ export async function startStack() {
 
   return async () => {
     control.close();
-    appHost.close();
-    await app.close();
-    await Promise.all([...web.fakes.values(), ...phone.fakes.values()].map((f) => f.close()));
+    await Promise.all(running.map((r) => r.close()));
+    await Promise.all(running.flatMap((r) => [...r.fakes.values()].map((f) => f.close())));
   };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const stop = await startStack();
   console.error(
-    `browser-test stack: web on http://127.0.0.1:${APP_PORT}, the app on ${APP_HOST_PORT}, control on ${CONTROL_PORT}`,
+    `browser-test stack: ${LANES.map((l) => `${l.name} on http://127.0.0.1:${l.port}`).join(", ")}; control on ${CONTROL_PORT}`,
   );
   for (const s of ["SIGINT", "SIGTERM"] as const) process.once(s, () => void stop().finally(() => process.exit(0)));
 }
