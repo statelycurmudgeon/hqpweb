@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseChange } from "../src/app.ts";
-import { CONFIG_DOC, configText, loadConfig, type AppConfig } from "../src/config.ts";
+import { CONFIG_DOC, configText, loadConfig, type AppConfig } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
-import { SETTINGS_FORMAT } from "../src/format.ts";
-import { LearnedStore } from "../src/learned.ts";
-import { PresetStore } from "../src/presets.ts";
+import { SETTINGS_FORMAT } from "@app/core";
+import { LearnedStore } from "@app/core";
+import { PresetStore } from "@app/core";
 import { RoonLink } from "../src/roon/roon.ts";
 
 const FIXTURES = join(import.meta.dirname, "fixtures/settings-0.1");

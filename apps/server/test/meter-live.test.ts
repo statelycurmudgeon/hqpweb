@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, FakeMeter, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import type { MeterEvent } from "../src/meter-stream.ts";
+import type { MeterEvent } from "@app/core";
 
 let fake: FakeHqp;
 let meter: FakeMeter | null;

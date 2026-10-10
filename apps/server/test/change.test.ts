@@ -4,9 +4,9 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile, type FakeOptions } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import type { InstanceConfig } from "../src/config.ts";
-import { LearnedStore } from "../src/learned.ts";
-import type { WatchTiming } from "../src/watch.ts";
+import type { InstanceConfig } from "@app/core";
+import { LearnedStore } from "@app/core";
+import type { WatchTiming } from "@app/core";
 import { client } from "./http.ts";
 import { FileDocs } from "../src/file-docs.ts";
 
@@ -156,6 +156,7 @@ describe("rollback when playback fails", () => {
     expect((await forget({ mode, rateHz: "fast", filter1x, filterNx, shaper })).status).toBe(400);
     expect((await forget({ mode, rateHz, filter1x, filterNx, shaper })).json()).toEqual({ forgotten: 1 });
     expect((await caps()).knownBad).toEqual([]);
+    await learned.flush(); // forgetting saves in the background too
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toEqual([]);
   });
 

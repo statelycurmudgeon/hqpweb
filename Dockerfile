@@ -7,6 +7,7 @@ FROM --platform=$BUILDPLATFORM node:24-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
+COPY packages/core/package.json packages/core/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
@@ -25,11 +26,13 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
+COPY packages/core/package.json packages/core/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 RUN npm ci --omit=dev -w @app/server && npm cache clean --force
 COPY packages/protocol/src packages/protocol/src
+COPY packages/core/src packages/core/src
 COPY apps/server/src apps/server/src
 COPY --from=build /src/apps/web/dist /app/web
 COPY --from=build /src/COMMIT /app/COMMIT

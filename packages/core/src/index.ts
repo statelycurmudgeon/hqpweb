@@ -1,0 +1,25 @@
+// hqpweb's core: what talks to HQPlayer and decides things (packages/core). Portable: no Node
+// (tsconfig.portable.json); the server (apps/server) supplies connections, storage and HTTP.
+export * from "./change-engine.ts";
+export * from "./config.ts";
+export * from "./dac-scope.ts";
+export * from "./docs.ts";
+export * from "./errors.ts";
+export * from "./format.ts";
+export * from "./history.ts";
+export * from "./instance-types.ts";
+export * from "./instance.ts";
+export * from "./kept-up.ts";
+export * from "./learned.ts";
+export * from "./meter-pace.ts";
+export * from "./meter-stream.ts";
+export * from "./poller.ts";
+export * from "./preset-preview.ts";
+export * from "./presets.ts";
+export * from "./registry.ts";
+export * from "./restart-guard.ts";
+export * from "./settings.ts";
+export * from "./setup.ts";
+export * from "./timers.ts";
+export * from "./volume.ts";
+export * from "./watch.ts";

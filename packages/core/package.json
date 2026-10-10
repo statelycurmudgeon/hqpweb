@@ -1,13 +1,12 @@
 {
-  "name": "@app/server",
+  "name": "@app/core",
   "version": "0.1.0-beta.6",
   "private": true,
   "type": "module",
-  "dependencies": {
-    "@app/core": "*",
-    "@app/protocol": "*"
+  "exports": {
+    ".": "./src/index.ts"
   },
-  "devDependencies": {
-    "@app/fake-hqp": "*"
+  "dependencies": {
+    "@app/protocol": "*"
   }
 }

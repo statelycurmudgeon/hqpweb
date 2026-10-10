@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import { applySetupChange, parseSetupChange } from "../src/setup.ts";
+import { applySetupChange, parseSetupChange } from "@app/core";
 import { client } from "./http.ts";
 import { FileDocs } from "../src/file-docs.ts";
 

@@ -4,6 +4,7 @@
 // §2.3), so this runs continuously, not just after a change. When answers get slow,
 // polling backs off so the app doesn't add load. Moved from instance.ts, unchanged.
 import { cmd, queuedRate, type HqpClient, type State, type Status } from "@app/protocol";
+import type { Timer } from "./timers.ts";
 
 export interface StatusEvent {
   snapshot?: Snapshot;
@@ -83,7 +84,7 @@ export class StatusPoller {
   // When answers get slow, polling backs off so the app doesn't add load.
 
   private listeners = new Set<(e: StatusEvent) => void>();
-  private timer: NodeJS.Timeout | null = null;
+  private timer: Timer | null = null;
   private trail: { t: number; pos: number }[] = [];
   private processTrail: { t: number; v: number }[] = [];
 

@@ -205,7 +205,7 @@ describe("polling after hqpweb's own slow write", () => {
 
 describe("polling when HQPlayer itself is slow", () => {
   it("backs off when a slow reply wasn't waiting on hqpweb's own write", async () => {
-    const { StatusPoller } = await import("../src/poller.ts");
+    const { StatusPoller } = await import("@app/core");
     const real = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
     await real.listen();
     const { HqpClient } = await import("@app/protocol");

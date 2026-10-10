@@ -1,0 +1,14 @@
+{
+  // The core (index.ts) type-checked with no Node types, as the protocol is: what talks to
+  // HQPlayer and decides things must run in a phone app too. Node lives in apps/server.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["es2024", "dom"],
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true
+  },
+  "files": ["src/index.ts"]
+}

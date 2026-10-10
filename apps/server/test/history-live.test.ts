@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile, type FakeOptions } from "@app/fake-hqp";
 import { HqpClient, cmd } from "@app/protocol";
 import { buildApp } from "../src/app.ts";
-import type { HistoryEntry } from "../src/history.ts";
-import type { WatchTiming } from "../src/watch.ts";
+import type { HistoryEntry } from "@app/core";
+import type { WatchTiming } from "@app/core";
 import { client } from "./http.ts";
 import { nodeConnect } from "@app/protocol/node";
 

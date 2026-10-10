@@ -7,11 +7,11 @@
 // (2.73): discovery, the port (9330), approval and token reuse, HQPlayer zones
 // carrying a source control named "HQPlayer", transport control and seek.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { SETTINGS_FORMAT, checkFormat } from "../format.ts";
+import { SETTINGS_FORMAT, checkFormat } from "@app/core";
 import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
 import { decode, encode, type MooMessage } from "./moo.ts";
-import { HttpError } from "../instance.ts";
+import { HttpError } from "@app/core";
 import { VERSION } from "../version.ts";
 
 export const ROON_ACTIONS = ["play", "pause", "playpause", "previous", "next"] as const;

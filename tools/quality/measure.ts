@@ -34,6 +34,7 @@ const AREAS = [
   ["`apps/web` (UI)", "apps/web/"],
   ["`apps/server`", "apps/server/"],
   ["`packages/protocol`", "packages/protocol/"],
+  ["`packages/core`", "packages/core/"],
   ["`packages/fake-hqp`", "packages/fake-hqp/"],
   ["`e2e` (browser tests)", "e2e/"],
 ] as const;

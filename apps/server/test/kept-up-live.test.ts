@@ -4,9 +4,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile, type FakeOptions } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import type { KeptTiming } from "../src/kept-up.ts";
-import type { KeptUp } from "../src/learned.ts";
-import type { WatchTiming } from "../src/watch.ts";
+import type { KeptTiming } from "@app/core";
+import type { KeptUp } from "@app/core";
+import type { WatchTiming } from "@app/core";
 import { client } from "./http.ts";
 
 const KEPT: KeptTiming = { warmupMs: 150, windowMs: 100, minWindows: 3, maxGapMs: 1000 };

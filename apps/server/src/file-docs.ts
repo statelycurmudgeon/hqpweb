@@ -3,7 +3,7 @@
 // document, never half of one.
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { DocStore } from "./docs.ts";
+import type { DocStore } from "@app/core";
 
 export class FileDocs implements DocStore {
   readonly dir: string;

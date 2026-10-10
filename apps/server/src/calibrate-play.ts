@@ -5,7 +5,7 @@
 // to play at once, press Play, and read back that it's really playing (rule 4).
 import { cmd, element, type HqpClient } from "@app/protocol";
 import { CLAPS_MS, TRACK_MS } from "./calibration.ts";
-import { HttpError } from "./errors.ts";
+import { HttpError } from "@app/core";
 
 export interface ClapPlay {
   /** When HQPlayer was first seen playing the track (ms, server clock); for the record. */

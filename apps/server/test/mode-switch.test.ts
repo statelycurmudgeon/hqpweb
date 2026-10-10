@@ -5,8 +5,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
-import type { RoonTransport } from "../src/change-engine.ts";
-import type { WatchTiming } from "../src/watch.ts";
+import type { RoonTransport } from "@app/core";
+import type { WatchTiming } from "@app/core";
 import { client } from "./http.ts";
 
 const FAST: WatchTiming = { graceMs: 100, healthyMs: 300, maxMs: 1200, sampleMs: 40, minSpeed: 0.85 };

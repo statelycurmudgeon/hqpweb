@@ -9,8 +9,8 @@ import { readdirSync } from "node:fs";
 import { FakeHqp, FakeMeter, loadProfile } from "@app/fake-hqp";
 import type { Flows } from "./flows-kit.ts";
 import { buildApp } from "../apps/server/src/app.ts";
-import type { InstanceConfig } from "../apps/server/src/config.ts";
-import type { WatchTiming } from "../apps/server/src/watch.ts";
+import type { InstanceConfig } from "@app/core";
+import type { WatchTiming } from "@app/core";
 
 export const APP_PORT = 4390;
 export const CONTROL_PORT = 4391;
