@@ -259,7 +259,11 @@ export interface CoreApi {
   addInstance(body: { name: string; host: string; port?: number }): Promise<{ id: string }>;
   renameInstance(id: string, name: string): Promise<{ id: string; name: string }>;
   removeInstance(id: string): Promise<{ ok: true }>;
-  setRestartCap(id: string, maxDb: number | null): Promise<Inst>;
+  /** The instance as saved, with its cap (absent: off). */
+  setRestartCap(
+    id: string,
+    maxDb: number | null,
+  ): Promise<{ id: string; name: string; host: string; port: number; restartVolumeCap?: number }>;
   /** Set (a value) or clear (null) setup answers. A discovered instance is saved first: `savedNow`. */
   saveSetup(
     id: string,

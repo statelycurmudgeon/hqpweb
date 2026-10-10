@@ -22,6 +22,7 @@ describe("the core's answers fit the API's contract", () => {
       fits<{ id: string }>()<Result<"addInstance">>(),
       fits<{ id: string; name: string }>()<Result<"renameInstance">>(),
       fits<{ ok: true }>()<Result<"removeInstance">>(),
+      fits<{ id: string; name: string; host: string; port: number; restartVolumeCap?: number }>()<Result<"setRestartCap">>(),
       fits<{ instance: { id: string; setup?: Wire.Setup }; savedNow: boolean }>()<Result<"saveSetup">>(),
       fits<{ dac: { id: string; name: string } }>()<Result<"addDac">>(),
       fits<{ ok: true }>()<Result<"renameDac">>(),
