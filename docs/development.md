@@ -62,9 +62,9 @@ delays), `--source-rate 96000` (switches the in-use filter from 1x to Nx), and
 
 `apps/mobile` is the web app with the core running in-process (packages/core `localApi`),
 wrapped by Capacitor. HQPlayer is reached through `packages/capacitor-tcp`; what the app
-keeps lives on the phone (each phone keeps its own). It hides what it can't do yet: Roon,
-the restart volume cap, lining the meter up by ear, and network scanning. Add HQPlayer by
-address in Settings.
+keeps lives on the phone (each phone keeps its own). It hides what it can't do yet: the
+restart volume cap, lining the meter up by ear, and searching the network (for HQPlayer or a
+Roon Core). Add HQPlayer, and Roon's core if you use it, by address in Settings.
 
 Needs Xcode. To build and run it in the iOS simulator, which shares the Mac's network:
 
@@ -75,9 +75,22 @@ xcodebuild -project apps/mobile/ios/App/App.xcodeproj -scheme App -sdk iphonesim
 ```
 
 Then install the built `App.app` with `xcrun simctl install`, or open
-`apps/mobile/ios/App/App.xcodeproj` in Xcode and press Run. On a real iPhone, sign it with
-your own Apple ID (Xcode → Settings → Accounts, a free "Personal Team"); such builds last 7
-days. The app id `dev.hqpweb.app` is a placeholder for builds on your own devices.
+`apps/mobile/ios/App/App.xcodeproj` in Xcode and press Run.
+
+### On your own iPhone or iPad
+
+1. Sign in to Xcode with your Apple ID (Xcode → Settings → Accounts). A free "Personal Team"
+   is enough; its builds run for 7 days.
+2. Copy `apps/mobile/ios/local-team.xcconfig.example` to `local-team.xcconfig` beside it
+   and put your team ID in it. Git ignores that file, so your team never lands in the repo.
+3. Connect the device by cable once, unlock it, trust this Mac, and turn on Developer Mode
+   (Settings → Privacy & Security). After the first install, allow the developer under
+   Settings → General → VPN & Device Management.
+4. `npm run phone` builds, signs, installs and opens it (`-- --dry-run` shows the steps
+   first). Run it again to renew a 7-day build. With several devices: `HQPWEB_DEVICE="Name"`.
+
+The first signed build may ask to let `codesign` use your key: choose Always Allow. The app
+id `dev.hqpweb.app` is a placeholder for builds on your own devices.
 
 ## Remote development
 

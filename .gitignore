@@ -32,3 +32,8 @@ e2e/report/
 
 # Claude Code agent worktrees (temporary checkouts inside the repo)
 .claude/worktrees/
+
+# The phone app: your Apple team ID (apps/mobile/ios/local-team.xcconfig.example), and
+# what Xcode keeps beside the Swift package.
+apps/mobile/ios/local-team.xcconfig
+packages/capacitor-tcp/.swiftpm/

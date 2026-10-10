@@ -1,0 +1,4 @@
+// Copy to local-team.xcconfig (git-ignored) and put your team ID in it: Xcode → Settings →
+// Accounts → your team, or the 10 characters after "Team" in a failed build's signing error.
+// Without the file, Xcode asks for a team under Signing & Capabilities instead.
+DEVELOPMENT_TEAM = ABCDE12345
