@@ -32,6 +32,13 @@ export interface FakeOptions {
    */
   modeSwitchWhilePlayingCrashes?: boolean;
   /**
+   * Whether SetMode while paused kills HQPlayer too. Measured 2026-10-09 (Embedded 6.2.5, macOS):
+   * paused (state 1), then SetMode DSD→PCM: a segfault, 1 of 2 tries, plus one real crash with
+   * Roon paused; stopped first, 0 of 3 (and SetMode answered in 0.1 s, not ~2.5 s). Desktop 5
+   * survived paused switches on 10-08. The fake assumes the worst. Default true.
+   */
+  modeSwitchWhilePausedCrashes?: boolean;
+  /**
    * After acknowledging SetFilter, how long HQPlayer answers nothing while it builds the
    * filter now in use, in ms; playback doesn't advance meanwhile. Measured 2026-10-09
    * (Desktop 5.35.10, macOS, DSD256, ASDM7EC-fast, 44.1k): sinc-L, 9.4 s, both times;

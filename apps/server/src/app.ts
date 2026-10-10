@@ -213,7 +213,13 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const roonTransport =
     opts.roonTransport ??
     ((id: string): RoonTransport | null =>
-      roon.zoneFor(id) ? { pause: () => roon.control(id, "pause"), play: () => roon.control(id, "play") } : null);
+      roon.zoneFor(id)
+        ? {
+            pause: () => roon.control(id, "pause"),
+            play: () => roon.control(id, "play"),
+            playing: () => roon.zoneFor(id)?.state === "playing",
+          }
+        : null);
   const registry = new Registry(config, {
     configDir: opts.configDir ?? null,
     discovery: opts.discovery ?? false,

@@ -83,6 +83,7 @@ export class FakeHqp {
       convolutionConfigured: opts.convolutionConfigured ?? false,
       log: opts.log,
       modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
+      modeSwitchWhilePausedCrashes: opts.modeSwitchWhilePausedCrashes ?? true,
       busyAfterFilter: opts.busyAfterFilter ?? (() => 0),
       fetchable: opts.fetchable ?? (() => true),
     };
@@ -372,7 +373,10 @@ export class FakeHqp {
       // Inferred: an out-of-range index replies OK and changes nothing. Not measured;
       // chosen because it punishes clients that trust OK.
       if (i === null || !this.profile.modes.some((m) => m.index === i)) return this.ok("SetMode");
-      if (this.playback === 2 && this.opts.modeSwitchWhilePlayingCrashes) {
+      if (
+        (this.playback === 2 && this.opts.modeSwitchWhilePlayingCrashes) ||
+        (this.playback === 1 && this.opts.modeSwitchWhilePausedCrashes)
+      ) {
         this.crashed = true; // HQPlayer is gone: every connection drops, nothing listens
         void this.net.close();
         return this.ok("SetMode"); // never delivered

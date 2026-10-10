@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoonZone, Snapshot } from "./api.ts";
-import { control, isQuiet, isRisky, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
+import { applyLabel, control, isQuiet, isRisky, roonPosition, stepVolume, zoneMismatch } from "./control.ts";
 
 const snap = (state: 0 | 1 | 2, song: string | null): Snapshot =>
   ({
@@ -94,5 +94,17 @@ describe("a quiet change", () => {
     expect(isQuiet({ volume: -30, shaper: "NS9" })).toBe(false);
     expect(isQuiet({ shaper: "NS9" })).toBe(false);
     expect(isQuiet({})).toBe(false);
+  });
+});
+
+describe("what the footer says while a change runs", () => {
+  it("warns a mode switch can take up to 20 s (it stops HQPlayer first), and names the mode", () => {
+    expect(applyLabel({ mode: "SDM (DSD)" }, true)).toBe("Switching to DSD: this can take up to 20 seconds");
+    expect(applyLabel({ mode: "PCM" }, false)).toBe("Switching to PCM: this can take up to 20 seconds");
+  });
+  it("otherwise says whether playback is being checked", () => {
+    expect(applyLabel({ filter1x: "IIR" }, true)).toBe("Applying and checking playback");
+    expect(applyLabel({ filter1x: "IIR" }, false)).toBe("Applying");
+    expect(applyLabel({ volume: -30 }, true)).toBe("Applying");
   });
 });

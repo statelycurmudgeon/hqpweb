@@ -1,6 +1,6 @@
 // Who controls playback, what a change risks, and the volume step (moved from App.svelte;
 // pure, tested in control.test.ts).
-import type { Change, RoonZone, Snapshot } from "./api.ts";
+import { modeLabel, type Change, type RoonZone, type Snapshot } from "./api.ts";
 
 export type TransportAction = "play" | "pause" | "stop" | "previous" | "next";
 
@@ -63,6 +63,15 @@ export const isRisky = (change: Change) => (Object.keys(change) as (keyof Change
  * A volume change on its own is frequent and undoes itself (the slider): no result
  * message unless it went wrong, and no Undo (owner's call, 2026-10-08).
  */
+/**
+ * What the footer says while a change runs. A mode switch stops HQPlayer first (it can crash
+ * if switched playing or paused: measured), then carries on: up to ~20 s of silence, so say so.
+ */
+export function applyLabel(change: Change, playing: boolean): string {
+  if (change.mode) return `Switching to ${modeLabel(change.mode)}: this can take up to 20 seconds`;
+  return isRisky(change) && playing ? "Applying and checking playback" : "Applying";
+}
+
 export const isQuiet = (change: Change) => {
   const keys = Object.keys(change);
   return keys.length === 1 && keys[0] === "volume";

@@ -19,7 +19,7 @@ test("v2: Compare plays A and B in turn, reads which is heard, and says what it 
   // PCM was never seen on this fake: B keeps the names and says why it can't offer choices.
   await sheet.getByRole("combobox", { name: "B mode" }).selectOption({ label: "PCM" });
   await expect(sheet).toContainText("hasn't seen PCM's lists");
-  await expect(sheet).toContainText("pauses about 5 s");
+  await expect(sheet).toContainText("up to 20 s");
   await sheet.getByRole("button", { name: "Keep A" }).click();
   await expect(sheet).toBeHidden();
   await expect(page.locator(".signal").getByRole("button", { name: /^Modulator/ })).toContainText("AHM7EC8B");
