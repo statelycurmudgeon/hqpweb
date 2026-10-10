@@ -4,6 +4,8 @@ import { setFilter, setRate, type Flows } from "./flows-kit.ts";
 export const flows: Flows = {
   // SDM at auto rate, playing from Roon: every filter fits.
   pick: { name: "Pick a filter", profile: "desktop5-mac-sdm" },
+  // The same, for the result bar's timing (its own fake: the test runs the page's clock).
+  footer: { name: "Footer", profile: "desktop5-mac-sdm" },
   // Playing, on a machine that runs poly-sinc-gauss-long at half real time: picking it is rolled back.
   rollback: {
     name: "Rollback",

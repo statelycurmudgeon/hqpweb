@@ -63,6 +63,24 @@ test("pick a filter, see it confirmed, undo it", async ({ page }) => {
   await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");
 });
 
+test("the result bar goes 30 s after a change (and doesn't come back by itself)", async ({ page }) => {
+  await page.clock.install();
+  await openOn(page, "footer");
+  await row(page, "1x filter").click();
+  await sheet(page).getByRole("searchbox").fill("gauss-long");
+  await sheet(page)
+    .getByRole("button", { name: /^poly-sinc-gauss-long/ })
+    .click();
+  await succeeded(page);
+  await expect(page.locator("footer")).toHaveClass(/show/);
+  await page.clock.fastForward(20_000);
+  await expect(page.locator("footer")).toHaveClass(/show/); // still there at 20 s, receding
+  await page.clock.fastForward(11_000);
+  await expect(page.locator("footer")).not.toHaveClass(/show/);
+  await page.clock.fastForward(40_000);
+  await expect(page.locator("footer")).not.toHaveClass(/show/);
+});
+
 test("classic: a filter this machine can't keep up with is rolled back, and flagged next time", async ({ page }) => {
   await openOn(page, "rollback", "classic");
   await row(page, "1x filter").click();
