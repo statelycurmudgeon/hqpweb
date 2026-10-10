@@ -37,7 +37,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(() => new Promise<void>((ok) => server.close(() => ok())));
 
-test("the app hides what it can't do: Roon, the restart cap, lining up by ear, scanning", async ({ page }) => {
+test("the app hides what it can't do: the restart cap, lining up by ear, scanning, finding Roon", async ({ page }) => {
   await page.goto(base);
   await expect(page.locator(".banner")).toContainText("add one by address");
   await expect(page.locator(".banner")).not.toContainText("scan");
@@ -45,8 +45,13 @@ test("the app hides what it can't do: Roon, the restart cap, lining up by ear, s
   await page.getByRole("button", { name: /settings/i }).click();
   const tabs = page.getByRole("tablist");
   await expect(tabs.getByRole("tab", { name: "HQPlayer" })).toBeVisible();
-  await expect(tabs.getByRole("tab", { name: "Roon" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Scan now" })).toHaveCount(0);
+
+  // Roon is here, with its core's address typed in: finding it is multicast, which the app can't do.
+  await tabs.getByRole("tab", { name: "Roon" }).click();
+  await page.getByRole("switch").click();
+  await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Find" })).toHaveCount(0);
 
   await tabs.getByRole("tab", { name: "Listening" }).click();
   await expect(page.getByText("Volume buttons")).toBeVisible();

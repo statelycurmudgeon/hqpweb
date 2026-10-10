@@ -289,11 +289,17 @@ export class RoonLink {
     return this.zoneFor(instanceId) ?? zone;
   }
 
+  /** Album art straight from the core, for a page that loads it itself (the app); null unless connected. */
+  imageUrl(key: string, size: number): string | null {
+    if (this.status !== "connected" || !this.settings.host) return null;
+    const s = Math.min(1000, Math.max(50, Math.round(size)));
+    return `http://${this.settings.host}:${this.settings.port ?? DEFAULT_ROON_PORT}/api/image/${encodeURIComponent(key)}?scale=fit&width=${s}&height=${s}&format=image/jpeg`;
+  }
+
   /** Album art from the core's plain-HTTP image endpoint (no MOO needed). */
   async image(key: string, size: number): Promise<{ type: string; data: Uint8Array }> {
-    if (this.status !== "connected" || !this.settings.host) throw new HttpError(409, "Roon not connected");
-    const port = this.settings.port ?? DEFAULT_ROON_PORT;
-    const url = `http://${this.settings.host}:${port}/api/image/${encodeURIComponent(key)}?scale=fit&width=${size}&height=${size}&format=image/jpeg`;
+    const url = this.imageUrl(key, size);
+    if (!url) throw new HttpError(409, "Roon not connected");
     let r: Response;
     try {
       // No redirects: the core is the only host this may fetch from.

@@ -2,7 +2,7 @@
   // Optional Roon link: off by default. When on, the Now card shows Roon's
   // now-playing for the zone mapped to this instance, with working transport.
   import { onDestroy } from "svelte";
-  import { api, type FoundCore, type RoonView } from "./api.ts";
+  import { api, can, type FoundCore, type RoonView } from "./api.ts";
 
   let { instances }: { instances: { id: string; name: string }[] } = $props();
 
@@ -106,7 +106,9 @@
     />
     <input bind:value={port} type="number" min="1" max="65535" aria-label="Roon Core port" class="port" />
     <button class="small" type="submit">Connect</button>
-    <button class="small" type="button" onclick={find} disabled={finding}>{finding ? "Finding…" : "Find"}</button>
+    {#if can.discover}<button class="small" type="button" onclick={find} disabled={finding}
+        >{finding ? "Finding…" : "Find"}</button
+      >{/if}
   </form>
   {#if found && found.length > 1}
     <ul class="found">

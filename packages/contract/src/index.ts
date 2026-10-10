@@ -312,6 +312,8 @@ export interface HostApi {
   setRoonZone(id: string, zone: string | null): Promise<RoonView>;
   roonSeek(id: string, seconds: number): Promise<RoonZone>;
   roonTransport(id: string, action: RoonAction): Promise<RoonZone>;
+  /** Where the page loads a track's album art from: the server's route, or the core itself (the app). */
+  roonArtUrl(key: string, size: number): string;
 }
 
 export type Api = CoreApi & HostApi;

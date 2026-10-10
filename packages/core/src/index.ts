@@ -22,6 +22,7 @@ export * from "./requests.ts";
 export * from "./restart-guard.ts";
 export * from "./roon/moo.ts";
 export * from "./roon/roon.ts";
+export * from "./roon/roon-host.ts";
 export * from "./roon/sood.ts";
 export * from "./service.ts";
 export * from "./settings.ts";

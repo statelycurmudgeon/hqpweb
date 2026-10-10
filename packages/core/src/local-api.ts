@@ -2,7 +2,10 @@
 // of HTTP. Same calls, same answers, same refusals as the server's HTTP API (the contract
 // tests run one suite against both). Everything crosses as JSON, as it does over HTTP, so
 // the page never holds a live reference into the core's state, nor the core into the page's.
-import type { CoreApi } from "@app/contract";
+import type { CoreApi, HostApi } from "@app/contract";
+import { parseSeek } from "./requests.ts";
+import { parseRoonAction, parseRoonSettings, parseRoonZone, watchRoonZone } from "./roon/roon-host.ts";
+import type { RoonLink } from "./roon/roon.ts";
 import type { Service } from "./service.ts";
 import { wireError } from "./wire-error.ts";
 
@@ -16,20 +19,27 @@ function apiError(err: unknown): Error {
   return Object.assign(new Error(w.error), { status: w.status });
 }
 
-export function localApi(service: Service): CoreApi {
-  async function run<T>(call: () => Promise<T>): Promise<T> {
-    try {
-      return wire(await call());
-    } catch (e) {
-      throw apiError(e);
-    }
+async function run<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return wire(await call());
+  } catch (e) {
+    throw apiError(e);
   }
+}
+
+/** With `roon`, the status stream carries its zone updates too, as the server's /events does. */
+export function localApi(service: Service, { roon }: { roon?: RoonLink } = {}): CoreApi {
   return {
     instances: () => run(() => service.instances()),
     discover: () => run(() => service.discover()),
     addInstance: (body) => run(() => service.addInstance(wire(body))),
     renameInstance: (id, name) => run(() => service.renameInstance(id, { name })),
-    removeInstance: (id) => run(() => service.removeInstance(id)),
+    removeInstance: (id) =>
+      run(async () => {
+        const r = await service.removeInstance(id);
+        roon?.forgetInstance(id); // its zone too, as the server does
+        return r;
+      }),
     setRestartCap: (id, maxDb) => run(() => service.setRestartCap(id, { maxDb })),
     saveSetup: (id, change) => run(() => service.saveSetup(id, wire(change))),
     addDac: (id, name, currentName) => run(() => service.addDac(id, { name, ...(currentName ? { currentName } : {}) })),
@@ -56,12 +66,41 @@ export function localApi(service: Service): CoreApi {
         service.forget(id, { mode: c.mode, rateHz: c.rateHz, filter1x: c.filter1x, filterNx: c.filterNx, shaper: c.shaper }),
       ),
     // A stream: the same events the server's /events sends (a snapshot with its health, or
-    // why HQPlayer can't be reached). Nothing in-process can be "lost", and Roon is the host's.
-    status: (id, on) =>
-      service.subscribe(id, (e) => {
+    // why HQPlayer can't be reached, and Roon's zone). Nothing in-process can be "lost".
+    status: (id, on) => {
+      const off = service.subscribe(id, (e) => {
         if (e.snapshot) on.now(wire({ ...e.snapshot, health: e.health }) as Parameters<typeof on.now>[0]);
         else on.unreachable(e.error ?? "unreachable");
-      }),
+      });
+      const offRoon = roon && on.roon ? watchRoonZone(roon, id, (e) => on.roon!(wire(e))) : () => {};
+      return () => {
+        off();
+        offRoon();
+      };
+    },
     meter: (id, on) => service.subscribeMeter(id, (e) => on(wire(e))),
+  };
+}
+
+type RoonApi = Pick<
+  HostApi,
+  "roon" | "configureRoon" | "discoverRoon" | "setRoonZone" | "roonSeek" | "roonTransport" | "roonArtUrl"
+>;
+
+/**
+ * Roon for a page in-process (the phone app): the same checks and answers as the server's
+ * Roon routes. No finding the core (that's multicast; the page hides Find): its address is typed in.
+ */
+export function localRoonApi(roon: RoonLink, service: Service): RoonApi {
+  // An unknown instance is refused first, as the server's routes do.
+  const known = (id: string) => void service.instance(id);
+  return {
+    roon: () => run(async () => roon.view()),
+    configureRoon: (body) => run(async () => roon.configure(parseRoonSettings(wire(body)))),
+    discoverRoon: () => run(async () => []),
+    setRoonZone: (id, zone) => run(async () => (known(id), roon.setZone(id, parseRoonZone({ zone })))),
+    roonSeek: (id, seconds) => run(async () => (known(id), roon.seek(id, parseSeek({ seconds })))),
+    roonTransport: (id, action) => run(async () => (known(id), roon.control(id, parseRoonAction({ action })))),
+    roonArtUrl: (key, size) => roon.imageUrl(key, size) ?? "",
   };
 }
