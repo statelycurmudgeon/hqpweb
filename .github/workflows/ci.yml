@@ -34,10 +34,20 @@ jobs:
       - run: npm test
       - run: npm run build -w apps/web
 
-  # Browser smoke tests against fake HQPlayers. The screenshots are an artifact to look at.
-  e2e:
+  # Browser smoke tests against fake HQPlayers, one job per lane (e2e/lanes.ts) so the four
+  # run side by side. The screenshots are an artifact to look at.
+  e2e-lane:
+    name: e2e (${{ matrix.lane }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { lane: web, browser: chromium }
+          - { lane: app, browser: chromium }
+          - { lane: web-webkit, browser: webkit }
+          - { lane: app-webkit, browser: webkit }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -45,17 +55,25 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
-      - run: npm run test:e2e
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run test:e2e -- --project ${{ matrix.lane }}
       - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: e2e-screenshots
+          name: e2e-${{ matrix.lane }}
           path: |
             e2e/screenshots/
             e2e/report/
             e2e/test-results/
           if-no-files-found: ignore
+
+  # The required check: every lane passed.
+  e2e:
+    needs: e2e-lane
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - run: test "${{ needs.e2e-lane.result }}" = success
 
   docker:
     runs-on: ubuntu-24.04
