@@ -19,7 +19,7 @@ export interface Prefs {
   advancedOpen: boolean;
   /** Filter lists: HQPlayer's own order, or grouped by HQPlayer 6's rating. */
   filterOrder: "hqplayer" | "rating";
-  /** The v2 filter sheet sorts by what's worked here: "Won't fit as set" below, asking first (fit/). */
+  /** The v2 filter sheet sorts by what's worked here: "Won't fit your settings" below, asking first (fit/). */
   fitSort: boolean;
   /** Load results older than this many days are ignored by that sort; null: never (fit/evidence.ts). */
   fitMaxAgeDays: number | null;
@@ -31,6 +31,8 @@ export interface Prefs {
   layout: "v2" | "classic";
   /** The v2 meter: open as a square, and which view. */
   meterOpen: boolean;
+  /** The meter was opened or closed by hand; until then it opens by itself at laptop width (meter-view.ts). */
+  meterChosen: boolean;
   /** "levels" was a view before it moved to the strip; MeterStrip opens Bars for it. */
   meterView: "bars" | "line" | "levels" | "waterfall" | "stereo" | "width" | "dynamics";
   /** The meter's timing nudge per HQPlayer, in ms, set by ear (meter-delay.ts). */
@@ -49,6 +51,7 @@ const DEFAULTS: Prefs = {
   guideIntroSeen: false,
   layout: "v2",
   meterOpen: false,
+  meterChosen: false,
   meterView: "waterfall",
   meterNudge: {},
 };

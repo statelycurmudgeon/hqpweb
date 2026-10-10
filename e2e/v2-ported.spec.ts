@@ -35,11 +35,16 @@ test("v2: dither: a ladder DAC at 384k is offered NS5 or NS9 as equals, and one 
   await openV2(page, "v2dither");
   await expect(row(page, "Dither")).toContainText("TPDF");
   await row(page, "Dither").click();
-  await sheet(page).getByRole("tab", { name: "Guide" }).click();
+  // One guide, the flow: from the list, "Not sure where to start?".
+  await sheet(page)
+    .getByRole("button", { name: /Guide me$/ })
+    .click();
   await step(page, "Your DAC")
     .getByRole("button", { name: /^Ladder/ })
     .click();
+  await sheet(page).getByRole("button", { name: "Next" }).click();
   await step(page, "The connection").getByRole("button", { name: /^USB/ }).click();
+  await sheet(page).getByRole("button", { name: "Next" }).click();
   for (const n of ["NS5", "NS9"]) await expect(sheet(page).getByRole("button", { name: n })).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "LNS15" })).toBeHidden();
   await shot(page, "v2-dither-guide");
@@ -54,7 +59,7 @@ test("v2: a queued track the modulator can't start opens the list, where it says
   await sheet(page)
     .getByRole("button", { name: /another modulator/ })
     .click();
-  await expect(sheet(page).getByRole("tab", { name: "List" })).toHaveAttribute("aria-selected", "true");
+  await expect(sheet(page).getByRole("searchbox")).toBeVisible(); // the list (the new layout has no tabs)
   const ahm = sheet(page).locator("li.row", { has: page.getByRole("button", { name: /^AHM7EC8B\b/ }) });
   await expect(ahm.first()).toContainText("won't play");
   await shot(page, "v2-wedge-modulator");
@@ -64,4 +69,23 @@ test("v2: a queued track the modulator can't start opens the list, where it says
     .click();
   await expect(row(page, "Modulator")).toContainText("ASDM7EC-fast");
   await expect(page.locator("p", { hasText: /won't start/ })).toBeHidden();
+});
+
+test("v2: a pick from the guide's flow that can't keep up is rolled back, and the sheet says so", async ({ page }) => {
+  await openV2(page, "v2behind");
+  await row(page, "Modulator").click();
+  await sheet(page)
+    .getByRole("button", { name: /Guide me$/ })
+    .click();
+  await step(page, "Your DAC")
+    .getByRole("button", { name: /^DSD goes straight/ })
+    .click();
+  for (let i = 0; i < 3 && (await sheet(page).getByRole("button", { name: "Next" }).isVisible()); i++) {
+    const s = sheet(page).locator("fieldset, [role=group]").first();
+    const no = s.getByRole("button", { name: /^No\b(?! sure)/ });
+    if (await no.count()) await no.first().click();
+    await sheet(page).getByRole("button", { name: "Next" }).click();
+  }
+  await sheet(page).locator("li.pair").getByRole("button", { name: "Use" }).first().click();
+  await expect(sheet(page).locator(".msg.result")).toContainText(/rolled back/i, { timeout: 10_000 });
 });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import More from "./More.svelte";
   // Restart recovery for the selected HQPlayer (server restart-guard.ts): after HQPlayer
   // restarts at its saved volume, hqpweb lowers it to this cap. Never raises. Saved on the
   // server, which acts with no page open.
@@ -29,11 +30,7 @@
 </script>
 
 <h4>After HQPlayer restarts{instance ? ` · ${instance.name}` : ""}</h4>
-<p class="help">
-  HQPlayer comes back from a restart at its saved volume, which can be louder than you left it. hqpweb can turn it down to a cap
-  you choose, about a second after HQPlayer answers again (measured). It never raises the volume, and a network blip that leaves
-  the volume alone is left alone.
-</p>
+<p class="help">If HQPlayer comes back from a restart louder than this, hqpweb turns it down.</p>
 {#if !instance}
   <p class="help">Choose an HQPlayer first.</p>
 {:else if instance.source !== "configured"}
@@ -66,12 +63,14 @@
         /> dB
       </span>
     </label>
-    <p class="help">
-      In HQPlayer's own dB, as on hqpweb's volume control (Roon may show the same volume as a percentage). It only works while
-      hqpweb is running, which checks HQPlayer once a second while this is on. If something starts playback the instant HQPlayer
-      is back, that first second can still be at its saved volume.
-    </p>
   {/if}
+  <More>
+    HQPlayer restarts at its saved volume, which can be louder than you left it. hqpweb turns it down about a second after
+    HQPlayer answers again (measured), and never raises it; a network blip that leaves the volume alone is left alone. The cap is
+    in HQPlayer's own dB, as on hqpweb's volume control (Roon may show the same volume as a percentage). It works only while
+    hqpweb is running, which checks HQPlayer once a second while this is on. If something starts playback the instant HQPlayer is
+    back, that first second can still be at its saved volume.
+  </More>
   {#if error}<p class="err">{error}</p>{/if}
 {/if}
 

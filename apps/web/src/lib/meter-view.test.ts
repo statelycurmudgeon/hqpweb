@@ -9,6 +9,7 @@ import {
   heat,
   hexRgb,
   meterNote,
+  meterStartsOpen,
   mono,
   norm,
   PeakHold,
@@ -50,7 +51,7 @@ describe("meter drawing rules", () => {
   });
 
   it("says plainly when there's no meter, or it's quiet", () => {
-    expect(meterNote({ live: false, connected: false }, true)).toBe("No meter from this HQPlayer");
+    expect(meterNote({ live: false, connected: false }, true)).toBe("Meter unavailable");
     expect(meterNote({ live: false, connected: true }, true)).toBe("Quiet");
     expect(meterNote({ live: false, connected: true }, false)).toBe("Not playing");
     expect(meterNote({ live: true, connected: true }, true)).toBe("");
@@ -172,5 +173,15 @@ describe("width's two colours stay apart", () => {
     // Dark: cyan accent, coral second accent → cyan.
     expect(apartFrom("#e06464", "#4cb7e6", "#ff7d8a")).toBe("#4cb7e6");
     expect(apartFrom("not-a-colour", "#111111", "#222222")).toBe("#111111");
+  });
+});
+
+describe("whether the meter starts open", () => {
+  it("opens by itself at laptop width, stays shut on a phone, keeps a choice made by hand, and one stored before", () => {
+    expect(meterStartsOpen({ meterChosen: false, meterOpen: false }, 1280)).toBe(true);
+    expect(meterStartsOpen({ meterChosen: false, meterOpen: false }, 390)).toBe(false);
+    expect(meterStartsOpen({ meterChosen: true, meterOpen: false }, 1280)).toBe(false);
+    expect(meterStartsOpen({ meterChosen: true, meterOpen: true }, 390)).toBe(true);
+    expect(meterStartsOpen({ meterChosen: false, meterOpen: true }, 390)).toBe(true); // opened before meterChosen existed
   });
 });

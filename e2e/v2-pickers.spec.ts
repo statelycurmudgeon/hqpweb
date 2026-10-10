@@ -16,8 +16,12 @@ test("v2: filter sheets carry chips, narrow by them, and pick", async ({ page })
   // The filter in use carries "in use"; rows carry facts such as their phase.
   await expect(sheet.locator(".row.current")).toContainText("in use");
   await expect(sheet).toContainText("linear phase");
-  // A chip narrows the list, and the count follows.
+  // The facets fold behind Narrow until wanted (the list comes first).
+  await expect(sheet.getByRole("group", { name: "Show only" })).toHaveCount(0);
+  await sheet.getByRole("button", { name: /^Narrow/ }).click();
+  // A chip narrows the list, and the count follows; Narrow says how many are on.
   await sheet.getByRole("combobox", { name: "Apodizing" }).selectOption({ label: "apodizing" });
+  await expect(sheet.getByRole("button", { name: /^Narrow · 1/ })).toBeVisible();
   await expect(count).not.toHaveText(all!);
   // Chips and drop-downs are one height. A guard only: iOS draws selects shorter, and
   // neither Chromium nor desktop WebKit reproduces that, so the fix itself is checked by eye.
@@ -60,6 +64,8 @@ test("v2: the modulator list carries chips, narrows by order and load, and picks
   await expect(sheet).toContainText("Newest EC line");
   const count = sheet.locator(".count");
   await expect(count).toHaveText(/^36 of 36$/);
+  await expect(sheet.getByRole("tab")).toHaveCount(0); // one guide, the flow: no List/Guide tabs here
+  await sheet.getByRole("button", { name: /^Narrow/ }).click();
   await sheet.getByRole("combobox", { name: "Order" }).selectOption({ label: "fifth order" });
   await sheet.getByRole("combobox", { name: "Load in its line" }).selectOption({ label: "EC line: heaviest" });
   await expect(sheet).toContainText("needs a fast CPU at this rate");

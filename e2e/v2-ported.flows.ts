@@ -3,6 +3,8 @@
 import { setRate, setShaper, type Flows } from "./flows-kit.ts";
 
 export const flows: Flows = {
+  // Playing on a machine that can't keep up with anything: a pick from the guide is rolled back.
+  v2behind: { name: "V2 behind", profile: "desktop5-mac-sdm", speed: () => 0.6 },
   // PCM fixed at 192k, playing 44.1k: power-of-two filters (FFT) can't convert 4.35×.
   v2ratio: {
     name: "V2 ratio",

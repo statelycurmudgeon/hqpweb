@@ -63,7 +63,7 @@ describe("what auto picked, and why (measured 2026-10-08 on Desktop 5.35.10)", (
     expect(n!.why).toMatch(/any ratio|highest/i);
     expect(n!.warn).toBe(false);
   });
-  it("DSD: says auto is always the highest, and flags it when that rate has failed here", () => {
+  it("DSD: says Auto picks the highest rate on offer, and flags it when that rate has failed here", () => {
     const calm = autoNote({
       sdm: true,
       auto: true,
@@ -73,7 +73,7 @@ describe("what auto picked, and why (measured 2026-10-08 on Desktop 5.35.10)", (
       shaper: "AHM7EC8B",
       rates: DSD_RATES,
     });
-    expect(calm!.why).toMatch(/always the highest/);
+    expect(calm!.why).toMatch(/highest rate on offer/);
     expect(calm!.warn).toBe(false);
     const bad = autoNote({
       sdm: true,

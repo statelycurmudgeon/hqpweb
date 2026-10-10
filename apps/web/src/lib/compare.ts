@@ -100,5 +100,5 @@ export function switchNote(a: Side, b: Side): string[] {
       "Levels aren't matched: DSD and PCM can play at different loudness.",
     ];
   if (d.has("rate")) return ["Different rates: each switch has a gap of a few seconds."];
-  return ["Only filters or shaping differ: the quickest switch."];
+  return ["Only filters, the modulator or the dither differ: the quickest switch."];
 }

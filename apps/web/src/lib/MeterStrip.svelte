@@ -10,6 +10,7 @@
     DynHistory,
     freqTicks,
     meterNote,
+    meterStartsOpen,
     mono,
     PeakHold,
     peakRows,
@@ -45,9 +46,10 @@
   ] as const;
 
   let latest = $state<MeterEvent>({ live: false, connected: true });
-  let open = $state(prefs.meterOpen);
+  let open = $state(meterStartsOpen(prefs, typeof innerWidth === "number" ? innerWidth : 0));
   /** The captions, shown on (i): the chart stays uncluttered (owner's call). */
   let about = $state(false);
+  let whyNoMeter = $state(false);
   let calibrator = $state<MeterCalibrate>();
   // While the timing controls show: a dot that flashes on each hit in the (delayed) meter.
   const onset = new OnsetDetector();
@@ -98,6 +100,7 @@
     open = !open;
     drawn = null; // the canvas is new when it opens
     prefs.meterOpen = open;
+    prefs.meterChosen = true;
     savePrefs();
   }
   function pick(v: typeof view) {
@@ -178,8 +181,21 @@
 
 <section class="meter" class:quiet={!latest.connected} aria-label="Meter">
   {#if !latest.connected}
-    <!-- No stream: one line, not a card with a control that opens onto nothing. -->
-    <p class="nometer">No meter from this HQPlayer: hqpweb can't connect to its meter port (the control port + 1).</p>
+    <!-- No stream: one quiet line, the reason a tap away; not a card that opens onto nothing. -->
+    <p class="nometer">
+      Meter unavailable
+      <button class="whyno" aria-expanded={whyNoMeter} onclick={() => (whyNoMeter = !whyNoMeter)}>why?</button>
+    </p>
+    {#if whyNoMeter}
+      <p class="nometer detail">
+        hqpweb can't reach HQPlayer's meter port, the control port + 1 (usually TCP 4322). A firewall between them is the usual
+        cause: see <a
+          href="https://github.com/statelycurmudgeon/hqpweb/blob/main/docs/install.md#when-something-doesnt-work"
+          target="_blank"
+          rel="noopener noreferrer">what to check</a
+        >.
+      </p>
+    {/if}
   {:else}
     <button class="strip" aria-expanded={open} aria-label={open ? "Close the meter" : "Open the meter"} onclick={toggle}>
       {#if note}<span class="note">{note}</span>{:else}<canvas bind:this={mini} class="mini" aria-hidden="true"></canvas>
@@ -280,6 +296,17 @@
   .meter.quiet {
     background: none;
     padding: 0 4px;
+  }
+  .whyno {
+    font: inherit;
+    border: 0;
+    background: none;
+    color: var(--accent-text);
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .nometer.detail {
+    margin-top: 2px;
   }
   .nometer {
     margin: 0;

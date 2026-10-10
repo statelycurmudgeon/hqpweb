@@ -8,6 +8,7 @@
   import SetupSettings from "./SetupSettings.svelte";
   import RestartCapSettings from "./RestartCapSettings.svelte";
   import MeterCalibrate from "./MeterCalibrate.svelte";
+  import More from "./More.svelte";
   import { clampNudge, nudgeForDelay } from "./meter-delay.ts";
   import { AGE_STOPS } from "./fit/evidence.ts";
   import { ageSentence, ageStop } from "./fit/sheet.ts";
@@ -115,10 +116,8 @@
             onchange={(e) => set("fitSort", e.currentTarget.checked)}
           />
         </label>
-        <p class="help">
-          In the filter sheet (not the classic layout): filters that failed here, or probably would, go below the others, and
-          picking one asks first. Off: one plain list. On this device.
-        </p>
+        <p class="help">Filters that failed here, or probably would, go below the others.</p>
+        <More>Picking one of those asks first. Off: one plain list. Not in the classic layout. On this device.</More>
         <label class="age">
           <span>{ageSentence(prefs.fitMaxAgeDays)}</span>
           <input
@@ -133,15 +132,12 @@
             oninput={(e) => set("fitMaxAgeDays", AGE_STOPS[Number(e.currentTarget.value)] ?? null)}
           />
         </label>
-        <p class="help">
+        <More>
           A new machine, CUDA or a bigger buffer can change what keeps up. Older results are ignored, not deleted: change this
           back and they count again.
-        </p>
+        </More>
         <h5>Failures</h5>
-        <p class="help">
-          Combinations that stopped playback or couldn't keep up here, so they were rolled back. They show as warnings in the
-          pickers; nothing is blocked.
-        </p>
+        <p class="help">Combinations rolled back here. They show as warnings; nothing is blocked.</p>
         {#if learnedError}
           <p class="err">{learnedError}</p>
         {:else if learned === null}
@@ -181,12 +177,16 @@
         {#if instance}
           <h4>Meter timing</h4>
           <p class="help">
-            The meter waits to line up with what you hear. {nudge
-              ? `Set by ear: ${nudge > 0 ? "+" : "−"}${Math.abs(nudge / 1000).toFixed(2)} s on HQPlayer's buffer.`
-              : "Now from HQPlayer's buffer alone."} hqpweb plays six claps through HQPlayer and you tap each one.
+            Line the meter up with what you hear.{nudge
+              ? ` Set by ear: ${nudge > 0 ? "+" : "−"}${Math.abs(nudge / 1000).toFixed(2)} s.`
+              : ""}
           </p>
           <button class="small" onclick={() => calibrator?.open()}>Line up by ear…</button>
           {#if nudge}<button class="small" onclick={() => setNudge(null)}>Reset</button>{/if}
+          <More>
+            hqpweb plays six claps through HQPlayer and you tap each one; it stops what's playing. Without it, the meter follows
+            HQPlayer's own buffer, and the NAA and DAC add their own delay, which only your ears can measure.
+          </More>
         {/if}
       </div>
       <div class="body" hidden={tab !== "appearance"}>
