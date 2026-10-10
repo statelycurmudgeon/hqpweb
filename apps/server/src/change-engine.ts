@@ -57,6 +57,9 @@ interface Paused {
   position?: number;
 }
 
+// Roon's resume after a mode switch: how long to wait in all, and before pressing play again.
+const ROON_RESUME_MS = 15_000;
+const ROON_REPLAY_MS = 1_500;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class ChangeEngine {
@@ -359,20 +362,29 @@ export class ChangeEngine {
   }
 
   /**
-   * Carry on after the switch. Roon (linked): play until Roon says it's playing; measured, the
-   * first play after HQPlayer stopped only re-attaches Roon's stream, the second plays, from the
-   * same spot (~10 s in all). Own playlist: Play, then seek back. Roon unlinked: left to the
-   * listener (HQPlayer's Play doesn't resume Roon, measured 2026-10-08).
+   * Carry on after the switch. Roon (linked): press play, and again only once Roon has gone
+   * back to paused; while it says "playing", wait for HQPlayer. Measured 2026-10-09: on
+   * Embedded the first play after a stop only re-attaches Roon's stream (the zone stays paused)
+   * and the second plays, from the same spot. On Desktop 5 at DSD1024 the first play could drop
+   * back to paused, and the next took 4 to 7 s to start HQPlayer; pressing again while it started
+   * left the zone "playing" and HQPlayer stopped (twice, when pressed every 3 s; inferred cause).
+   * Own playlist: Play, then seek back. Roon unlinked: left to the listener (HQPlayer's Play
+   * doesn't resume Roon, measured 2026-10-08).
    */
   private async resumeAfterModeSwitch(p: Paused) {
     if (!p.paused) return;
     if (p.via) {
-      for (let attempt = 0; attempt < 4; attempt++) {
-        await p.via.play();
-        for (let i = 0; i < 30; i++) {
-          if (p.via.playing() && (await this.client.status()).state === 2) return;
-          await sleep(100);
+      let plays = 0;
+      let lastPlay = -Infinity;
+      const start = Date.now();
+      while (Date.now() - start < ROON_RESUME_MS) {
+        if (p.via.playing() && (await this.client.status()).state === 2) return;
+        if (!p.via.playing() && plays < 4 && Date.now() - lastPlay >= ROON_REPLAY_MS) {
+          await p.via.play();
+          plays++;
+          lastPlay = Date.now();
         }
+        await sleep(100);
       }
       return;
     }

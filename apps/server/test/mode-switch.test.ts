@@ -24,12 +24,34 @@ afterEach(async () => {
  * (measured 2026-10-09, Embedded 6.2.5): pause pauses; after HQPlayer has been stopped, the
  * first play only re-attaches Roon's stream (HQPlayer paused, the zone still paused), and the
  * next one plays, from where the zone paused.
+ *
+ * `slow`: as Desktop 5.35.10 at DSD1024 did (measured 2026-10-09): the first play after the
+ * switch shows "playing" and drops back to paused; the next takes seconds to start HQPlayer
+ * (4 to 7 s measured; 3.5 s here). Pressing play again while it starts wedged it: the zone
+ * "playing", HQPlayer stopped (seen twice, only when hqpweb pressed again within 3 s; inferred).
  */
-async function setup(roon: "linked" | "none" = "none") {
+async function setup(roon: "linked" | "slow" | "none" = "none") {
   fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
   await fake.listen();
   const calls: string[] = [];
   let zone: "playing" | "paused" = "playing";
+  // The slow stand-in works out where it is from when play was pressed, whenever it's asked.
+  let plays = 0;
+  let pressedAt = 0;
+  let wedged = false;
+  const since = () => Date.now() - pressedAt;
+  const settle = () => {
+    if (roon !== "slow" || !plays) return;
+    if (plays === 1 && since() >= 300) zone = "paused";
+    if (plays > 1 && !wedged && since() >= 3500) fake.playback = 2;
+  };
+  const slowPlay = () => {
+    settle();
+    if (plays > 1 && fake.playback !== 2) wedged = true; // pressed again while it starts
+    plays++;
+    pressedAt = Date.now();
+    zone = "playing";
+  };
   const transport: RoonTransport = {
     pause: async () => {
       calls.push("pause");
@@ -38,6 +60,7 @@ async function setup(roon: "linked" | "none" = "none") {
     },
     play: async () => {
       calls.push("play");
+      if (roon === "slow") return slowPlay();
       if (fake.playback === 0)
         fake.playback = 1; // re-attached, not playing yet
       else {
@@ -45,7 +68,10 @@ async function setup(roon: "linked" | "none" = "none") {
         zone = "playing";
       }
     },
-    playing: () => zone === "playing",
+    playing: () => {
+      settle();
+      return zone === "playing";
+    },
   };
   app = buildApp(
     { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port }] },
@@ -53,7 +79,7 @@ async function setup(roon: "linked" | "none" = "none") {
       pollMs: 50,
       timing: { quick: FAST, major: FAST },
       playWaitMs: 400,
-      roonTransport: () => (roon === "linked" ? transport : null),
+      roonTransport: () => (roon === "none" ? null : transport),
     },
   );
   req = client(await app.listen(0, "127.0.0.1"));
@@ -126,4 +152,13 @@ describe("switching mode while playing", () => {
     expect(sentTransport()).toEqual(["Stop", "SetMode"]);
     expect(body.playback).toEqual({ kind: "playing" });
   });
+
+  it("with Roon slow to start (Desktop at DSD1024): presses play again only once Roon gives up, then waits", async () => {
+    const calls = await setup("slow");
+    const body = (await change({ mode: "PCM" })).json();
+    expect(fake.crashed).toBe(false);
+    expect(calls).toEqual(["pause", "play", "play"]);
+    expect(fake.playback).toBe(2);
+    expect(body.playback).toEqual({ kind: "playing" });
+  }, 15_000);
 });
