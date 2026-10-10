@@ -55,6 +55,7 @@ test("the app hides what it can't do: Roon, the restart cap, lining up by ear, s
 });
 
 test("the test's own file server stays inside the build", async () => {
-  expect((await fetch(`${base}%2e%2e/package.json`)).status).toBe(403);
+  // An encoded slash survives URL parsing and becomes ../ only once decoded: the case to refuse.
+  expect((await fetch(`${base}..%2fpackage.json`)).status).toBe(403);
   expect((await fetch(`${base}index.html`)).status).toBe(200);
 });
