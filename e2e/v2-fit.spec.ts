@@ -1,8 +1,8 @@
 // Fit in the v2 filter sheet (fit/sheet.ts): a failure here puts that filter, and anything
 // known to be no lighter, below "Won't fit your settings" with why; picking one asks first; "What
 // would it take?" offers the nearest changes that let it play.
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import { shotPath } from "./hosts.ts";
 
 async function openV2(page: Page, id: string) {
   await page.addInitScript((i) => {
@@ -12,8 +12,7 @@ async function openV2(page: Page, id: string) {
   await page.goto("/");
   await expect(page.locator(".signal")).toBeVisible();
 }
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });
 const footer = (page: Page) => page.locator("footer .msg");
 const open1x = (page: Page) =>
   page

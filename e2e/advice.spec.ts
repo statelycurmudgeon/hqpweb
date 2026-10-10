@@ -2,9 +2,8 @@
 // Same rules as smoke.spec.ts: one instance per test (they run in parallel), outcomes
 // and short key phrases only. What the guide suggests is advice/*.test.ts's job; here
 // we check the screen asks, saves, and applies what the engine said.
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
-import { CONTROL_PORT } from "./stack.ts";
+import { fakeUrl, shotPath } from "./hosts.ts";
 
 /** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
 async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
@@ -20,13 +19,12 @@ async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });
 const row = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^${label}`) });
 const sheet = (page: Page) => page.locator("dialog[open]");
 /** Change a fake's state, as HQPlayer or its owner would. */
 async function poke(id: string, body: object) {
-  const r = await fetch(`http://127.0.0.1:${CONTROL_PORT}/fake/${id}`, { method: "POST", body: JSON.stringify(body) });
+  const r = await fetch(fakeUrl(id), { method: "POST", body: JSON.stringify(body) });
   expect(r.status).toBe(204);
 }
 const step = (page: Page, title: string) => sheet(page).getByRole("group", { name: title });

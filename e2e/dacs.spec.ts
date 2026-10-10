@@ -1,8 +1,8 @@
 // Named DACs behind one HQPlayer (server: dac-scope.ts): name them in Settings, pick the
 // one in use there or in the header, and the setup answers and presets follow the choice.
 // Same rules as smoke.spec.ts: one instance per test, outcomes and short phrases only.
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import { shotPath } from "./hosts.ts";
 
 /** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
 async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
@@ -18,8 +18,7 @@ async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
   await page.goto("/");
   await expect(page.locator("section.now")).toBeVisible();
 }
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });
 const sheet = (page: Page) => page.locator("dialog[open]");
 
 test("named DACs: add one, answers follow the DAC in use, switch in Settings or the header", async ({ page }) => {

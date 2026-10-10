@@ -1,6 +1,6 @@
 // Shared by the v2 layout's specs: open an instance in the v2 layout, and screenshot.
-import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
+import { shotPath } from "./hosts.ts";
 
 export async function openV2(page: Page, id: string) {
   await page.addInitScript((i) => {
@@ -11,5 +11,4 @@ export async function openV2(page: Page, id: string) {
   await expect(page.locator(".signal")).toBeVisible();
 }
 
-export const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+export const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });

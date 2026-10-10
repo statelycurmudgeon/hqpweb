@@ -1,7 +1,7 @@
 // The v2 layout preview (docs/design-v2-layout.md): the meter: its strip, its views, a stored view from before, no meter stream, and its delay.
 // Same rules as smoke.spec.ts: one instance per test, outcomes and short phrases only.
-import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { can, shotPath } from "./hosts.ts";
 import { openV2, shot } from "./v2-helpers.ts";
 
 test("v2: the strip shows levels; it opens to a square of spectrum views", async ({ page }) => {
@@ -38,28 +38,31 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await meter.getByRole("button", { name: "About this meter" }).click();
   // Two lines: the view, and the timing with a link to where it's set (owner: too much here before).
   await expect(about).toContainText("Timing: waits 0.55 s");
-  await expect(about.getByRole("button")).toHaveCount(1);
-  await about.getByRole("button", { name: "Settings ›" }).click();
-  const settings = page.getByRole("dialog").filter({ hasText: "Meter timing" });
-  await expect(settings.getByRole("tab", { name: "Listening" })).toHaveAttribute("aria-selected", "true");
-  await expect(settings.getByRole("heading", { name: "Meter timing" })).toBeInViewport();
-  await settings.getByRole("button", { name: "Close" }).click();
-  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-bars.png", import.meta.url)) });
+  // The link only where the timing can be set by ear (can.calibrate): it's all that section holds.
+  await expect(about.getByRole("button")).toHaveCount(can().calibrate ? 1 : 0);
+  if (can().calibrate) {
+    await about.getByRole("button", { name: "Settings ›" }).click();
+    const settings = page.getByRole("dialog").filter({ hasText: "Meter timing" });
+    await expect(settings.getByRole("tab", { name: "Listening" })).toHaveAttribute("aria-selected", "true");
+    await expect(settings.getByRole("heading", { name: "Meter timing" })).toBeInViewport();
+    await settings.getByRole("button", { name: "Close" }).click();
+  }
+  await meter.screenshot({ path: shotPath("v2-5-meter-bars") });
   // Stereo: left and right from the centre; the gutter labels frequency, the axis L and R.
   await meter.getByRole("button", { name: "Stereo" }).click();
   await expect(meter.locator(".axis")).toContainText("L");
   await expect(meter.locator(".dbs")).toContainText("2k");
-  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-stereo.png", import.meta.url)) });
+  await meter.screenshot({ path: shotPath("v2-5-meter-stereo") });
   // Width: from mono (right) to out of phase (left), frequency up the side.
   await meter.getByRole("button", { name: "Width" }).click();
   await expect(meter.locator(".axis")).toContainText("mono");
   await page.waitForTimeout(800); // a few updates, eased
-  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-width.png", import.meta.url)) });
+  await meter.screenshot({ path: shotPath("v2-5-meter-width") });
   // Dynamics: 30 s of loudness; the crest factor once there's enough of it.
   await meter.getByRole("button", { name: "Dynamics" }).click();
   await expect(meter.locator(".axis")).toContainText("30 s ago");
   await expect(meter.locator(".axis")).toContainText(/now · crest \d+\.\d dB/);
-  await meter.screenshot({ path: fileURLToPath(new URL("screenshots/v2-5-meter-dynamics.png", import.meta.url)) });
+  await meter.screenshot({ path: shotPath("v2-5-meter-dynamics") });
   await meter.getByRole("button", { name: "Waterfall" }).click();
   await shot(page, "v2-5-meter");
   await meter.getByRole("button", { name: "Close the meter" }).click();

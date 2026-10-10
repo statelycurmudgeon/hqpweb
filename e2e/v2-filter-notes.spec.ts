@@ -1,7 +1,7 @@
 // The (i) notes on filters (advice/filter-notes.ts), in the v2 filter sheet: one per filter,
 // cited, and one on the sheet's title for the two slots.
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
+import { shotPath } from "./hosts.ts";
 
 async function openV2(page: Page, id: string) {
   await page.addInitScript((i) => {
@@ -11,8 +11,7 @@ async function openV2(page: Page, id: string) {
   await page.goto("/");
   await expect(page.locator(".signal")).toBeVisible();
 }
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });
 
 test("v2: each filter has an (i) with a cited note, and the title explains the two slots", async ({ page }) => {
   await openV2(page, "v2filters");

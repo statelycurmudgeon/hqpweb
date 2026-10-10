@@ -85,7 +85,10 @@ evidence; keep files under the limits, splitting before adding.
   cross VLANs or routed subnets.
 - `npm run test:e2e` runs the browser smoke tests (Playwright) against fake HQPlayers
   (`e2e/stack.ts`, one fake per flow). Each spec declares its own fakes in a
-  `<spec>.flows.ts` beside it; the stack loads them all. First time: `npx playwright install chromium`.
+  `<spec>.flows.ts` beside it; the stack loads them all. Every spec runs twice: against the
+  server (`web`) and against the phone app's page with its core in-process (`app`,
+  `e2e/app-host.ts`), each with its own fakes. A spec that needs something one host lacks asks
+  `can()` (`e2e/hosts.ts`), as the page does. First time: `npx playwright install chromium`.
   Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact), for
   people to look at; they're never compared. Flows check outcomes and short key phrases,
   not whole sentences, so rewording the UI doesn't break them.
