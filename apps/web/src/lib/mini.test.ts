@@ -33,4 +33,9 @@ describe("mini bar", () => {
     expect(miniPlay(snap(2, "Roon"), null)).toBeNull();
     expect(miniPlay(snap(1, "x.flac"), null)).toEqual({ action: "play", label: "Play" });
   });
+  it("while a mode switch runs: says so, and offers no play or pause (switching.ts)", () => {
+    expect(miniTitle(snap(1, "Roon"), zone("paused"), "PCM")).toBe("Switching to PCM…");
+    expect(miniPlay(snap(1, "Roon"), zone("paused"), "PCM")).toBeNull();
+    expect(miniTitle(snap(0, null), null, "SDM (DSD)")).toBe("Switching to DSD…");
+  });
 });

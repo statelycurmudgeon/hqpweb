@@ -39,6 +39,7 @@
     roonZone,
     onstatus,
     onmessage,
+    switching = null,
   }: {
     caps: Capabilities;
     snap: Snapshot;
@@ -66,6 +67,8 @@
     roonZone: RoonZone | null;
     onstatus: (status: Status) => void;
     onmessage: (m: ResultMessage) => void;
+    /** A mode switch to this mode is running (switching.ts): the mini bar holds steady. */
+    switching?: string | null;
   } = $props();
 
   let compare = $state<CompareSheet>();
@@ -149,6 +152,7 @@
     onback={() => nowEl.scrollIntoView({ behavior: "smooth", block: "start" })}
     {onstatus}
     {onmessage}
+    {switching}
   />
 {/if}
 

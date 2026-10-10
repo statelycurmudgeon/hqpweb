@@ -42,6 +42,7 @@
     onstatus,
     onmessage,
     showSpeed = true,
+    switching = null,
   }: {
     selected: string | null;
     snap: Snapshot;
@@ -63,6 +64,8 @@
     onmessage: (m: ResultMessage) => void;
     /** The v2 layout says it on the path line ("keeping up 25×"), so once is enough there. */
     showSpeed?: boolean;
+    /** A mode switch to this mode is running (switching.ts): one steady state, not each step. */
+    switching?: string | null;
   } = $props();
 
   const APOD_TITLE =
@@ -233,17 +236,18 @@
       <button class="link" onclick={onfixwedge} disabled={busy}>Fix…</button>
     </p>
   {/if}
-  {#if mismatchTicks >= MISMATCH_POLLS && roonZone}
+  {#if mismatchTicks >= MISMATCH_POLLS && roonZone && !switching}
     <p class="mismatch">
       Roon is playing in “{roonZone.name}”, but this HQPlayer is stopped. If that zone isn't fed by this HQPlayer, pick another in
       Settings → Roon.
     </p>
   {/if}
   <div class="headline">
-    <span class="big">{liveRate ? formatRate(liveRate, snap.status.activeMode) : "—"}</span>
+    <span class="big">{liveRate && !switching ? formatRate(liveRate, snap.status.activeMode) : "—"}</span>
     <span class="sub">
-      <span class="mode">{modeLabel(snap.status.activeMode)}</span>
-      <span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>
+      <span class="mode">{modeLabel(switching ?? snap.status.activeMode)}</span>
+      {#if switching}<span class="state switching">Switching</span>
+      {:else}<span class="state s{snap.status.state}">{PLAYBACK[snap.status.state]}</span>{/if}
     </span>
   </div>
   <div class="transport">
@@ -253,7 +257,7 @@
       <button
         class="tbtn stop"
         onclick={() => transport("stop")}
-        disabled={tbusy || snap.status.state === 0}
+        disabled={tbusy || !!switching || snap.status.state === 0}
         title={ROON_NOTE}
         aria-label="Stop"
       >
@@ -264,7 +268,7 @@
       <button
         class="tbtn"
         onclick={() => transport("previous")}
-        disabled={tbusy || !allowed("previous")}
+        disabled={tbusy || !!switching || !allowed("previous")}
         title="Previous"
         aria-label="Previous track"
       >
@@ -273,11 +277,11 @@
       <button
         class="tbtn main"
         onclick={() => transport(playing ? "pause" : "play")}
-        disabled={tbusy || !allowed(playing ? "pause" : "play")}
+        disabled={tbusy || !!switching || !allowed(playing ? "pause" : "play")}
         title={playing ? "Pause" : "Play"}
         aria-label={playing ? "Pause" : "Play"}
       >
-        {#if playing}
+        {#if playing && !switching}
           <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 5h4v14H7zM13 5h4v14h-4z" /></svg>
         {:else}
           <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M8 5v14l11-7z" /></svg>
@@ -286,7 +290,7 @@
       <button
         class="tbtn"
         onclick={() => transport("next")}
-        disabled={tbusy || !allowed("next")}
+        disabled={tbusy || !!switching || !allowed("next")}
         title="Next"
         aria-label="Next track"
       >

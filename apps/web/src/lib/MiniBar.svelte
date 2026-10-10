@@ -20,6 +20,7 @@
     onback,
     onstatus,
     onmessage,
+    switching = null,
   }: {
     snap: Snapshot;
     caps: Capabilities;
@@ -32,9 +33,11 @@
     onback: () => void;
     onstatus: (status: Status) => void;
     onmessage: (m: ResultMessage) => void;
+    /** A mode switch to this mode is running (switching.ts). */
+    switching?: string | null;
   } = $props();
 
-  const play = $derived(miniPlay(snap, zone));
+  const play = $derived(miniPlay(snap, zone, switching));
   let tbusy = $state(false);
   async function press(action: "play" | "pause") {
     tbusy = true;
@@ -60,8 +63,8 @@
 
 <div class="mini" role="region" aria-label="Now playing, compact">
   <button class="title" onclick={onback} aria-label="Back to now playing">
-    <span class="name">{miniTitle(snap, zone)}</span>
-    <span class="health {healthClass}">● {health}</span>
+    <span class="name">{miniTitle(snap, zone, switching)}</span>
+    {#if !switching}<span class="health {healthClass}">● {health}</span>{/if}
   </button>
   {#if play}
     <button class="play" aria-label={play.label} disabled={tbusy} onclick={() => press(play.action)}>

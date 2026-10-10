@@ -39,7 +39,7 @@ export class FakeHqp {
   playback: 0 | 1 | 2 | 3;
   /** Playback stopped by an incompatible combination; resumes by itself once valid. */
   stalled = false;
-  /** Until when (opts.now) HQPlayer answers nothing: building a filter (busyAfterFilter). */
+  /** Until when (opts.now) HQPlayer answers nothing: building a filter, switching mode (busyAfter*). */
   private busyUntil = 0;
   /** After such a stop on its own playlist, Play shows state 2 but the position doesn't move until a Stop (measured, 5.35.10). */
   stuck = false;
@@ -85,6 +85,7 @@ export class FakeHqp {
       modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
       modeSwitchWhilePausedCrashes: opts.modeSwitchWhilePausedCrashes ?? true,
       busyAfterFilter: opts.busyAfterFilter ?? (() => 0),
+      busyAfterModeSwitch: opts.busyAfterModeSwitch ?? 0,
       fetchable: opts.fetchable ?? (() => true),
     };
     const i = profile.initial;
@@ -388,6 +389,7 @@ export class FakeHqp {
       // Unmeasured on Desktop. Modelled as a reset to auto.
       this.rateIndex = 0;
       this.checkCombo();
+      if (this.opts.busyAfterModeSwitch > 0) this.busyUntil = this.opts.now() + this.opts.busyAfterModeSwitch;
       return this.ok("SetMode");
     },
 

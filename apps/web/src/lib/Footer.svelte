@@ -1,25 +1,41 @@
 <script lang="ts">
   // The result of the last change, and what can be done about it: Restart playback, Undo.
+  // One fixed layout (a message area and a row for the buttons), so its height doesn't change
+  // as "Switching…" turns into the result and Undo appears: the v2 mini bar sits on top of it.
   import type { ResultMessage } from "./result.ts";
 
   let {
-    show,
     message,
     busy,
     undoAvailable,
+    struggling = false,
     onrestart,
     onundo,
-    fade = true,
   }: {
-    show: boolean;
     message: ResultMessage | null;
     busy: boolean;
     undoAvailable: boolean;
+    /** HQPlayer is falling behind and Undo is there: stay, at full strength (the banner points here). */
+    struggling?: boolean;
     onrestart: () => void;
     onundo: () => void;
-    /** Recede from 15 s (gone at 30 s, App's timer); off while HQPlayer struggles, when Undo matters most. */
-    fade?: boolean;
   } = $props();
+
+  // It goes 30 s after the last change (App keys it by the message, so each result starts
+  // afresh); it stays while a change is running, and while HQPlayer struggles.
+  let open = $state(false);
+  $effect(() => {
+    // From a local, not `open`: reading the state it sets made the timer's own close
+    // re-run this effect, which reopened the bar and restarted the 30 s, for ever.
+    const want = !!(message || undoAvailable);
+    open = want;
+    if (!want || busy) return;
+    const t = setTimeout(() => (open = false), 30_000);
+    return () => clearTimeout(t);
+  });
+  const show = $derived(open || struggling);
+  /** Recede from 15 s (gone at 30 s); not while a change runs, nor while HQPlayer struggles. */
+  const fade = $derived(!busy && !struggling);
 
   // Its height while shown, so the v2 mini bar (MiniBar.svelte) can sit above it.
   let height = $state(0);
@@ -29,9 +45,11 @@
 </script>
 
 <footer class:show class:fade bind:clientHeight={height}>
-  {#if message}<p class="msg {message.kind}">{message.text}</p>{/if}
-  {#if message?.restart}<button class="undo" onclick={onrestart} disabled={busy}>Restart playback</button>{/if}
-  {#if undoAvailable}<button class="undo" onclick={onundo} disabled={busy}>Undo last change</button>{/if}
+  <p class="msg {message?.kind ?? ''}">{message?.text ?? ""}</p>
+  <div class="actions">
+    {#if message?.restart}<button class="undo" onclick={onrestart} disabled={busy}>Restart playback</button>{/if}
+    {#if undoAvailable}<button class="undo" onclick={onundo} disabled={busy}>Undo last change</button>{/if}
+  </div>
 </footer>
 
 <style>
@@ -85,6 +103,16 @@
     max-width: 34rem;
     text-align: center;
     font-size: 0.9rem;
+    /* Two lines kept, so the common messages don't change its height. */
+    min-height: 2.8em;
+    display: flex;
+    align-items: center;
+  }
+  /* Kept even when empty, so Undo appearing doesn't make it taller. */
+  .actions {
+    display: flex;
+    gap: 8px;
+    min-height: 44px;
   }
   .msg.ok {
     color: var(--ok);
@@ -101,7 +129,10 @@
   .undo {
     font: inherit;
     font-weight: 600;
-    padding: 10px 18px;
+    /* Exactly the row's height, so the row is the same with or without it. */
+    box-sizing: border-box;
+    height: 44px;
+    padding: 0 18px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--bg-elev);
