@@ -315,3 +315,24 @@ export interface HostApi {
 }
 
 export type Api = CoreApi & HostApi;
+
+/**
+ * What the page's host can do, besides the core: the self-hosted server can do it all; a
+ * phone app, less. The page asks this, never which platform it's on.
+ */
+export interface HostCan {
+  /** Lower the volume after HQPlayer restarts: needs something always running, watching. */
+  restartCap: boolean;
+  /** Line the meter up by ear: the clap track, played through HQPlayer. */
+  calibrate: boolean;
+  /** Roon, linked by the host. */
+  roon: boolean;
+  /** Find HQPlayers on the network (multicast discovery). */
+  discover: boolean;
+}
+
+/** Where the page runs: the API it talks to, and what that host can do. */
+export interface Host {
+  api: Api;
+  can: HostCan;
+}
