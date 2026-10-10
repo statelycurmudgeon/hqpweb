@@ -195,7 +195,7 @@ describe("store robustness", () => {
 
   it("drops individual invalid entries and keeps the rest", async () => {
     const { writeFileSync } = await import("node:fs");
-    const { parseChange } = await import("../src/app.ts");
+    const { parseChange } = await import("@app/core");
     const dir = mkdtempSync(join(tmpdir(), "presets-"));
     writeFileSync(
       join(dir, "presets.json"),

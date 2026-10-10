@@ -5,7 +5,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseChange } from "../src/app.ts";
+import { parseChange } from "@app/core";
 import { CONFIG_DOC, configText, loadConfig, type AppConfig } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
 import { SETTINGS_FORMAT } from "@app/core";
