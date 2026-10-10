@@ -122,8 +122,6 @@
   h4 {
     margin: 14px 0 4px;
     font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     color: var(--text-dim);
   }
   ul {

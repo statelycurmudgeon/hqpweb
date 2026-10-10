@@ -348,8 +348,6 @@
     border-radius: 999px;
     background: var(--bg-elev-2);
     color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   .badge.active {
     background: color-mix(in srgb, var(--ok) 16%, transparent);

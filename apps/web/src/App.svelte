@@ -450,7 +450,6 @@
           At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
         </p>
       {/if}
-      {#if selected}<section class="card list quick">{@render presets()}</section>{/if}
       <Advanced {caps} {snap} {busy} {rateItems} {apply} bind:open={advancedOpen} modeAndRate={false} />
     {/if}
   {/snippet}
@@ -476,6 +475,7 @@
           {filters}
           {shaping}
           {below}
+          presets={selected ? presets : undefined}
           onguide={() => shaperPicker?.open({ flow: true })}
           onhistory={() => historySheet?.open()}
           selected={selected!}
@@ -516,14 +516,16 @@
 
 <HistorySheet bind:this={historySheet} instanceId={selected} />
 
-<Footer
-  show={footerOpen || (speedClass === "bad" && undoAvailable)}
-  {message}
-  {busy}
-  {undoAvailable}
-  onrestart={restartPlayback}
-  onundo={undo}
-/>
+<!-- Keyed by the message, so each new result starts its 15 s at full strength. -->
+{#key message}<Footer
+    show={footerOpen || (speedClass === "bad" && undoAvailable)}
+    fade={!(speedClass === "bad" && undoAvailable)}
+    {message}
+    {busy}
+    {undoAvailable}
+    onrestart={restartPlayback}
+    onundo={undo}
+  />{/key}
 
 <style>
   :global(body) {

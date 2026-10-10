@@ -78,8 +78,6 @@
   /* As Settings' own headings and rows (Settings.svelte). */
   h4 {
     font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--text);
     font-weight: 700;
     margin: 18px 0 8px;

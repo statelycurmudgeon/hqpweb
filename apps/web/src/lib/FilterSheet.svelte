@@ -13,7 +13,20 @@
   import FitPanel from "./FitPanel.svelte";
   import { formatRate, type Change, type Combo, type KeptUp, type SlowSwitch } from "./api.ts";
   import { filterFit, forgettable, slowQuestion, tryAnyway, whyNot, type SheetFit } from "./fit/sheet.ts";
-  import { APODIZING, facets, filterChips, grouped, keptLowFor, narrow, shown, slowMsFor, type FilterItemLike } from "./chips.ts";
+  import {
+    APODIZING,
+    countLine,
+    facets,
+    filterChips,
+    grouped,
+    keptLowFor,
+    narrow,
+    sharedFacts,
+    shown,
+    slowMsFor,
+    withoutShared,
+    type FilterItemLike,
+  } from "./chips.ts";
 
   type Item = FilterItemLike & { note?: string; disabled?: boolean };
 
@@ -77,6 +90,8 @@
   // Loose chips, and phase, ratio, focus and length as drop-downs (too many chips for a phone).
   const offered = $derived(grouped(facets(rows.map((r) => r.chips))));
   const visible = $derived(narrow(rows, keys).filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase())));
+  // Facts every visible row shares are said once, by the count, not on each row.
+  const shared = $derived(sharedFacts(visible.map((r) => r.chips)));
   // Below the line: why, and only if this slot decides the playback.
   const fits = $derived(new Map(fit ? items.map((i) => [i.name, filterFit(fit, i.name)]) : []));
   const why = $derived(new Map(fit ? items.map((i) => [i.name, whyNot(fit, i.name, fits.get(i.name)!)]) : []));
@@ -154,9 +169,10 @@
   </div>
   {#if slotOpen}<FilterNoteView note={SLOT_NOTE} />{/if}
   <input class="search" type="search" placeholder="Search" aria-label="Search filters" bind:value={query} />
-  <ChipFacets {offered} {keys} count="{visible.length} of {rows.length}" />
+  <ChipFacets {offered} {keys} count={countLine(visible.length, rows.length, shared)} />
   {#snippet row(r: (typeof rows)[number])}
-    {@const s = shown(r.chips)}
+    {@const own = withoutShared(r.chips, shared)}
+    {@const s = shown(own)}
     <li class="row" class:current={r.name === current}>
       <button class="pick" onclick={() => pick(r.item)}>
         <span class="name">{r.name}</span>
@@ -173,7 +189,7 @@
         >
       {/if}
       <div class="chips">
-        {#each expanded === r.name ? r.chips : s.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
+        {#each expanded === r.name ? own : s.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
         {#if s.more || ((r.item.blocked || r.item.warn) && !why.get(r.name))}
           <button
             class="more"

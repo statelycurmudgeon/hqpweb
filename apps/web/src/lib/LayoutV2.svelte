@@ -31,6 +31,7 @@
     filters,
     shaping,
     below,
+    presets,
     onguide,
     onhistory,
     selected,
@@ -54,6 +55,8 @@
     filters: Snippet;
     shaping: Snippet;
     below: Snippet;
+    /** The presets row, joined with Compare and History in one card (owner's review, 2026-10-09). */
+    presets?: Snippet;
     onguide: () => void;
     onhistory: () => void;
     selected: string;
@@ -119,10 +122,13 @@
       {shaping}
       {onguide}
     />
-    <div class="actions">
-      <button class="action" onclick={() => compare?.open()}>Compare</button>
-      <button class="action" onclick={onhistory}>History</button>
-    </div>
+    <section class="rows">
+      <button class="rowbtn" onclick={() => compare?.open()}
+        ><span>Compare</span><span class="chev" aria-hidden="true">›</span></button
+      >
+      <button class="rowbtn" onclick={onhistory}><span>History</span><span class="chev" aria-hidden="true">›</span></button>
+      {#if presets}{@render presets()}{/if}
+    </section>
     <CompareSheet bind:this={compare} {caps} {snap} {busy} {selected} {apply} />
     {@render below()}
   </div>
@@ -144,21 +150,34 @@
 {/if}
 
 <style>
-  .actions {
-    display: flex;
-    gap: 10px;
+  /* Compare, History and Presets as rows of one card, like the signal card's rows. */
+  .rows {
     margin-top: 10px;
-  }
-  .action {
-    flex: 1;
-    font: inherit;
-    font-weight: 600;
-    min-height: 48px;
-    border-radius: 24px;
-    border: 1px solid var(--border);
     background: var(--bg-elev);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  /* Dividers between rows: on the buttons themselves, as their own border: 0 would win otherwise. */
+  .rowbtn + .rowbtn,
+  .rows > :global(* + :not(.rowbtn)) {
+    border-top: 1px solid var(--border);
+  }
+  .rowbtn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 16px;
+    border: 0;
+    background: none;
     color: var(--text);
+    font: inherit;
+    text-align: left;
     cursor: pointer;
+  }
+  .rowbtn .chev {
+    color: var(--text-dim);
   }
   @media (min-width: 900px) {
     .v2 {

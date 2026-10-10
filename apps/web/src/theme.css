@@ -115,3 +115,31 @@ body::before {
   background: var(--bg);
   z-index: 50;
 }
+
+/* Gentle motion (owner's review, 2026-10-09): sheets rise and fade in, rows answer a press.
+   None of it when the device asks for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  dialog[open] {
+    animation: hqpweb-rise 160ms ease-out;
+  }
+  dialog[open]::backdrop {
+    animation: hqpweb-fade 160ms ease-out;
+  }
+  :where(.pick, .main, .rowbtn, .trigger, .open, .strip) {
+    transition: background-color 120ms ease-out;
+  }
+}
+:where(.pick, .main, .rowbtn, .trigger, .open):active:not(:disabled) {
+  background-color: var(--accent-soft);
+}
+@keyframes hqpweb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes hqpweb-fade {
+  from {
+    opacity: 0;
+  }
+}
