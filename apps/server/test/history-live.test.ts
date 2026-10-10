@@ -8,6 +8,7 @@ import { buildApp } from "../src/app.ts";
 import type { HistoryEntry } from "../src/history.ts";
 import type { WatchTiming } from "../src/watch.ts";
 import { client } from "./http.ts";
+import { nodeConnect } from "@app/protocol/node";
 
 const FAST: WatchTiming = { graceMs: 100, healthyMs: 300, maxMs: 1200, sampleMs: 40, minSpeed: 0.85 };
 
@@ -86,7 +87,7 @@ describe("history", () => {
     await watch();
     await until(caps, (c) => Object.keys(c.lastSeen).length > 0); // a baseline has been read
     await req("POST", "/api/instances/mac/change", { body: { shaper: "ASDM7EC" } });
-    const other = new HqpClient("127.0.0.1", { port: fake.port });
+    const other = new HqpClient("127.0.0.1", { connect: nodeConnect, port: fake.port });
     const fast = (await other.shapers()).find((x) => x.name === "ASDM7EC-fast")!.index;
     await other.send(cmd.setShaping(fast));
     other.close();
@@ -159,7 +160,7 @@ describe("switching back to a mode", () => {
     await setup({}, { maxDsdRate: 5_644_800 });
     fake.playback = 0;
     await watch();
-    const hqp = new HqpClient("127.0.0.1", { port: fake.port });
+    const hqp = new HqpClient("127.0.0.1", { connect: nodeConnect, port: fake.port });
     const dsd256 = (await hqp.rates()).find((r) => r.rate === 11_289_600)!;
     await hqp.send(cmd.setRate(dsd256.index));
     hqp.close();

@@ -4,8 +4,17 @@
 // (meter-pace.ts) and condensed to log bands (@app/protocol meter.ts), ~20 updates a second.
 // Read-only: the port takes no commands. Measured cost to HQPlayer: none (2026-10-08, PCM
 // 384k on Linux; DSD256 and DSD1024 on macOS, alternating runs).
-import { createConnection, type Socket } from "node:net";
-import { bandEdges, condense, edgeHz, frameSize, parseMeterFrame, peakAcross, type MeterFrame } from "@app/protocol";
+import {
+  bandEdges,
+  condense,
+  edgeHz,
+  meterFrameSize,
+  parseMeterFrame,
+  peakAcross,
+  type Connect,
+  type Connection,
+  type MeterFrame,
+} from "@app/protocol";
 import { MeterPacer } from "./meter-pace.ts";
 
 export interface MeterEvent {
@@ -27,26 +36,34 @@ export interface MeterTiming {
   tickMs: number;
   lingerMs: number;
   retryMs: number;
+  /** Give up opening the meter port after this long (then retry). Inferred, not measured. */
+  connectMs: number;
 }
-const TIMING: MeterTiming = { tickMs: 50, lingerMs: 5000, retryMs: 2000 };
+const TIMING: MeterTiming = { tickMs: 50, lingerMs: 5000, retryMs: 2000, connectMs: 5000 };
+const EMPTY = new Uint8Array(0);
 
 export class MeterStream {
   private readonly host: string;
   private readonly port: number;
+  private readonly connect: Connect;
   private readonly timing: MeterTiming;
   private readonly listeners = new Set<(e: MeterEvent) => void>();
-  private socket: Socket | null = null;
+  /** Opening or open; `gen` tells this connection's events from an earlier one's. */
+  private active = false;
+  private gen = 0;
+  private conn: Connection | null = null;
   private connected = false;
-  private buf: Buffer = Buffer.alloc(0);
+  private buf: Uint8Array = EMPTY;
   private pacer = new MeterPacer<MeterFrame>();
   private edges: { key: string; edges: number[]; hz: number[] } | null = null;
-  private tick: NodeJS.Timeout | null = null;
-  private linger: NodeJS.Timeout | null = null;
-  private retry: NodeJS.Timeout | null = null;
+  private tick: ReturnType<typeof setInterval> | null = null;
+  private linger: ReturnType<typeof setTimeout> | null = null;
+  private retry: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(host: string, port: number, timing: Partial<MeterTiming> = {}) {
+  constructor(host: string, port: number, connect: Connect, timing: Partial<MeterTiming> = {}) {
     this.host = host;
     this.port = port;
+    this.connect = connect;
     this.timing = { ...TIMING, ...timing };
   }
 
@@ -54,7 +71,7 @@ export class MeterStream {
     this.listeners.add(fn);
     if (this.linger) clearTimeout(this.linger);
     this.linger = null;
-    if (!this.socket) this.open();
+    if (!this.active) this.open();
     if (!this.tick) this.tick = setInterval(() => this.emit(), this.timing.tickMs);
     return () => {
       this.listeners.delete(fn);
@@ -63,27 +80,33 @@ export class MeterStream {
   }
 
   private open() {
-    const s = createConnection({ host: this.host, port: this.port });
-    this.socket = s;
-    s.on("connect", () => (this.connected = true));
-    s.on("data", (d) => this.onData(d));
-    s.on("error", () => s.destroy());
-    s.on("close", () => {
-      this.connected = false;
-      this.socket = null;
-      this.buf = Buffer.alloc(0);
+    const gen = ++this.gen;
+    this.active = true;
+    const ended = () => {
+      if (gen !== this.gen) return; // an earlier connection, already let go
+      this.active = this.connected = false;
+      this.conn = null;
+      this.buf = EMPTY;
       if (this.listeners.size && !this.retry)
         this.retry = setTimeout(() => ((this.retry = null), this.open()), this.timing.retryMs);
-    });
+    };
+    this.connect(
+      { host: this.host, port: this.port, timeoutMs: this.timing.connectMs },
+      { data: (d) => gen === this.gen && this.onData(d), closed: ended },
+    ).then((c) => {
+      if (gen !== this.gen) return c.close(); // stopped while it was opening
+      this.conn = c;
+      this.connected = true;
+    }, ended);
   }
 
-  private onData(d: Buffer) {
-    this.buf = this.buf.length ? Buffer.concat([this.buf, d]) : d;
+  private onData(d: Uint8Array) {
+    this.buf = this.buf.length ? concat(this.buf, d) : d;
     const now = Date.now();
     while (this.buf.length >= 32) {
-      const size = frameSize(this.buf.readUInt32LE(4), this.buf.readUInt32LE(8));
+      const size = meterFrameSize(this.buf);
       if (size > 1_000_000) {
-        this.socket?.destroy(); // not a meter stream: give up on this connection
+        this.conn?.close(); // not a meter stream: give up on this connection
         return;
       }
       if (this.buf.length < size) return;
@@ -119,8 +142,11 @@ export class MeterStream {
     if (this.tick) clearInterval(this.tick);
     if (this.retry) clearTimeout(this.retry);
     this.tick = this.retry = this.linger = null;
-    this.socket?.destroy();
-    this.socket = null;
+    this.gen++; // whatever is open or opening now belongs to no one
+    this.conn?.close();
+    this.conn = null;
+    this.active = this.connected = false;
+    this.buf = EMPTY;
     this.pacer = new MeterPacer<MeterFrame>();
   }
 
@@ -129,4 +155,11 @@ export class MeterStream {
     if (this.linger) clearTimeout(this.linger);
     this.stop();
   }
+}
+
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a);
+  out.set(b, a.length);
+  return out;
 }

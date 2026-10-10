@@ -7,6 +7,7 @@ import {
   edgeHz,
   encodeMeterFrame,
   frameSize,
+  meterFrameSize,
   NO_LEVEL,
   parseMeterFrame,
   peakAcross,
@@ -39,7 +40,7 @@ describe("meter frames", () => {
 
   it("know their size from the first 32 bytes", () => {
     const buf = encodeMeterFrame(frame());
-    expect(frameSize(buf.readUInt32LE(4), buf.readUInt32LE(8))).toBe(buf.length);
+    expect(meterFrameSize(buf.subarray(0, 32))).toBe(buf.length);
   });
 });
 

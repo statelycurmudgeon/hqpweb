@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer, type Server, type Socket } from "node:net";
-import { HqpClient, MAX_REPLY, rawRequest } from "../src/client.ts";
+import { HqpClient, MAX_REPLY } from "../src/client.ts";
+import { nodeConnect, rawRequest } from "../src/node.ts";
 
 // A scripted peer: `onLine` decides what to do with each request line.
 let server: Server | null = null;
@@ -37,7 +38,7 @@ describe("HqpClient", () => {
       const chunk = "x".repeat(1024 * 1024);
       for (let i = 0; i <= MAX_REPLY / chunk.length + 1; i++) sock.write(chunk);
     });
-    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 5000 });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 5000 });
     await expect(c.request("<State/>")).rejects.toThrow(/too long|closed/);
     c.close();
   });
@@ -51,14 +52,14 @@ describe("HqpClient", () => {
       if (seen.filter((s) => s === name).length === 1 && name === "GetInfo") return sock.write(OK("GetInfo"));
       sock.destroy();
     });
-    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 2000 });
     await c.request("<GetInfo/>");
     await expect(c.request("<Next/>")).rejects.toThrow();
     expect(seen.filter((s) => s === "Next")).toHaveLength(1);
     c.close();
 
     seen.length = 0;
-    const d = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    const d = new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 2000 });
     await d.request("<GetInfo/>");
     await expect(d.request('<SetFilter value="1"/>')).rejects.toThrow();
     expect(seen.filter((s) => s === "SetFilter")).toHaveLength(2); // retried once
@@ -69,7 +70,7 @@ describe("HqpClient", () => {
 describe("a peer that accepts and closes without replying", () => {
   it("says so, and names the expired-trial cause", async () => {
     const port = await peer((_l, sock) => sock.destroy());
-    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 2000 });
     await expect(c.request("<GetInfo/>")).rejects.toThrow(/without replying.*trial/);
     c.close();
   });

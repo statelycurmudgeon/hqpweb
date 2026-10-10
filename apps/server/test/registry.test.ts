@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
-import { discover } from "@app/protocol";
+import {} from "@app/protocol";
 import { buildApp } from "../src/app.ts";
 import { client } from "./http.ts";
+import { discover } from "@app/protocol/node";
 
 const fakes: FakeHqp[] = [];
 let app: ReturnType<typeof buildApp> | undefined;

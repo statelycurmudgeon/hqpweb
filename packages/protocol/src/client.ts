@@ -1,9 +1,10 @@
 // The first request on a new connection costs 265–606 ms; later requests on the
 // same connection take ~1 ms (measured 2026-10-02, both instances). So the client
 // keeps one connection per instance and sends requests over it one at a time.
-import { connect, type Socket } from "node:net";
+// The connection itself comes from a Connect (transport.ts), so this runs anywhere.
 import { cmd } from "./commands.ts";
 import * as p from "./parse.ts";
+import type { Connect, Connection } from "./transport.ts";
 import { PROLOG, parseDocument, type Element } from "./xml.ts";
 
 export const DEFAULT_PORT = 4321;
@@ -36,37 +37,14 @@ export class PeerError extends Error {
 const asPeerError = (e: unknown) => (e instanceof PeerError ? e : new PeerError((e as Error).message, { cause: e }));
 
 export interface ClientOptions {
+  /** How to open the connection: nodeConnect (@app/protocol/node) on the server. */
+  connect: Connect;
   port?: number;
   /** The first SetFilter blocked ~5 s while the filter was prepared (measured). */
   timeoutMs?: number;
 }
 
-/** Send one request document and return the raw reply line. */
-export function rawRequest(host: string, port: number, body: string, timeoutMs: number): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const sock = connect({ host, port });
-    let buf = "";
-    let done = false;
-    const finish = (err: Error | null, line?: string) => {
-      if (done) return;
-      done = true;
-      sock.destroy();
-      if (err) reject(err);
-      else resolve(line!);
-    };
-    sock.setEncoding("utf8");
-    sock.setTimeout(timeoutMs, () => finish(new Error(`timeout after ${timeoutMs} ms waiting for ${host}:${port}`)));
-    sock.on("connect", () => sock.write(PROLOG + body + "\n"));
-    sock.on("data", (d: string) => {
-      const nl = d.indexOf("\n");
-      if (nl >= 0) return finish(null, buf + d.slice(0, nl));
-      buf += d;
-      if (buf.length > MAX_REPLY) finish(new Error(`reply from ${host}:${port} too long`));
-    });
-    sock.on("error", (e) => finish(e));
-    sock.on("close", () => finish(new Error(`connection closed before a complete reply from ${host}:${port}`)));
-  });
-}
+const encoder = new TextEncoder();
 
 export class HqpClient {
   readonly host: string;
@@ -75,17 +53,19 @@ export class HqpClient {
   /** Close our idle connection before HQPlayer closes it (~156 s, measured). */
   readonly idleMs: number;
 
-  private sock: Socket | null = null;
+  private readonly connect: Connect;
+  private conn: Connection | null = null;
   private buf = "";
   private waiting: ((line: string) => void) | null = null;
   private failWaiting: ((e: Error) => void) | null = null;
   private queue: Promise<unknown> = Promise.resolve();
-  private idleTimer: NodeJS.Timeout | null = null;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   /** Connections opened so far (diagnostics and tests). */
   connections = 0;
 
-  constructor(host: string, opts: ClientOptions & { idleMs?: number } = {}) {
+  constructor(host: string, opts: ClientOptions & { idleMs?: number }) {
     this.host = host;
+    this.connect = opts.connect;
     this.port = opts.port ?? DEFAULT_PORT;
     this.timeoutMs = opts.timeoutMs ?? 15_000;
     this.idleMs = opts.idleMs ?? 120_000;
@@ -111,7 +91,7 @@ export class HqpClient {
   }
 
   private async exchange(body: string): Promise<string> {
-    const reused = this.sock !== null;
+    const reused = this.conn !== null;
     try {
       return await this.once(body);
     } catch (e) {
@@ -125,7 +105,7 @@ export class HqpClient {
   }
 
   private async once(body: string): Promise<string> {
-    const sock = await this.connected();
+    const conn = await this.connected();
     if (this.idleTimer) clearTimeout(this.idleTimer);
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -136,7 +116,8 @@ export class HqpClient {
         clearTimeout(timer);
         this.waiting = this.failWaiting = null;
         this.idleTimer = setTimeout(() => this.drop(), this.idleMs);
-        this.idleTimer.unref();
+        // Node: don't keep the process alive for it. Elsewhere there's no such thing.
+        (this.idleTimer as { unref?: () => void }).unref?.();
       };
       this.waiting = (line) => {
         done();
@@ -146,31 +127,34 @@ export class HqpClient {
         done();
         reject(e);
       };
-      sock.write(PROLOG + body + "\n");
+      conn.write(encoder.encode(PROLOG + body + "\n"));
     });
   }
 
-  private connected(): Promise<Socket> {
-    if (this.sock) return Promise.resolve(this.sock);
-    return new Promise((resolve, reject) => {
-      const sock = connect({ host: this.host, port: this.port });
-      sock.setEncoding("utf8");
-      sock.setNoDelay(true);
-      const fail = (e: Error) => {
-        sock.destroy();
-        reject(e);
-      };
-      sock.once("error", fail);
-      sock.setTimeout(this.timeoutMs, () => fail(new Error(`timeout connecting to ${this.host}:${this.port}`)));
-      sock.once("connect", () => {
-        sock.off("error", fail);
-        sock.setTimeout(0);
-        this.connections++;
-        this.sock = sock;
-        this.buf = "";
-        let received = 0;
-        sock.on("data", (d: string) => {
-          received += d.length;
+  private async connected(): Promise<Connection> {
+    if (this.conn) return this.conn;
+    // Characters can be split across chunks: decode as a stream.
+    const decoder = new TextDecoder();
+    let received = 0;
+    let conn: Connection | undefined;
+    this.buf = ""; // before connecting: data can arrive as soon as it's open
+    const lost = (e?: Error) => {
+      if (conn && this.conn === conn) this.conn = null;
+      // Accepted, then closed without a byte: measured on unlicensed HQPlayer 6
+      // Embedded once its ~30-minute trial runs out (the port stays open).
+      const closed =
+        received === 0
+          ? `${this.host}:${this.port} accepted the connection but closed it without replying. ` +
+            "An unlicensed (trial) HQPlayer does this after about 30 minutes; restarting it fixes that."
+          : `connection to ${this.host}:${this.port} closed`;
+      this.failWaiting?.(Object.assign(e ?? new Error(closed), { stale: true }));
+    };
+    conn = await this.connect(
+      { host: this.host, port: this.port, timeoutMs: this.timeoutMs },
+      {
+        data: (bytes) => {
+          received += bytes.length;
+          const d = decoder.decode(bytes, { stream: true });
           // Search only the new chunk for line ends: rescanning the whole buffer
           // on every chunk is quadratic.
           let start = 0;
@@ -184,36 +168,26 @@ export class HqpClient {
           this.buf += d.slice(start);
           if (this.buf.length > MAX_REPLY) {
             this.buf = "";
-            sock.destroy(new Error(`reply from ${this.host}:${this.port} too long`));
+            lost(new Error(`reply from ${this.host}:${this.port} too long`));
+            conn?.close();
           }
-        });
-        const lost = (e?: Error) => {
-          if (this.sock === sock) this.sock = null;
-          // Accepted, then closed without a byte: measured on unlicensed HQPlayer 6
-          // Embedded once its ~30-minute trial runs out (the port stays open).
-          const closed =
-            received === 0
-              ? `${this.host}:${this.port} accepted the connection but closed it without replying. ` +
-                "An unlicensed (trial) HQPlayer does this after about 30 minutes; restarting it fixes that."
-              : `connection to ${this.host}:${this.port} closed`;
-          const err = Object.assign(e ?? new Error(closed), { stale: true });
-          this.failWaiting?.(err);
-        };
-        sock.on("error", lost);
-        sock.on("close", () => lost());
-        resolve(sock);
-      });
-    });
+        },
+        closed: (e) => lost(e),
+      },
+    );
+    this.connections++;
+    this.conn = conn;
+    return conn;
   }
 
   private drop() {
-    this.sock?.destroy();
-    this.sock = null;
+    this.conn?.close();
+    this.conn = null;
   }
 
   /** This end's address on the open connection to HQPlayer: an address HQPlayer can reach us at (unless NAT is between). */
   get localAddress(): string | undefined {
-    return this.sock?.localAddress ?? undefined;
+    return this.conn?.localAddress ?? undefined;
   }
 
   /** Close the connection. The client reconnects on the next request. */

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./compat": "./src/compat.ts"
+    "./compat": "./src/compat.ts",
+    "./node": "./src/node.ts"
   },
   "dependencies": {
     "fast-xml-parser": "^5.11.2"

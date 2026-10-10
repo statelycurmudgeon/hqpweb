@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { HqpClient, cmd, rawRequest } from "@app/protocol";
+import { HqpClient, cmd } from "@app/protocol";
 import { FakeHqp, loadProfile } from "../src/index.ts";
+import { nodeConnect, rawRequest } from "@app/protocol/node";
 
 let fake: FakeHqp | undefined;
 /** The fake's clock, in ms: tests advance it rather than wait. */
@@ -17,7 +18,7 @@ afterEach(async () => {
 async function start(profile = "desktop5-mac-sdm") {
   fake = new FakeHqp(loadProfile(profile), { timeScale: 0, now: () => clock });
   const { port } = await fake.listen();
-  return new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+  return new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 2000 });
 }
 
 const byName = <T extends { name: string; index: number }>(list: T[], name: string) => {
@@ -236,7 +237,7 @@ describe("persistent client connection", () => {
   it("reconnects transparently when the server closed an idle connection", async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, idleTimeoutMs: 50 });
     const { port } = await fake.listen();
-    const c = new HqpClient("127.0.0.1", { port, timeoutMs: 2000 });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port, timeoutMs: 2000 });
     await c.state();
     await until(() => fake!.sockets.size === 0); // the fake closed it after 50 ms idle
     expect((await c.state()).volume).toBe(-22);
@@ -245,7 +246,7 @@ describe("persistent client connection", () => {
   });
 
   it("fails cleanly when nothing is listening", async () => {
-    const c = new HqpClient("127.0.0.1", { port: 1, timeoutMs: 1000 });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port: 1, timeoutMs: 1000 });
     await expect(c.state()).rejects.toThrow();
   });
 });
