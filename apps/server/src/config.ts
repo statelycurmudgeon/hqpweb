@@ -1,5 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import type { DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT, checkFormat } from "./format.ts";
 import type { DacEntry } from "./dac-scope.ts";
 
@@ -55,16 +54,18 @@ export const DEV_DEFAULT: AppConfig = {
 
 export const ID_PATTERN = /^[a-z0-9-]+$/;
 
-export function loadConfig(dir = process.env.CONFIG_DIR ?? "config"): AppConfig {
-  const path = join(dir, "instances.json");
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch {
-    // Production starts empty (discovery and Settings fill it); development
-    // starts with the fake so nothing can reach a real HQPlayer by accident.
-    return process.env.NODE_ENV === "production" ? { instances: [] } : structuredClone(DEV_DEFAULT);
-  }
+/** The instances document (docs.ts). */
+export const CONFIG_DOC = "instances.json";
+
+/**
+ * Load the instances. With none saved, production starts empty (discovery and Settings
+ * fill it); development starts with the fake, so nothing can reach a real HQPlayer by
+ * accident. One that can't be parsed stops the start: it's the listener's own file.
+ */
+export async function loadConfig(docs: DocStore, production: boolean): Promise<AppConfig> {
+  const path = CONFIG_DOC;
+  const raw = await docs.read(path).catch(() => null);
+  if (raw === null) return production ? { instances: [] } : structuredClone(DEV_DEFAULT);
   const cfg = JSON.parse(raw) as AppConfig;
   checkFormat(path, cfg);
   const ids = new Set<string>();
@@ -76,10 +77,6 @@ export function loadConfig(dir = process.env.CONFIG_DIR ?? "config"): AppConfig 
   return cfg;
 }
 
-/** Write instances.json atomically. The app owns this file while it runs. */
-export function saveConfig(dir: string, cfg: AppConfig) {
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, "instances.json");
-  writeFileSync(`${path}.tmp`, JSON.stringify({ format: SETTINGS_FORMAT, instances: cfg.instances }, null, 2) + "\n");
-  renameSync(`${path}.tmp`, path);
-}
+/** The instances document's text. The app owns it while it runs. */
+export const configText = (cfg: AppConfig) =>
+  JSON.stringify({ format: SETTINGS_FORMAT, instances: cfg.instances }, null, 2) + "\n";

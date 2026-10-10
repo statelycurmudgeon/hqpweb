@@ -8,6 +8,7 @@ import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
 import { applySetupChange, parseSetupChange } from "../src/setup.ts";
 import { client } from "./http.ts";
+import { FileDocs } from "../src/file-docs.ts";
 
 describe("setup answers: what a change may contain", () => {
   it("rejects a question it doesn't know", () => {
@@ -59,7 +60,7 @@ describe("setup answers over the API", () => {
     app = buildApp(
       { instances: instances.map((i) => ({ ...i, port: i.port || f.port })) },
       {
-        configDir: dir,
+        docs: new FileDocs(dir),
         discoveredPort: f.port,
         ...(discover ? { discovery: { target: { address: "127.0.0.1", port: discoveryPort }, timeoutMs: 200 } } : {}),
       },

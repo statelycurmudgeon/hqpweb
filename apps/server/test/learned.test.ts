@@ -1,8 +1,12 @@
 import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FileDocs } from "../src/file-docs.ts";
 import { LearnedStore, type Failure } from "../src/learned.ts";
+
+/** The store as saved in learned.json's directory, the server's way (file-docs.ts). */
+const open = (path: string) => LearnedStore.open(new FileDocs(dirname(path)));
 
 const f = (o: Partial<Failure> = {}): Failure => ({
   instance: "mac",
@@ -35,10 +39,10 @@ describe("failure history, per instance, engine and combination", () => {
     expect([s.all("mac").length, s.all("lxc").length]).toEqual([2, 1]);
   });
 
-  it("reads failures saved before counts existed as one each", () => {
+  it("reads failures saved before counts existed as one each", async () => {
     const path = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
     writeFileSync(path, JSON.stringify({ format: 1, failures: [f()] }));
-    expect(new LearnedStore(path).all("mac")[0]).toMatchObject({ count: 1, first: "2026-10-01T10:00:00.000Z" });
+    expect((await open(path)).all("mac")[0]).toMatchObject({ count: 1, first: "2026-10-01T10:00:00.000Z" });
   });
 
   it("collects the source rates a combination failed with", () => {
@@ -75,14 +79,15 @@ describe("kept up here, per DAC, engine, combination and source rate", () => {
     expect(s.keptFor("mac#desk", "5.35.10", "SDM (DSD)")).toEqual([]);
   });
 
-  it("reads a file from before kept-up records without calling it corrupt, and saves both lists", () => {
+  it("reads a file from before kept-up records without calling it corrupt, and saves both lists", async () => {
     const dir = mkdtempSync(join(tmpdir(), "learned-"));
     const path = join(dir, "learned.json");
     writeFileSync(path, JSON.stringify({ format: 1, failures: [f()] }));
-    const s = new LearnedStore(path);
+    const s = await open(path);
     expect(readdirSync(dir)).toEqual(["learned.json"]); // nothing moved aside
     s.recordKept(k(), true);
-    const again = new LearnedStore(path);
+    await s.flush();
+    const again = await open(path);
     expect([again.all("mac").length, again.keptFor("mac", "5.35.10", "SDM (DSD)").length]).toEqual([1, 1]);
   });
 });
@@ -150,9 +155,11 @@ describe("filters slow to switch to", () => {
     expect(s.slowFor("lxc", "5.35.10", "SDM (DSD)")).toHaveLength(1);
   });
 
-  it("keeps them across a restart", () => {
+  it("keeps them across a restart", async () => {
     const path = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
-    new LearnedStore(path).recordSlow(slow());
-    expect(new LearnedStore(path).slowFor("mac", "5.35.10", "SDM (DSD)")).toHaveLength(1);
+    const s = await open(path);
+    s.recordSlow(slow());
+    await s.flush();
+    expect((await open(path)).slowFor("mac", "5.35.10", "SDM (DSD)")).toHaveLength(1);
   });
 });

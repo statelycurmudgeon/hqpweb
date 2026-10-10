@@ -9,6 +9,7 @@ import { buildApp } from "../src/app.ts";
 import { LearnedStore } from "../src/learned.ts";
 import type { WatchTiming } from "../src/watch.ts";
 import { client } from "./http.ts";
+import { FileDocs } from "../src/file-docs.ts";
 
 const FAST: WatchTiming = { graceMs: 100, healthyMs: 300, maxMs: 1200, sampleMs: 40, minSpeed: 0.85 };
 const fakes: FakeHqp[] = [];
@@ -26,7 +27,13 @@ async function start(fakeOpts: FakeOptions = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cfg-"));
   app = buildApp(
     { instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: f.port }] },
-    { configDir: dir, pollMs: 50, timing: { quick: FAST, major: FAST }, playWaitMs: 400, learned: new LearnedStore(null) },
+    {
+      docs: new FileDocs(dir),
+      pollMs: 50,
+      timing: { quick: FAST, major: FAST },
+      playWaitMs: 400,
+      learned: new LearnedStore(null),
+    },
   );
   const req = client(await app.listen(0, "127.0.0.1"));
   const view = async () => (await req("GET", "/api/instances")).json()[0];

@@ -3,11 +3,11 @@
 // the mode in use, so another mode's settings and choices can be shown only as hqpweb
 // last saw them. Changes and settings are kept per DAC scope (dac-scope.ts), lists per
 // instance and engine (they depend on HQPlayer, not the DAC); all in history.json.
-import { mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { DocWriter, listOf, loadDoc, type DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT } from "./format.ts";
-import { loadList, loadOptionalList } from "./jsonstore.ts";
 import type { Settings } from "./settings.ts";
+
+const DOC = "history.json";
 
 /** Where a change came from: hqpweb (a change or a preset), its undo, or somewhere else (HQPlayer's own window, another app). */
 export type ChangeSource = "hqpweb" | "preset" | "undo" | "elsewhere";
@@ -85,17 +85,27 @@ export class HistoryStore {
   private entries: HistoryEntry[];
   private seenList: Seen[];
   private lists: ModeLists[];
-  private readonly path: string | null;
+  private readonly writer: DocWriter | null;
   private readonly max: number;
   private lastSave = 0;
 
-  /** path null = in memory only (tests). `max` caps the number of entries kept. */
-  constructor(path: string | null, max = 500) {
-    this.path = path;
+  /** Saved in `docs` (docs.ts), as loaded from there; null: in memory only (tests). `max` caps the entries kept. */
+  constructor(saved: { docs: DocStore; data: Record<string, unknown> | null } | null, max = 500) {
+    this.writer = saved && new DocWriter(saved.docs, DOC);
     this.max = max;
-    this.entries = path ? loadList<HistoryEntry>(path, "entries") : [];
-    this.seenList = path ? loadOptionalList<Seen>(path, "seen") : [];
-    this.lists = path ? loadOptionalList<ModeLists>(path, "lists") : [];
+    const data = saved?.data ?? null;
+    this.entries = listOf<HistoryEntry>(data, "entries");
+    this.seenList = listOf<Seen>(data, "seen");
+    this.lists = listOf<ModeLists>(data, "lists");
+  }
+
+  static async open(docs: DocStore, max?: number): Promise<HistoryStore> {
+    return new HistoryStore({ docs, data: await loadDoc(docs, DOC, "entries") }, max);
+  }
+
+  /** Wait until the history so far is saved. */
+  flush(): Promise<void> {
+    return this.writer?.flush() ?? Promise.resolve();
   }
 
   push(e: HistoryEntry) {
@@ -160,15 +170,11 @@ export class HistoryStore {
     this.save();
   }
 
+  /** In the background: a failed save is logged, never thrown. */
   private save() {
     this.lastSave = Date.now();
-    if (!this.path) return;
-    mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    writeFileSync(
-      tmp,
+    this.writer?.writeQuietly(
       JSON.stringify({ format: SETTINGS_FORMAT, entries: this.entries, seen: this.seenList, lists: this.lists }, null, 1) + "\n",
     );
-    renameSync(tmp, this.path);
   }
 }

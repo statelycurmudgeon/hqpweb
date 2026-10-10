@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { FileDocs } from "../src/file-docs.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
@@ -81,7 +82,7 @@ describe("saving presets", () => {
 
   it("renames, deletes and persists", async () => {
     const dir = mkdtempSync(join(tmpdir(), "presets-"));
-    await setup(new PresetStore(join(dir, "presets.json")));
+    await setup(await PresetStore.open(new FileDocs(dir)));
     const p = (await save({ name: "A", settings: { invert: true } })).json();
     expect((await req("PATCH", `/api/presets/${p.id}`, { body: { name: "B" } })).json().name).toBe("B");
     expect(JSON.parse(readFileSync(join(dir, "presets.json"), "utf8")).presets[0].name).toBe("B");
@@ -186,9 +187,9 @@ describe("store robustness", () => {
     const { writeFileSync, readdirSync } = await import("node:fs");
     const dir = mkdtempSync(join(tmpdir(), "presets-"));
     writeFileSync(join(dir, "presets.json"), '{"presets": [ {"id":"a","name":"x",} ]}'); // trailing comma
-    const store = new PresetStore(join(dir, "presets.json"));
+    const store = await PresetStore.open(new FileDocs(dir));
     expect(store.list()).toEqual([]);
-    store.create("New", { invert: true });
+    await store.create("New", { invert: true });
     expect(readdirSync(dir).some((f) => f.startsWith("presets.json.corrupt-"))).toBe(true);
   });
 
@@ -205,7 +206,7 @@ describe("store robustness", () => {
         ],
       }),
     );
-    expect(new PresetStore(join(dir, "presets.json"), parseChange).list().map((p) => p.name)).toEqual(["Good"]);
+    expect((await PresetStore.open(new FileDocs(dir), parseChange)).list().map((p) => p.name)).toEqual(["Good"]);
   });
 });
 

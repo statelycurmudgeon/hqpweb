@@ -1,11 +1,10 @@
 // App-owned presets (design §4.3): named bundles of settings, stored by NAME so
 // they work across instances and modes. Global; resolved per instance at apply time.
-import { mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { loadList } from "./jsonstore.ts";
+import { DocWriter, listOf, loadDoc, type DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT } from "./format.ts";
-import { dirname } from "node:path";
-import { randomUUID } from "node:crypto";
 import { HttpError, type Change } from "./instance.ts";
+
+const DOC = "presets.json";
 
 export interface Preset {
   id: string;
@@ -19,23 +18,27 @@ export interface Preset {
 
 export class PresetStore {
   private presets: Preset[] = [];
-  private readonly path: string | null;
+  private readonly writer: DocWriter | null;
 
   /**
-   * path null = in memory only (tests). `validate` checks each stored entry's
-   * settings (the same rules as a change); invalid entries are dropped and logged.
+   * Saved in `docs` (docs.ts), as loaded from there; null: in memory only (tests). `validate`
+   * checks each stored entry's settings (the same rules as a change); invalid entries are
+   * dropped and logged.
    */
-  constructor(path: string | null, validate?: (settings: unknown) => Change) {
-    this.path = path;
-    if (!path) return;
-    for (const p of loadList<Preset>(path, "presets")) {
+  constructor(saved: { docs: DocStore; data: Record<string, unknown> | null } | null, validate?: (settings: unknown) => Change) {
+    this.writer = saved && new DocWriter(saved.docs, DOC);
+    for (const p of listOf<Preset>(saved?.data ?? null, "presets")) {
       try {
         if (typeof p.id !== "string" || typeof p.name !== "string") throw new Error("missing id or name");
         this.presets.push(validate ? { ...p, settings: validate(p.settings) } : p);
       } catch (e) {
-        console.error(`ignoring invalid preset ${JSON.stringify(p?.name ?? p)} in ${path}: ${(e as Error).message}`);
+        console.error(`ignoring invalid preset ${JSON.stringify(p?.name ?? p)} in ${DOC}: ${(e as Error).message}`);
       }
     }
+  }
+
+  static async open(docs: DocStore, validate?: (settings: unknown) => Change): Promise<PresetStore> {
+    return new PresetStore({ docs, data: await loadDoc(docs, DOC, "presets") }, validate);
   }
 
   list(): Preset[] {
@@ -48,10 +51,11 @@ export class PresetStore {
     return p;
   }
 
-  create(name: string, settings: Change, scope?: string): Preset {
+  // Changes wait for the save, so one that couldn't be saved fails where it was asked for.
+  async create(name: string, settings: Change, scope?: string): Promise<Preset> {
     const now = new Date().toISOString();
     const p: Preset = {
-      id: randomUUID().slice(0, 8),
+      id: crypto.randomUUID().slice(0, 8),
       name: this.checkName(name, undefined, scope),
       settings,
       createdAt: now,
@@ -59,11 +63,11 @@ export class PresetStore {
       ...(scope ? { scope } : {}),
     };
     this.presets.push(p);
-    this.save();
+    await this.save();
     return p;
   }
 
-  update(id: string, patch: { name?: string; settings?: Change; scope?: string | null }): Preset {
+  async update(id: string, patch: { name?: string; settings?: Change; scope?: string | null }): Promise<Preset> {
     const p = this.get(id);
     const scope = patch.scope !== undefined ? patch.scope || undefined : p.scope;
     if (patch.name !== undefined || patch.scope !== undefined) p.name = this.checkName(patch.name ?? p.name, id, scope);
@@ -73,25 +77,25 @@ export class PresetStore {
     }
     if (patch.settings !== undefined) p.settings = patch.settings;
     p.updatedAt = new Date().toISOString();
-    this.save();
+    await this.save();
     return p;
   }
 
-  remove(id: string) {
+  async remove(id: string) {
     this.get(id);
     this.presets = this.presets.filter((x) => x.id !== id);
-    this.save();
+    await this.save();
   }
 
   /** A removed DAC's presets become shared ones. */
-  unscope(scope: string) {
+  async unscope(scope: string) {
     let n = 0;
     for (const p of this.presets)
       if (p.scope === scope) {
         delete p.scope;
         n++;
       }
-    if (n) this.save();
+    if (n) await this.save();
   }
 
   /** Unique among the presets that show together: the shared ones, and one DAC's own (dac-scope.ts). */
@@ -104,10 +108,7 @@ export class PresetStore {
     return n;
   }
 
-  private save() {
-    if (!this.path) return;
-    mkdirSync(dirname(this.path), { recursive: true });
-    writeFileSync(`${this.path}.tmp`, JSON.stringify({ format: SETTINGS_FORMAT, presets: this.presets }, null, 1) + "\n");
-    renameSync(`${this.path}.tmp`, this.path);
+  private async save() {
+    await this.writer?.write(JSON.stringify({ format: SETTINGS_FORMAT, presets: this.presets }, null, 1) + "\n");
   }
 }

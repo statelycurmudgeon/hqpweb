@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseChange } from "../src/app.ts";
-import { loadConfig, saveConfig } from "../src/config.ts";
+import { CONFIG_DOC, configText, loadConfig, type AppConfig } from "../src/config.ts";
+import { FileDocs } from "../src/file-docs.ts";
 import { SETTINGS_FORMAT } from "../src/format.ts";
 import { LearnedStore } from "../src/learned.ts";
 import { PresetStore } from "../src/presets.ts";
@@ -19,6 +20,9 @@ const fresh = () => {
   return dir;
 };
 const json = (dir: string, file: string) => JSON.parse(readFileSync(join(dir, file), "utf8"));
+// The server's way: files in the config directory (file-docs.ts).
+const load = (dir: string) => loadConfig(new FileDocs(dir), false);
+const saveConfig = (dir: string, cfg: AppConfig) => new FileDocs(dir).write(CONFIG_DOC, configText(cfg));
 
 const links: RoonLink[] = [];
 afterEach(() => {
@@ -27,36 +31,37 @@ afterEach(() => {
 });
 
 describe("settings from 0.1 (no format number) load and survive a save", () => {
-  it("instances", () => {
+  it("instances", async () => {
     const dir = fresh();
-    const cfg = loadConfig(dir);
+    const cfg = await load(dir);
     expect(cfg.instances).toEqual(json(dir, "instances.json").instances);
     expect(cfg.instances[1]).toMatchObject({ id: "office", limits: { maxPcmRate: 384000 } });
-    saveConfig(dir, cfg);
+    await saveConfig(dir, cfg);
     expect(json(dir, "instances.json")).toEqual({ format: SETTINGS_FORMAT, instances: cfg.instances });
-    expect(loadConfig(dir)).toMatchObject({ instances: cfg.instances });
+    expect(await load(dir)).toMatchObject({ instances: cfg.instances });
   });
 
-  it("presets", () => {
+  it("presets", async () => {
     const dir = fresh();
     const before = json(dir, "presets.json").presets;
-    const store = new PresetStore(join(dir, "presets.json"), parseChange);
+    const store = await PresetStore.open(new FileDocs(dir), parseChange);
     expect(store.list()).toEqual(before);
-    store.create("New one", { volume: -40 });
+    await store.create("New one", { volume: -40 });
     const saved = json(dir, "presets.json");
     expect(saved.format).toBe(SETTINGS_FORMAT);
     expect(saved.presets.slice(0, 2)).toEqual(before);
-    expect(new PresetStore(join(dir, "presets.json"), parseChange).list()).toHaveLength(3);
+    expect((await PresetStore.open(new FileDocs(dir), parseChange)).list()).toHaveLength(3);
   });
 
-  it("learned failures", () => {
+  it("learned failures", async () => {
     const dir = fresh();
     const before = json(dir, "learned.json").failures;
-    const store = new LearnedStore(join(dir, "learned.json"));
+    const store = await LearnedStore.open(new FileDocs(dir));
     // Everything kept as it was; failures from before counts existed read as once each.
     const once = (x: { at: string }) => ({ ...x, count: 1, first: x.at });
     expect(store.all("office")).toEqual(before.map(once));
     store.record({ ...before[0], shaper: "ASDM7EC-light", at: "2026-10-05T00:00:00.000Z" });
+    await store.flush();
     const saved = json(dir, "learned.json");
     expect(saved.format).toBe(SETTINGS_FORMAT);
     expect(saved.failures).toHaveLength(2);
@@ -75,14 +80,14 @@ describe("settings from 0.1 (no format number) load and survive a save", () => {
     expect(saved).toMatchObject({ ...before, format: SETTINGS_FORMAT, zoneFor: { ...before.zoneFor, office: "another-zone" } });
   });
 
-  it("warns, but still loads, when a file comes from a newer hqpweb", () => {
+  it("warns, but still loads, when a file comes from a newer hqpweb", async () => {
     const dir = fresh();
-    saveConfig(dir, loadConfig(dir));
+    await saveConfig(dir, await load(dir));
     const raw = json(dir, "instances.json");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const newer = { ...raw, format: SETTINGS_FORMAT + 1 };
     writeFileSync(join(dir, "instances.json"), JSON.stringify(newer));
-    expect(loadConfig(dir).instances).toEqual(raw.instances);
+    expect((await load(dir)).instances).toEqual(raw.instances);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/newer hqpweb/));
   });
 });
