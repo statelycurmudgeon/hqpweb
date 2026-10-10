@@ -4,12 +4,12 @@ import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { HistoryStore, changedFields, type ModeLists } from "../src/history.ts";
+import { HistoryStore, changedFields, type ModeLists } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
 
 /** The store as saved in history.json's directory, the server's way (file-docs.ts). */
 const open = (path: string) => HistoryStore.open(new FileDocs(dirname(path)));
-import type { Settings } from "../src/settings.ts";
+import type { Settings } from "@app/core";
 
 const S: Settings = {
   mode: "SDM (DSD)",

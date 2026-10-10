@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FileDocs } from "../src/file-docs.ts";
-import { LearnedStore, type Failure } from "../src/learned.ts";
+import { LearnedStore, type Failure } from "@app/core";
 
 /** The store as saved in learned.json's directory, the server's way (file-docs.ts). */
 const open = (path: string) => LearnedStore.open(new FileDocs(dirname(path)));

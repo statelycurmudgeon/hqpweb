@@ -1,28 +1,28 @@
 // HTTP API on node:http, no framework.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
-import type { AppConfig } from "./config.ts";
-import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "./instance.ts";
-import { LearnedStore, type Combo } from "./learned.ts";
-import { HistoryStore } from "./history.ts";
+import type { AppConfig } from "@app/core";
+import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "@app/core";
+import { LearnedStore, type Combo } from "@app/core";
+import { HistoryStore } from "@app/core";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { GITHUB_CLAPS_URL, serveClapTrack } from "./calibration.ts";
 import { playClapTrack } from "./calibrate-play.ts";
 import { COMMIT, VERSION } from "./version.ts";
-import { Registry } from "./registry.ts";
-import { parseSetupChange } from "./setup.ts";
-import { PresetStore } from "./presets.ts";
-import { PeerError, type Connect, type Discover, type DiscoverOptions } from "@app/protocol";
-import { discover, nodeConnect } from "@app/protocol/node";
-import type { DocStore } from "./docs.ts";
-import type { WatchTiming } from "./watch.ts";
-import type { RoonTransport } from "./change-engine.ts";
-import type { KeptTiming } from "./kept-up.ts";
-import type { MeterTiming } from "./meter-stream.ts";
+import { Registry } from "@app/core";
+import { parseSetupChange } from "@app/core";
+import { PresetStore } from "@app/core";
+import { PeerError, type DiscoverOptions } from "@app/protocol";
+import { nodeNet, type Net } from "./node-net.ts";
+import type { DocStore } from "@app/core";
+import type { WatchTiming } from "@app/core";
+import type { RoonTransport } from "@app/core";
+import type { KeptTiming } from "@app/core";
+import type { MeterTiming } from "@app/core";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
-import { scopeOf } from "./dac-scope.ts";
+import { scopeOf } from "@app/core";
 
 export interface AppOptions {
   pollMs?: number;
@@ -62,8 +62,8 @@ export interface AppOptions {
   roon?: RoonLink;
   /** Tests: stand in for Roon's transport per instance (default: the RoonLink's linked zone). */
   roonTransport?: (instanceId: string) => RoonTransport | null;
-  /** How HQPlayer is reached (TCP) and found (UDP). Default: Node's (@app/protocol/node). */
-  net?: { connect: Connect; discover: Discover };
+  /** How HQPlayer is reached and found (node-net.ts). Default: Node's. */
+  net?: Net;
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
@@ -224,7 +224,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
             playing: () => roon.zoneFor(id)?.state === "playing",
           }
         : null);
-  const net = opts.net ?? { connect: nodeConnect, discover };
+  const net = opts.net ?? nodeNet;
   const registry = new Registry(config, {
     ...net,
     docs: opts.docs ?? null,

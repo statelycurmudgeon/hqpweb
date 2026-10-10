@@ -1,13 +1,13 @@
 // Instance registry: configured instances (instances.json, editable in Settings)
 // merged with instances found by discovery, deduplicated, each with a health
 // check. Discovered-only instances are usable without saving them.
-import { lookup } from "node:dns/promises";
 import { HqpClient, type Connect, type Discover, type DiscoverOptions, type Discovered } from "@app/protocol";
 import { HttpError, Instance } from "./instance.ts";
 import { CONFIG_DOC, ID_PATTERN, configText, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
 import { DocWriter, type DocStore } from "./docs.ts";
 import { applySetupChange, type SetupChange } from "./setup.ts";
 import { MAIN, activeDac, addDac, cleanDacs, removeDac, renameDac, selectDac, type DacEntry } from "./dac-scope.ts";
+import { unref, type Timer } from "./timers.ts";
 
 export interface InstanceView {
   id: string;
@@ -56,6 +56,8 @@ export interface RegistryOptions {
   /** How HQPlayer is reached and found (transport.ts, discover.ts): the shell (app.ts) chooses. */
   connect: Connect;
   discover: Discover;
+  /** A hostname's IPv4 address, to tell a configured instance from the same one discovered. Absent: by host and name only. */
+  resolve?: (host: string) => Promise<string>;
   /** Where the instances are saved (docs.ts); null = in memory only (tests). */
   docs: DocStore | null;
   makeInstance: (cfg: InstanceConfig) => Instance;
@@ -80,13 +82,14 @@ const discoveredId = (address: string) => `d-${address.replace(/[^a-z0-9]+/gi, "
 
 export class Registry {
   private config: AppConfig;
-  private readonly opts: Required<Omit<RegistryOptions, "discovery">> & { discovery: DiscoverOptions | false };
+  private readonly opts: Required<Omit<RegistryOptions, "discovery" | "resolve">> &
+    Pick<RegistryOptions, "resolve"> & { discovery: DiscoverOptions | false };
   private live = new Map<string, Instance>();
   private seen = new Map<string, { d: Discovered; at: number }>();
   private health = new Map<string, Health>();
   private checking = new Map<string, Promise<Health>>();
   private resolved = new Map<string, string>();
-  private timer: NodeJS.Timeout | null = null;
+  private timer: Timer | null = null;
   private scanning: Promise<void> | null = null;
   private readonly writer: DocWriter | null;
 
@@ -103,8 +106,7 @@ export class Registry {
     };
     if (this.opts.discovery !== false) {
       void this.scan();
-      this.timer = setInterval(() => void this.scan(), this.opts.scanEveryMs);
-      this.timer.unref();
+      this.timer = unref(setInterval(() => void this.scan(), this.opts.scanEveryMs));
     }
     // An instance with a restart cap watches from the start, viewed or not (restart-guard.ts).
     for (const c of this.config.instances) if (c.restartVolumeCap !== undefined) this.get(c.id);
@@ -152,7 +154,7 @@ export class Registry {
       this.config.instances.map(async (c) => {
         if (this.resolved.has(c.host)) return;
         try {
-          this.resolved.set(c.host, (await lookup(c.host, { family: 4 })).address);
+          this.resolved.set(c.host, (await this.opts.resolve?.(c.host)) ?? "");
         } catch {
           this.resolved.set(c.host, "");
         }
@@ -205,7 +207,7 @@ export class Registry {
     if (!p) {
       const inst = this.get(cfg.id);
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("no answer")), this.opts.healthTimeoutMs).unref(),
+        unref(setTimeout(() => reject(new Error("no answer")), this.opts.healthTimeoutMs)),
       );
       p = (
         inst

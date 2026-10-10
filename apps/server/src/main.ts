@@ -1,11 +1,11 @@
 import { buildApp, parseChange } from "./app.ts";
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
-import { loadConfig } from "./config.ts";
+import { loadConfig } from "@app/core";
 import { FileDocs } from "./file-docs.ts";
-import { LearnedStore } from "./learned.ts";
-import { HistoryStore } from "./history.ts";
-import { PresetStore } from "./presets.ts";
+import { LearnedStore } from "@app/core";
+import { HistoryStore } from "@app/core";
+import { PresetStore } from "@app/core";
 import { RoonLink } from "./roon/roon.ts";
 
 // Loopback by default, because the app has no login (design §7). In a container,

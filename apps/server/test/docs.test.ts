@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app.ts";
-import { DocWriter, MemoryDocs, loadDoc, type DocStore } from "../src/docs.ts";
+import { DocWriter, MemoryDocs, loadDoc, type DocStore } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
-import { HistoryStore } from "../src/history.ts";
-import { LearnedStore } from "../src/learned.ts";
-import { PresetStore } from "../src/presets.ts";
+import { HistoryStore } from "@app/core";
+import { LearnedStore } from "@app/core";
+import { PresetStore } from "@app/core";
 import { client } from "./http.ts";
 
 afterEach(() => vi.restoreAllMocks());
