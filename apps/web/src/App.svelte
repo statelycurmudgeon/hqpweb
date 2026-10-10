@@ -74,10 +74,11 @@
   // change is running or HQPlayer is falling behind (the banner points at Undo).
   let footerOpen = $state(false);
   $effect(() => {
-    void message;
-    void undoAvailable;
-    footerOpen = !!(message || undoAvailable);
-    if (!footerOpen || busy) return;
+    // From a local, not footerOpen: reading the state it sets made the timer's own close
+    // re-run this effect, which reopened the bar and restarted the 30 s, for ever.
+    const open = !!(message || undoAvailable);
+    footerOpen = open;
+    if (!open || busy) return;
     const t = setTimeout(() => (footerOpen = false), 30_000);
     return () => clearTimeout(t);
   });
