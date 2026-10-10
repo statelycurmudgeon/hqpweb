@@ -96,7 +96,7 @@ export function switchNote(a: Side, b: Side): string[] {
   if (d.size === 0) return ["A and B are the same. Change something on B."];
   if (d.has("mode"))
     return [
-      "Different modes: each switch pauses about 5 s, then carries on.",
+      "Different modes: each switch stops the music for up to 20 s, then carries on.",
       "Levels aren't matched: DSD and PCM can play at different loudness.",
     ];
   if (d.has("rate")) return ["Different rates: each switch has a gap of a few seconds."];

@@ -18,7 +18,7 @@ test("v2: the signal card, the other mode as last seen, switching mode, and Hist
   await expect(card).toContainText("Not in use");
   await card.getByRole("button", { name: "Switch to PCM" }).click();
   const sheet = page.getByRole("dialog", { name: "Switch to PCM" });
-  await expect(sheet).toContainText("always pauses first");
+  await expect(sheet).toContainText("stops it first");
   await sheet.getByRole("button", { name: "Switch", exact: true }).click();
   // In PCM now: the tab says so, and the shaping row is the dither.
   await expect(card.getByRole("tab", { name: /PCM.*in use/ })).toHaveAttribute("aria-selected", "true");

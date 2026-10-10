@@ -170,6 +170,38 @@ describe("switching back to a mode", () => {
     expect(back.json().results.map((r: { field: string }) => r.field)).toEqual(["mode"]);
   });
 
+  it("leaves the remembered rate out when the modulator the mode comes back with can't play at it", async () => {
+    // Measured 2026-10-09: DSD256 was last seen in SDM with one engine's modulator; another
+    // engine on the same instance brought SDM back with AHM7EC8B, which stops below DSD1024.
+    await setup();
+    fake.feeder = "playlist";
+    fake.playlist = ["/music/Example Artist/Example Album/01 - Example.flac"];
+    await watch();
+    await req("POST", "/api/instances/mac/change", { body: { shaper: "ASDM7EC", rate: 11_289_600 } });
+    await until(caps, (c) => c.lastSeen["SDM (DSD)"]?.rate === 11_289_600);
+    await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const sdm = fake.profile.lists["1"]!;
+    fake.remembered.get(1)!.shaper = sdm.shapers.find((x) => x.name === "AHM7EC8B")!.index;
+    const back = (await req("POST", "/api/instances/mac/change", { body: { mode: "SDM (DSD)" } })).json();
+    expect(back.rolledBack).toBeNull();
+    expect(back.playback).toEqual({ kind: "playing" });
+    expect(back.results.map((r: { field: string }) => r.field)).toEqual(["mode"]);
+    expect(fake.activeRateHz).toBeGreaterThanOrEqual(40_960_000);
+  });
+
+  it("still sends a rate the change names, even one the modulator can't play at (the listener's choice)", async () => {
+    await setup();
+    fake.playback = 0;
+    await req("POST", "/api/instances/mac/change", { body: { mode: "PCM" } });
+    const sdm = fake.profile.lists["1"]!;
+    fake.remembered.get(1)!.shaper = sdm.shapers.find((x) => x.name === "AHM7EC8B")!.index;
+    const r = (await req("POST", "/api/instances/mac/change", { body: { mode: "SDM (DSD)", rate: 11_289_600 } })).json();
+    expect(r.results.map((x: { field: string; actual: unknown }) => [x.field, x.actual])).toEqual([
+      ["mode", "SDM (DSD)"],
+      ["rate", 11_289_600],
+    ]);
+  });
+
   it("leaves the rate alone when the change names one, or the mode was never seen", async () => {
     await setup();
     fake.playback = 0;

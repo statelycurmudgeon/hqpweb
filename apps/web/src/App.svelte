@@ -13,7 +13,7 @@
   import RateSwitch, { type RateSwitchRequest } from "./lib/RateSwitch.svelte";
   import { prefs } from "./lib/prefs.svelte.ts";
   import { describe, type ResultMessage } from "./lib/result.ts";
-  import { control, isQuiet, isRisky } from "./lib/control.ts";
+  import { applyLabel, control, isQuiet, isRisky } from "./lib/control.ts";
   import * as hints from "./lib/hints.ts";
   import { watchForUpdate } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
@@ -304,8 +304,7 @@
   );
   const apply = (change: Change) => {
     if (isRisky(change)) riskyAt = Date.now();
-    const label = isRisky(change) && snap?.status.state === 2 ? "Applying and checking playback" : "Applying";
-    return run(label, () => api.change(selected!, change), isQuiet(change));
+    return run(applyLabel(change, snap?.status.state === 2), () => api.change(selected!, change), isQuiet(change));
   };
 
   // Roon's zone for this instance, when Roon is on and a zone is mapped.

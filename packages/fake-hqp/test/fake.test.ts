@@ -115,8 +115,9 @@ describe("volume", () => {
 });
 
 describe("mode change", () => {
-  // Measured 2026-10-08 (Desktop 5.35.10, macOS): SetMode during playback crashed HQPlayer;
-  // paused first, it switched. Clients pause first, so these tests do too.
+  // Measured 2026-10-08 (Desktop 5.35.10, macOS): SetMode during playback crashed HQPlayer.
+  // Measured 2026-10-09 (Embedded 6.2.5, macOS): paused, it crashed 1 of 2; stopped, 0 of 3.
+  // Clients stop first, so these tests do too.
   it("dies on SetMode during playback, as measured", async () => {
     const c = await start();
     await c.send(cmd.setMode(byName(await c.modes(), "PCM"))).catch(() => undefined);
@@ -126,7 +127,7 @@ describe("mode change", () => {
   it("swaps every list and restores each mode's remembered settings", async () => {
     const c = await start();
     const modes = await c.modes();
-    await c.send(cmd.pause());
+    await c.send(cmd.stop());
     await c.send(cmd.setMode(byName(modes, "PCM")));
     const pcm = await c.state();
     expect(pcm.activeMode).toBe(0);
@@ -138,7 +139,14 @@ describe("mode change", () => {
     expect(pcmIdx).toBe(40);
 
     await c.send(cmd.setMode(byName(modes, "SDM (DSD)")));
-    expect(await c.state()).toMatchObject({ filterNx: 51, filter1x: 49, shaper: 35, state: 1 });
+    expect(await c.state()).toMatchObject({ filterNx: 51, filter1x: 49, shaper: 35, state: 0 });
+  });
+
+  it("dies on SetMode while paused, as measured on Embedded", async () => {
+    const c = await start();
+    await c.send(cmd.pause());
+    await c.send(cmd.setMode(byName(await c.modes(), "PCM"))).catch(() => undefined);
+    expect(fake!.crashed).toBe(true);
   });
 
   it("resets the rate to auto (reported for Embedded, unmeasured on Desktop)", async () => {
@@ -147,7 +155,7 @@ describe("mode change", () => {
     await c.send(cmd.setShaping(asdm));
     await c.send(cmd.setRate((await c.rates()).find((r) => r.rate === 22579200)!.index));
     const modes = await c.modes();
-    await c.send(cmd.pause());
+    await c.send(cmd.stop());
     await c.send(cmd.setMode(byName(modes, "PCM")));
     await c.send(cmd.setMode(byName(modes, "SDM (DSD)")));
     expect((await c.state()).rate).toBe(0);

@@ -6,6 +6,7 @@
 import {
   cmd,
   filterSlot,
+  modulatorHint,
   predictedStop,
   queuedRate,
   shaperBeforeRate,
@@ -42,15 +43,22 @@ export interface EngineDeps {
 export interface RoonTransport {
   pause(): Promise<unknown>;
   play(): Promise<unknown>;
+  /** The zone is playing, as Roon last said. */
+  playing(): boolean;
 }
 
 interface Paused {
+  /** It was playing, so it's to carry on afterwards. */
   paused: boolean;
   /** Roon was the source. */
   roon: boolean;
   /** Paused through Roon, so resume through it too. */
   via: RoonTransport | null;
+  /** Where its own playlist was: HQPlayer's Stop forgets it, so seek back after Play. */
+  position?: number;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class ChangeEngine {
   private readonly client: HqpClient;
@@ -83,7 +91,8 @@ export class ChangeEngine {
     return this.apply(this.undoChange, true);
   }
 
-  async apply(change: Change, isUndo: boolean, lenient = false): Promise<ApplyResult> {
+  /** `impliedRate`: the rate wasn't asked for; hqpweb brought back the mode's last one (instance.ts). */
+  async apply(change: Change, isUndo: boolean, lenient = false, impliedRate = false): Promise<ApplyResult> {
     const fields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     if (fields.length === 0) throw new HttpError(400, "empty change");
 
@@ -92,7 +101,7 @@ export class ChangeEngine {
     const scope = this.scope();
     const playingBefore = (await this.client.status()).state === 2;
     const asked = Date.now();
-    const applied = await this.applyFields(change, isUndo, lenient);
+    const applied = await this.applyFields(change, isUndo, lenient, false, impliedRate);
     const applyMs = Date.now() - asked;
     const skipped = applied.skipped.length ? { skipped: applied.skipped } : {};
     const risky = applied.results.some((r) => RISKY.includes(r.field));
@@ -100,7 +109,7 @@ export class ChangeEngine {
 
     let playback: PlaybackCheck;
     if (applied.pausedForRoon)
-      playback = { kind: "not-checked", detail: "paused for the mode switch: press play in Roon to carry on" };
+      playback = { kind: "not-checked", detail: "stopped for the mode switch: press play in Roon to carry on" };
     else if (!risky) playback = { kind: "not-checked", detail: "this change can't stop playback" };
     else if (!playingBefore) playback = { kind: "not-checked", detail: "nothing was playing, so playback couldn't be checked" };
     else playback = await this.watch(timing);
@@ -172,7 +181,7 @@ export class ChangeEngine {
   }
 
   /** Apply without watching. Returns read-back results and how to undo, by name. */
-  private async applyFields(change: Change, isUndo: boolean, lenient = false, rollback = false) {
+  private async applyFields(change: Change, isUndo: boolean, lenient = false, rollback = false, impliedRate = false) {
     const requestedFields = (Object.keys(change) as Field[]).filter((k) => change[k] !== undefined);
     const problems: { field: Field; reason: string }[] = [];
     const caps0 = await this.capabilities(true);
@@ -184,11 +193,7 @@ export class ChangeEngine {
     // ---- 1. mode first: every list changes with it ------------------------
     let caps = caps0;
     let pause: Paused = { paused: false, roon: false, via: null };
-    const resume = async () => {
-      if (!pause.paused) return;
-      if (pause.via) await pause.via.play();
-      else if (!pause.roon) await this.client.send(cmd.play());
-    };
+    const resume = () => this.resumeAfterModeSwitch(pause);
     let modeSwitched = false;
     if (change.mode !== undefined && change.mode !== was.mode) {
       const m = caps0.modes.find((x) => x.name === change.mode);
@@ -199,7 +204,7 @@ export class ChangeEngine {
         for (const f of MODE_BOUND)
           if (change[f] !== undefined) problems.push({ field: f, reason: `belongs to mode "${change.mode}"` });
       } else {
-        pause = await this.pauseForModeSwitch();
+        pause = await this.stopForModeSwitch();
         replies.set("mode", await this.client.send(cmd.setMode(m.index)));
         caps = await this.capabilities(true);
         modeSwitched = caps.mode.name !== was.mode;
@@ -219,8 +224,19 @@ export class ChangeEngine {
       if (!hit) problems.push({ field, reason: `"${name}" is not available in ${caps.mode.name} on engine ${caps.engine}` });
       return hit?.index;
     };
+    // A rate hqpweb brought back for the mode, not one asked for, is left out when the modulator
+    // in use after the switch can't play at it; HQPlayer's own rate stays. Measured 2026-10-09
+    // (Desktop 5.35.10): the SDM rate last seen on this instance was DSD256, from another engine
+    // with another modulator; with AHM7EC8B at DSD256 HQPlayer stayed stopped, so every switch
+    // into SDM rolled back.
+    let rateDropped = false;
+    if (impliedRate && modeSwitched && change.rate !== undefined) {
+      const inUse = (await this.client.state()).shaper;
+      const modulator = change.shaper ?? caps.shapers.find((x) => x.index === inUse)?.name;
+      rateDropped = modulator !== undefined && modulatorHint(modulator, change.rate)?.level === "hard";
+    }
     let rateIdx: number | undefined;
-    if (change.rate !== undefined && !alreadySkipped("rate")) {
+    if (change.rate !== undefined && !rateDropped && !alreadySkipped("rate")) {
       const opt = caps.rates.find((r) => r.rate === change.rate);
       const p = (reason: string) => problems.push({ field: "rate", reason });
       if (!caps.rateSettable) p(`rate can't be set in ${caps.mode.name} mode`);
@@ -260,7 +276,7 @@ export class ChangeEngine {
       throw new HttpError(422, problems.map((p) => (p.field === "volume" ? p.reason : `${p.field}: ${p.reason}`)).join("; "));
     }
     const skippedFields = new Set(problems.map((p) => p.field));
-    const fields = requestedFields.filter((f) => !skippedFields.has(f));
+    const fields = requestedFields.filter((f) => !skippedFields.has(f) && !(f === "rate" && rateDropped));
 
     // ---- 4. apply in the design's order (§4.3) --------------------------------
     // Except: when rate and modulator change together, never pass through a pair that
@@ -332,27 +348,52 @@ export class ChangeEngine {
   }
 
   /**
-   * SetMode during playback crashed HQPlayer Desktop (macOS, 5.35.10) twice on 2026-10-08,
-   * at the same crash site; paused first, the switch worked both ways. So pause, and wait
-   * until HQPlayer says it has, before switching. Measured the same day, with Roon as the
-   * source: Roon's pause → switch → Roon's play carried on from the same spot; HQPlayer's
-   * own Pause works (Roon follows), but its Play doesn't resume Roon (it played ~6 s of
-   * buffer, then stopped). So: through Roon when hqpweb has the zone; otherwise HQPlayer's
-   * Pause, and with Roon feeding, leave resuming to the listener. Play after a switch on
-   * HQPlayer's own playlist is unmeasured.
+   * SetMode during playback crashed HQPlayer Desktop (macOS, 5.35.10) twice on 2026-10-08;
+   * paused, it switched. On 2026-10-09 Embedded 6.2.5 (macOS) crashed paused too (1 of 2, and
+   * once with Roon paused); stopped first, never (0 of 3), and SetMode then answers in 0.1 s,
+   * not ~2.5 s. So stop, and wait until HQPlayer says it has. With Roon as the source and the
+   * zone linked, pause Roon first, so it can carry on from the same spot; on its own playlist,
+   * note the position, as Stop forgets it.
    */
-  private async pauseForModeSwitch(): Promise<Paused> {
+  private async stopForModeSwitch(): Promise<Paused> {
     const s = await this.client.status();
-    if (s.state !== 2) return { paused: false, roon: false, via: null };
+    if (s.state === 0) return { paused: false, roon: false, via: null };
     const roon = s.source?.song === "Roon";
-    const via = roon ? this.roon() : null;
+    const via = roon && s.state === 2 ? this.roon() : null;
     if (via) await via.pause();
-    else await this.client.send(cmd.pause());
-    for (let i = 0; i < 30; i++) {
-      if ((await this.client.status()).state !== 2) return { paused: true, roon, via };
-      await new Promise((r) => setTimeout(r, 100));
+    await this.client.send(cmd.stop());
+    // Measured: stopping took up to ~7 s in PCM.
+    for (let i = 0; i < 100; i++) {
+      if ((await this.client.status()).state === 0)
+        return { paused: s.state === 2, roon, via, ...(!roon && s.position > 1 ? { position: s.position } : {}) };
+      await sleep(100);
     }
-    throw new HttpError(409, "HQPlayer didn't pause, so the mode wasn't switched (switching during playback can crash it)");
+    throw new HttpError(409, "HQPlayer didn't stop, so the mode wasn't switched (switching during playback can crash it)");
+  }
+
+  /**
+   * Carry on after the switch. Roon (linked): play until Roon says it's playing; measured, the
+   * first play after HQPlayer stopped only re-attaches Roon's stream, the second plays, from the
+   * same spot (~10 s in all). Own playlist: Play, then seek back. Roon unlinked: left to the
+   * listener (HQPlayer's Play doesn't resume Roon, measured 2026-10-08).
+   */
+  private async resumeAfterModeSwitch(p: Paused) {
+    if (!p.paused) return;
+    if (p.via) {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await p.via.play();
+        for (let i = 0; i < 30; i++) {
+          if (p.via.playing() && (await this.client.status()).state === 2) return;
+          await sleep(100);
+        }
+      }
+      return;
+    }
+    if (p.roon) return;
+    await this.client.send(cmd.play());
+    if (p.position === undefined) return;
+    for (let i = 0; i < 50 && (await this.client.status()).state !== 2; i++) await sleep(100);
+    await this.client.send(cmd.seek(p.position));
   }
 
   /**

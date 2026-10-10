@@ -190,7 +190,7 @@
       {/if}
       <div class="foot">
         <button class="primary" disabled={busy} onclick={() => sheet.showModal()}>Switch to {other.label}</button>
-        <span class="hint">Pauses about 5 s. Change its settings once you're there.</span>
+        <span class="hint">Takes up to 20 s. Change its settings once you're there.</span>
       </div>
     </div>
   {/if}
@@ -199,11 +199,10 @@
 <dialog bind:this={sheet} class="sheet" aria-label="Switch to {other.label}">
   <h3>Switch to {other.label}?</h3>
   <ol>
-    {#if playing && resume === "roon-linked"}<li>Roon pauses the music.</li>
-    {:else if playing}<li>HQPlayer pauses.</li>{/if}
+    {#if playing && resume === "roon-linked"}<li>Roon pauses the music, and HQPlayer stops.</li>
+    {:else if playing}<li>HQPlayer stops.</li>{/if}
     <li>
-      HQPlayer switches to {other.label}{#if plan.rate}, at {formatRate(plan.rate, other.name ?? "")} as last time{/if}. About 5
-      seconds.
+      HQPlayer switches to {other.label}{#if plan.rate}, at {formatRate(plan.rate, other.name ?? "")} as last time{/if}.
     </li>
     {#if plan.ask && choices.length}
       <li>
@@ -220,11 +219,14 @@
     <li>{other.label}'s own settings come back. Change them after if you like.</li>
     {#if playing && resume === "roon-linked"}<li>Roon carries on from the same spot.</li>
     {:else if playing && resume === "roon"}<li>
-        It stays paused: press play in Roon to carry on. (Link Roon in Settings and hqpweb does this for you.)
+        It stays stopped: press play in Roon to carry on. (Link Roon in Settings and hqpweb does this for you.)
       </li>
-    {:else if playing}<li>Playback carries on.</li>{/if}
+    {:else if playing}<li>Playback carries on from the same spot.</li>{/if}
   </ol>
-  <p class="hint">Switching while music plays can crash HQPlayer, so hqpweb always pauses first.</p>
+  <p class="hint">
+    It takes a while: up to about 20 seconds of silence. Switching while music plays, or is paused, can crash HQPlayer, so hqpweb
+    stops it first.
+  </p>
   <div class="actions">
     <button onclick={() => sheet.close()}>Cancel</button>
     <button class="primary" onclick={switchMode}>Switch</button>

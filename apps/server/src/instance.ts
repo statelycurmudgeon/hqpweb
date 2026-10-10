@@ -419,7 +419,10 @@ export class Instance {
   }
 
   applyChange(change: Change): Promise<ApplyResult> {
-    return this.logged("hqpweb", async () => this.engine.apply(await this.withModeRate(change), false));
+    return this.logged("hqpweb", async () => {
+      const withRate = await this.withModeRate(change);
+      return this.engine.apply(withRate, false, false, withRate.rate !== change.rate);
+    });
   }
 
   /**
@@ -429,7 +432,8 @@ export class Instance {
    * every attempt: no way back into DSD. So a switch that names no rate takes the mode's
    * last-seen fixed rate for the DAC in use (history.ts), set while still paused. Only a
    * rate that mode still offers and allows (its last-read lists, this instance's limits):
-   * a rate the user never asked for must not make the switch fail (pre-release review).
+   * a rate the user never asked for must not make the switch fail (pre-release review). The
+   * engine also leaves it out if the modulator in use after the switch can't play at it.
    */
   private async withModeRate(change: Change): Promise<Change> {
     if (change.mode === undefined || change.rate !== undefined) return change;
@@ -449,7 +453,10 @@ export class Instance {
    * raise past the guard) are skipped and reported instead of failing it all.
    */
   applyPreset(settings: Change): Promise<ApplyResult> {
-    return this.logged("preset", async () => this.engine.apply(await this.withModeRate(settings), false, true));
+    return this.logged("preset", async () => {
+      const withRate = await this.withModeRate(settings);
+      return this.engine.apply(withRate, false, true, withRate.rate !== settings.rate);
+    });
   }
 
   undo(): Promise<ApplyResult> {
