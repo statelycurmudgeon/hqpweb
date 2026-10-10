@@ -1,4 +1,12 @@
 {
   "extends": "../web/tsconfig.json",
-  "include": ["src/**/*.ts", "src/**/*.svelte", "../web/src/env.d.ts", "vite.config.ts", "capacitor.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "../web/src/env.d.ts",
+    "vite.config.ts",
+    "capacitor.config.ts",
+    "../../e2e/app-host/*.ts",
+    "../../e2e/tuning.ts"
+  ]
 }

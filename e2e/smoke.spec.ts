@@ -3,10 +3,9 @@
 // They check outcomes (what HQPlayer took, what the screen shows) and short key
 // phrases, never whole sentences: rewording a message shouldn't break a test
 // (docs/quality-plan.md, principle 7). Screenshots are for people; never compared.
-import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import pkg from "../package.json" with { type: "json" };
-import { CONTROL_PORT } from "./stack.ts";
+import { can, fakeUrl, shotPath } from "./hosts.ts";
 
 /** Open on an instance, in the default layout or (opt-in, still shipped) the classic one. */
 async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
@@ -25,12 +24,11 @@ async function openOn(page: Page, id: string, layout: "v2" | "classic" = "v2") {
 
 /** Change a fake's state, as HQPlayer or its owner would. */
 async function poke(id: string, body: object) {
-  const r = await fetch(`http://127.0.0.1:${CONTROL_PORT}/fake/${id}`, { method: "POST", body: JSON.stringify(body) });
+  const r = await fetch(fakeUrl(id), { method: "POST", body: JSON.stringify(body) });
   expect(r.status).toBe(204);
 }
 
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: fileURLToPath(new URL(`screenshots/${name}.png`, import.meta.url)), fullPage: true });
+const shot = (page: Page, name: string) => page.screenshot({ path: shotPath(name), fullPage: true });
 const row = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^${label}`) });
 const sheet = (page: Page) => page.locator("dialog[open]");
 const footer = (page: Page) => page.locator("footer .msg");
@@ -311,6 +309,7 @@ test("Settings: Find your DAC filters the models", async ({ page }) => {
 });
 
 test("Settings: four tabs; Listening sets the volume cap after HQPlayer restarts", async ({ page }) => {
+  test.skip(!can().restartCap, "this host has no always-on watch to cap the volume with");
   await openOn(page, "restartcap");
   await page.getByRole("button", { name: "Settings" }).click();
   // The Settings dialog's own tabs (the signal card has DSD/PCM tabs too).

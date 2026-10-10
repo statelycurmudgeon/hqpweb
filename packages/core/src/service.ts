@@ -48,6 +48,8 @@ export interface ServiceOptions {
   /** Timings; tests shorten them. */
   timing?: { quick: WatchTiming; major: WatchTiming };
   speedWindowMs?: number;
+  /** How often a status subscription polls HQPlayer, in ms, unless it says (default 1000). */
+  pollMs?: number;
   keptTiming?: KeptTiming;
   meterTiming?: Partial<MeterTiming>;
   queueEveryMs?: number;
@@ -62,12 +64,14 @@ export interface ServiceOptions {
 export class Service {
   readonly registry: Registry;
   readonly presets: PresetStore;
+  private readonly pollMs: number | undefined;
 
   constructor(config: AppConfig, opts: ServiceOptions) {
     const learned = opts.learned ?? new LearnedStore(null);
     const history = opts.history ?? new HistoryStore(null);
     this.presets = opts.presets ?? new PresetStore(null);
     const roonTransport = opts.roonTransport ?? (() => null);
+    this.pollMs = opts.pollMs;
     this.registry = new Registry(config, {
       ...opts.net,
       docs: opts.docs ?? null,
@@ -178,7 +182,7 @@ export class Service {
   }
   /** Live status: snapshots, or that HQPlayer can't be reached. Returns how to stop. */
   subscribe(id: string, fn: (e: StatusEvent) => void, intervalMs?: number): () => void {
-    return this.instance(id).subscribe(fn, intervalMs);
+    return this.instance(id).subscribe(fn, intervalMs ?? this.pollMs);
   }
   /** HQPlayer's meter, while subscribed. Returns how to stop. */
   subscribeMeter(id: string, fn: (e: MeterEvent) => void): () => void {

@@ -2,7 +2,10 @@
 // (the meter links there); the phone clicks and you tap (reaction time), then the claps through HQPlayer.
 // Real audio and people's timing can't be checked here: these check the steps and wiring.
 import { expect, test, type Page } from "@playwright/test";
+import { can } from "./hosts.ts";
 import { openV2, shot } from "./v2-helpers.ts";
+
+test.beforeEach(() => test.skip(!can().calibrate, "this host can't play the clap track"));
 
 async function openCalibration(page: Page, id: string) {
   await openV2(page, id);

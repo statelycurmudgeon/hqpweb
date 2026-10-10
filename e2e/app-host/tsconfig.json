@@ -1,0 +1,6 @@
+{
+  // The app's page settings (a browser page with Svelte); svelte-check runs these files from
+  // apps/mobile's tsconfig, and this one lets the linter find them.
+  "extends": "../../apps/mobile/tsconfig.json",
+  "include": ["*.ts", "../tuning.ts", "../../apps/web/src/env.d.ts"]
+}

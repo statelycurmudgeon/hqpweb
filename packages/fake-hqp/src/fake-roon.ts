@@ -8,8 +8,9 @@
 // - HQPlayer zones have an output source control named "HQPlayer".
 // Zone names and tracks are invented.
 import { createServer, type Server } from "node:http";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { Socket } from "node:net";
+import { acceptWebSocket, frame } from "./ws.ts";
 
 export interface FakeZone {
   zone_id: string;
@@ -48,24 +49,6 @@ interface Conn {
   zoneSubs: string[];
   nextId: number;
   pingReplies: number;
-}
-
-function frame(payload: Buffer, opcode = 2): Buffer {
-  const len = payload.length;
-  const head =
-    len < 126
-      ? Buffer.from([0x80 | opcode, len])
-      : len < 65536
-        ? Buffer.from([0x80 | opcode, 126, len >> 8, len & 0xff])
-        : Buffer.concat([
-            Buffer.from([0x80 | opcode, 127]),
-            (() => {
-              const b = Buffer.alloc(8);
-              b.writeBigUInt64BE(BigInt(len));
-              return b;
-            })(),
-          ]);
-  return Buffer.concat([head, payload]);
 }
 
 function moo(verb: string, name: string, id: string | number, body?: unknown): Buffer {
@@ -107,36 +90,9 @@ export class FakeRoon {
     });
     this.server.on("upgrade", (req, socket: Socket) => {
       if (req.url !== "/api") return socket.destroy();
-      const accept = createHash("sha1")
-        .update(`${req.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
-        .digest("base64");
-      socket.write(
-        `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
-      );
       const conn: Conn = { socket, zoneSubs: [], nextId: 1000, pingReplies: 0 };
       this.conns.add(conn);
-      let buf = Buffer.alloc(0);
-      socket.on("data", (d: Buffer) => {
-        buf = Buffer.concat([buf, d]);
-        for (;;) {
-          if (buf.length < 2) return;
-          const opcode = buf[0]! & 0x0f;
-          let len = buf[1]! & 0x7f;
-          let off = 2;
-          if (len === 126) ((len = buf.readUInt16BE(2)), (off = 4));
-          else if (len === 127) ((len = Number(buf.readBigUInt64BE(2))), (off = 10));
-          const masked = (buf[1]! & 0x80) !== 0;
-          const need = off + (masked ? 4 : 0) + len;
-          if (buf.length < need) return;
-          const mask = masked ? buf.subarray(off, off + 4) : null;
-          const payload = Buffer.from(buf.subarray(off + (masked ? 4 : 0), need));
-          if (mask) for (let i = 0; i < payload.length; i++) payload[i]! ^= mask[i % 4]!;
-          buf = buf.subarray(need);
-          if (opcode === 8) return socket.end(frame(Buffer.alloc(0), 8));
-          if (opcode === 9) socket.write(frame(payload, 10));
-          else if (opcode === 1 || opcode === 2) this.onMessage(conn, payload);
-        }
-      });
+      acceptWebSocket(req, socket, (payload) => this.onMessage(conn, payload));
       socket.on("close", () => this.conns.delete(conn));
       socket.on("error", () => {});
     });

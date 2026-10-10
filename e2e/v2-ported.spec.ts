@@ -1,7 +1,7 @@
 // Flows the classic layout's tests cover (smoke, advice), in the default layout: a filter the
 // ratio rules out offers rates that fit; the dither guide; a queued track the modulator can't start.
 import { expect, test, type Page } from "@playwright/test";
-import { CONTROL_PORT } from "./stack.ts";
+import { fakeUrl } from "./hosts.ts";
 import { openV2, shot } from "./v2-helpers.ts";
 
 const row = (page: Page, label: string) => page.locator(".signal").getByRole("button", { name: new RegExp(`^${label}`) });
@@ -9,7 +9,7 @@ const sheet = (page: Page) => page.locator("dialog[open]");
 const step = (page: Page, title: string) => sheet(page).getByRole("group", { name: title });
 const succeeded = (page: Page) => expect(page.locator("footer .msg")).toContainText("✓");
 async function poke(id: string, body: object) {
-  const r = await fetch(`http://127.0.0.1:${CONTROL_PORT}/fake/${id}`, { method: "POST", body: JSON.stringify(body) });
+  const r = await fetch(fakeUrl(id), { method: "POST", body: JSON.stringify(body) });
   expect(r.status).toBe(204);
 }
 

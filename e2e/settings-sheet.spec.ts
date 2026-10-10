@@ -1,6 +1,10 @@
 // The Settings sheet keeps its top edge where it is when tabs of different heights are chosen
 // (pinned below the page top on wide screens; a fixed-height bottom sheet on phones).
 import { expect, test, type Page } from "@playwright/test";
+import { can } from "./hosts.ts";
+
+/** The sheet's tabs on this host (Roon only where it's offered). */
+const tabs = () => ["HQPlayer", "Listening", "Appearance", ...(can().roon ? ["Roon"] : [])];
 
 async function sheetTops(page: Page) {
   await page.addInitScript(() => localStorage.setItem("instance", "settingssheet"));
@@ -10,7 +14,7 @@ async function sheetTops(page: Page) {
   await page.waitForFunction(() => (document.querySelector("dialog[open]")?.getAnimations() ?? []).length === 0);
   const top = async () => (await page.locator("dialog[open] .sheet").boundingBox())!.y;
   const tops: number[] = [];
-  for (const tab of ["HQPlayer", "Listening", "Appearance", "Roon", "HQPlayer"]) {
+  for (const tab of [...tabs(), "HQPlayer"]) {
     await page.getByRole("tab", { name: tab }).click();
     tops.push(Math.round(await top()));
   }
@@ -32,7 +36,7 @@ test("Settings: About follows every tab, reachable by scrolling, including the l
   await page.addInitScript(() => localStorage.setItem("instance", "settingssheet"));
   await page.goto("/");
   await page.getByRole("button", { name: "Settings" }).click();
-  for (const tab of ["HQPlayer", "Listening", "Appearance", "Roon"]) {
+  for (const tab of tabs()) {
     await page.getByRole("tab", { name: tab }).click();
     const about = page.locator("dialog[open]").getByText("Not affiliated with");
     await about.scrollIntoViewIfNeeded();
