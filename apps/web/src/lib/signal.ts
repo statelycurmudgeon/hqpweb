@@ -60,7 +60,8 @@ export function autoNote(p: {
   const rate = formatRate(p.outRate, p.sdm ? "SDM (DSD)" : "PCM");
   const text = `Auto → ${rate}`;
   if (p.sdm) {
-    const why = "In DSD, auto is always the highest rate.";
+    // The list already allows for the DAC's and NAA's limits, so "on offer", not "highest" outright.
+    const why = "In DSD, Auto picks the highest rate on offer.";
     if (!p.failedHere) return { text, why, warn: false };
     const fixed = p.rates
       .filter((r) => r > 0 && r < p.outRate)

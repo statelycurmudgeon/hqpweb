@@ -1,5 +1,5 @@
 // Fit in the v2 filter sheet (fit/sheet.ts): a failure here puts that filter, and anything
-// known to be no lighter, below "Won't fit as set" with why; picking one asks first; "What
+// known to be no lighter, below "Won't fit your settings" with why; picking one asks first; "What
 // would it take?" offers the nearest changes that let it play.
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
@@ -38,7 +38,7 @@ test("v2: a failure here flags what's no lighter, asks before trying, and finds 
   // Now sinc-L (heavier) is below the line too, with why.
   await open1x(page);
   await sheet(page).getByRole("searchbox").fill("sinc-L");
-  await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit as set");
+  await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit your settings");
   await expect(rowOf(page, "sinc-Lh")).toContainText(/failed here/i);
   await expect(rowOf(page, "sinc-L")).toContainText("Probably won't keep up here: sinc-Lh couldn't");
   await expect(rowOf(page, "sinc-L")).toContainText("eighth");
@@ -89,7 +89,7 @@ test("v2: Forget this clears a failure and what was inferred from it", async ({ 
 test("v2: with sorting off in Settings, one plain list and no question", async ({ page }) => {
   await openV2(page, "v2plain");
   await learnSincLh(page);
-  await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit as set");
+  await expect(sheet(page).locator(".section").last()).toHaveText("Won't fit your settings");
   await sheet(page).getByRole("button", { name: "Done" }).click();
 
   await page.getByRole("button", { name: "Settings" }).click();

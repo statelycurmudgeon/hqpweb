@@ -126,7 +126,7 @@
     dialog.close();
     onapply(c);
   }
-  // Fits as set: the settings it fits with ("ASDM7EC-super at DSD256").
+  // The settings the top list fits ("ASDM7EC-super at DSD256").
   const asSet = $derived(fit ? `${fit.input.combo.shaper} at ${formatRate(fit.input.combo.rateHz)}` : "");
 </script>
 
@@ -208,9 +208,9 @@
     </li>
   {/snippet}
   <ul>
-    {#if fit && below.length}<li class="section">Fits as set ({asSet})</li>{/if}
+    {#if fit && below.length}<li class="section">Fits your settings ({asSet})</li>{/if}
     {#each above as r (r.name)}{@render row(r)}{/each}
-    {#if below.length}<li class="section">Won't fit as set</li>{/if}
+    {#if below.length}<li class="section">Won't fit your settings</li>{/if}
     {#each below as r (r.name)}{@render row(r)}{/each}
   </ul>
 </dialog>

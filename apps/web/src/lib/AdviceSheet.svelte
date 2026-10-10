@@ -11,7 +11,7 @@
   import { withGuideNotes, withVolumeNotes } from "./advice/list-notes.ts";
   import { modulatorAdvice } from "./advice/modulator.ts";
   import { ditherAdvice } from "./advice/dither.ts";
-  import { savedMessage, type SetupKey } from "./setup-questions.ts";
+  import { type SetupKey } from "./setup-questions.ts";
   import ShaperList from "./ShaperList.svelte";
   import ShaperChipList from "./ShaperChipList.svelte";
   import ModulatorGuide from "./ModulatorGuide.svelte";
@@ -141,8 +141,17 @@
     dialog.querySelector(".main.current")?.scrollIntoView({ block: "center" });
   }
   function setTab(t: "list" | "guide") {
+    if (v2) return; // one guide in the new layout: the flow (owner's review, 2026-10-09)
     prefs.adviceTab = t;
     savePrefs();
+  }
+  /** What the sheet shows: in the new layout the list, or the guide as a flow; in classic, the tab chosen. */
+  const tab = $derived(v2 ? (flow ? "guide" : "list") : prefs.adviceTab);
+  /** From the list: "Not sure where to start?" turns this sheet into the guide's flow. */
+  function startGuide() {
+    flow = true;
+    step = firstOpen(steps, answers);
+    message = "";
   }
   function pick(name: string) {
     if (name === current) return;
@@ -154,12 +163,12 @@
       const to = formatRate(r, "SDM (DSD)");
       if (!confirm(`${name} needs ${to} or higher; it can't play at ${rateText}.\n\nChange the output rate to ${to} with it?`))
         return;
-      if (prefs.adviceTab === "list") dialog.close();
+      if (tab === "list") dialog.close();
       return onpickpair({ rateHz: r, shaper: name });
     }
     // Picking from the list closes the sheet, like the other pickers; the guide stays open
     // so its alternatives can be tried in turn.
-    if (prefs.adviceTab === "list") dialog.close();
+    if (tab === "list") dialog.close();
     onpick(name);
   }
   async function answer(key: SetupKey, value: string) {
@@ -172,7 +181,7 @@
     try {
       const r = await api.saveSetup(instanceId, { [key]: value });
       failed = false;
-      message = `${savedMessage(r.savedNow)} Settings shows it too.`;
+      message = r.savedNow ? "Your answers are saved, and this HQPlayer is now in Settings." : "Your answers are saved.";
       onsaved();
     } catch (e) {
       failed = true;
@@ -210,12 +219,14 @@
           ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button
         >
       </header>
-      <div class="tabs" role="tablist" aria-label="{label} view">
-        <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
-        <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
-          >Guide <span class="beta">Beta</span></button
-        >
-      </div>
+      {#if !v2}
+        <div class="tabs" role="tablist" aria-label="{label} view">
+          <button role="tab" aria-selected={prefs.adviceTab === "list"} onclick={() => setTab("list")}>List</button>
+          <button role="tab" aria-selected={prefs.adviceTab === "guide"} onclick={() => setTab("guide")}
+            >Guide <span class="beta">Beta</span></button
+          >
+        </div>
+      {/if}
       <p class="now">Now using <strong class:mono={v2}>{current || "—"}</strong></p>
     {/if}
     {#if result && result !== resultAtOpen}
@@ -224,8 +235,8 @@
     {/if}
     {#if message}<p class="msg" class:failed role="status">{message}</p>{/if}
     <div class="body">
-      {#if prefs.adviceTab === "guide" && (!flow || step === 1)}<GuideIntro />{/if}
-      {#if prefs.adviceTab === "list"}
+      {#if tab === "guide" && (!flow || step === 1)}<GuideIntro />{/if}
+      {#if tab === "list"}
         {#if v2}
           <ShaperChipList
             {sections}
@@ -284,7 +295,8 @@
           <p>{FILTER_HANDOFF}</p>
         </div>
       {/if}
-      {#if prefs.adviceTab === "list"}
+      {#if tab === "list"}
+        {#if v2}<button class="guideme" onclick={startGuide}>Not sure where to start? Guide me</button>{/if}
         <p class="foot">Every {isSdm ? "modulator" : "dither"} HQPlayer offers stays in the list.</p>
       {/if}
     </div>
@@ -437,6 +449,19 @@
   }
   .msg {
     color: var(--ok);
+  }
+  .guideme {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    font: inherit;
+    font-weight: 600;
+    min-height: 44px;
+    border-radius: 22px;
+    border: 1px solid var(--accent);
+    background: var(--bg);
+    color: var(--accent-text);
+    cursor: pointer;
   }
   .beta {
     font-size: 0.66rem;

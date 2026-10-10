@@ -28,7 +28,7 @@
     { id: "all", label: "All" },
     { id: "kept", label: "Kept" },
     { id: "rolled-back", label: "Rolled back" },
-    { id: "elsewhere", label: "Not made here" },
+    { id: "elsewhere", label: "Elsewhere" },
   ];
 </script>
 
@@ -63,7 +63,7 @@
       </ul>
     {/each}
   {/if}
-  <p class="dim foot">Changes made in HQPlayer itself show as "not made here" when hqpweb notices them, while it's open.</p>
+  <p class="dim foot">Changes made in HQPlayer itself, or another app, show under Elsewhere when hqpweb notices them.</p>
 </dialog>
 
 <style>

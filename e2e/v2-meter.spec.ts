@@ -95,7 +95,10 @@ test("v2: a meter view stored as Levels (from before) opens as Bars", async ({ p
 
 test("v2: without a meter, the strip says so", async ({ page }) => {
   await openV2(page, "v2nometer");
-  await expect(page.getByRole("region", { name: "Meter" })).toContainText("No meter from this HQPlayer");
+  const meter = page.getByRole("region", { name: "Meter" });
+  await expect(meter).toContainText("Meter unavailable");
+  await meter.getByRole("button", { name: "why?" }).click();
+  await expect(meter).toContainText("TCP 4322");
 });
 
 test("v2: the meter waits to line up with what's heard", async ({ page }) => {

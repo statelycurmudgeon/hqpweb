@@ -39,10 +39,18 @@ export class PeakHold {
   }
 }
 
+/**
+ * Whether the meter starts open: as last left, once opened or closed by hand; otherwise open
+ * at laptop width (two columns from 900 px, LayoutV2), where the column beside the card is
+ * otherwise mostly empty, and closed on a phone.
+ */
+export const meterStartsOpen = (p: { meterChosen: boolean; meterOpen: boolean }, width: number) =>
+  p.meterOpen || (!p.meterChosen && width >= 900); // an open meter stays open, whenever it was opened
+
 /** What the strip says instead of drawing, when it can't. */
 export function meterNote(e: { live: boolean; connected: boolean }, playing: boolean): string {
   if (e.live) return "";
-  if (!e.connected) return "No meter from this HQPlayer";
+  if (!e.connected) return "Meter unavailable";
   return playing ? "Quiet" : "Not playing";
 }
 

@@ -60,7 +60,7 @@ test("classic: modulators: grouped list, then the guide's answers and its rate-a
   await step(page, "Your volume")
     .getByRole("button", { name: /^No\b(?! sure)/ })
     .click();
-  await expect(sheet(page).getByRole("status")).toContainText("Saved");
+  await expect(sheet(page).getByRole("status")).toContainText("answers are saved");
   // Rate and modulator as pairs: DSD512 suits an older ESS chip, fifth order.
   const pair = (label: RegExp) => sheet(page).locator("li.pair", { hasText: label });
   await expect(pair(/^DSD512 · ASDM5EC-fast/)).toContainText("Suits your DAC");
@@ -194,9 +194,11 @@ test("a rate the modulator can't play at, or a modulator the rate can't take, of
   expect(asked).toContain("DSD1024");
 });
 
-test("the sheet scrolls to its end; a DAC that converts DSD still gets DSD choices, and Switch to PCM", async ({ page }) => {
+test("classic: the sheet scrolls to its end; a DAC that converts DSD still gets DSD choices, and Switch to PCM", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1000, height: 600 });
-  await openOn(page, "scroll");
+  await openOn(page, "scroll", "classic");
   await row(page, "Modulator").click();
   await sheet(page).getByRole("tab", { name: "Guide" }).click();
   const body = sheet(page).locator(".body");
@@ -220,8 +222,10 @@ test("the sheet scrolls to its end; a DAC that converts DSD still gets DSD choic
   await expect(row(page, "Dither")).toBeVisible();
 });
 
-test("HQPlayer falling behind raises the alarm; a rollback from the guide is reported in the sheet", async ({ page }) => {
-  await openOn(page, "behind");
+test("classic: HQPlayer falling behind raises the alarm; a rollback from the guide is reported in the sheet", async ({
+  page,
+}) => {
+  await openOn(page, "behind", "classic");
   await expect(page.locator(".banner", { hasText: /falling behind/ })).toBeVisible();
 
   // A pick from the guide that can't keep up is rolled back, and the sheet says so.
