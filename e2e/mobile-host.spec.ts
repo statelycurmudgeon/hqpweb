@@ -3,7 +3,7 @@
 // no HQPlayer: this checks the host's shape, not playback (that's checked on the simulator).
 import { createServer, type Server } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
@@ -14,16 +14,22 @@ let base: string;
 
 test.beforeAll(async () => {
   server = createServer((q, r) => {
-    const file = join(ROOT, q.url === "/" ? "index.html" : (q.url ?? "/").split("?")[0]!);
+    const reply = (status: number, body?: Buffer, type?: string) => {
+      r.writeHead(status, type ? { "content-type": type } : {});
+      r.end(body);
+    };
+    // Only files inside the build: a path that resolves outside it (../) is refused.
+    let file: string;
+    try {
+      const path = decodeURIComponent(new URL(q.url ?? "/", "http://x").pathname);
+      file = resolve(ROOT, "." + (path.endsWith("/") ? path + "index.html" : path));
+    } catch {
+      return reply(400);
+    }
+    if (!file.startsWith(resolve(ROOT) + sep)) return reply(403);
     readFile(file).then(
-      (body) => {
-        r.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
-        r.end(body);
-      },
-      () => {
-        r.writeHead(404);
-        r.end();
-      },
+      (body) => reply(200, body, TYPES[extname(file)] ?? "application/octet-stream"),
+      () => reply(404),
     );
   });
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
@@ -46,4 +52,9 @@ test("the app hides what it can't do: Roon, the restart cap, lining up by ear, s
   await expect(page.getByText("Volume buttons")).toBeVisible();
   await expect(page.getByText(/after HQPlayer restarts/i)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Line up by ear…" })).toHaveCount(0);
+});
+
+test("the test's own file server stays inside the build", async () => {
+  expect((await fetch(`${base}%2e%2e/package.json`)).status).toBe(403);
+  expect((await fetch(`${base}index.html`)).status).toBe(200);
 });
