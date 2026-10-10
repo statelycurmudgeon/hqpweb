@@ -156,6 +156,7 @@ describe("rollback when playback fails", () => {
     expect((await forget({ mode, rateHz: "fast", filter1x, filterNx, shaper })).status).toBe(400);
     expect((await forget({ mode, rateHz, filter1x, filterNx, shaper })).json()).toEqual({ forgotten: 1 });
     expect((await caps()).knownBad).toEqual([]);
+    await learned.flush(); // forgetting saves in the background too
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toEqual([]);
   });
 
