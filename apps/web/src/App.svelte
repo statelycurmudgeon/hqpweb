@@ -478,6 +478,7 @@
           presets={selected ? presets : undefined}
           onguide={() => shaperPicker?.open({ flow: true })}
           onhistory={() => historySheet?.open()}
+          onmetertiming={() => settings.open({ tab: "listening", section: "meter-timing" })}
           selected={selected!}
           {roonZone}
           onstatus={(status) => snap && (snap = { ...snap, status })}

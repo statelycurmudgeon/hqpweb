@@ -20,20 +20,20 @@
   import { bars, dynamics, fit, levels, line, stereo, waterfall, width } from "./meter-draw.ts";
 
   import { prefs, savePrefs } from "./prefs.svelte.ts";
-  import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs, nudgeForDelay } from "./meter-delay.ts";
-  import MeterCalibrate from "./MeterCalibrate.svelte";
-  import More from "./More.svelte";
-  import { OnsetDetector } from "./meter-onset.ts";
+  import { DelayLine, meterDelayMs } from "./meter-delay.ts";
 
   let {
     instanceId,
     playing,
     outputDelayMs = null,
+    ontiming,
   }: {
     instanceId: string;
     playing: boolean;
     /** HQPlayer's reported output buffering (Status), for holding the meter back to match the room. */
     outputDelayMs?: number | null;
+    /** Its timing is set in Settings → Listening (owner, 2026-10-09: too much in the meter itself). */
+    ontiming: () => void;
   } = $props();
 
   // Owner's order (2026-10-08): waterfall first, then line, then bars.
@@ -51,11 +51,6 @@
   /** The captions, shown on (i): the chart stays uncluttered (owner's call). */
   let about = $state(false);
   let whyNoMeter = $state(false);
-  let calibrator = $state<MeterCalibrate>();
-  // While the timing controls show: a dot that flashes on each hit in the (delayed) meter.
-  const onset = new OnsetDetector();
-  let hit = $state(false);
-  let hitTimer: ReturnType<typeof setTimeout> | undefined;
   // Levels moved to the strip (owner's feedback, 2026-10-08): an old stored choice of it opens Bars.
   type View = (typeof VIEWS)[number]["id"];
   const stored = VIEWS.find((v) => v.id === prefs.meterView)?.id;
@@ -75,13 +70,6 @@
   let shown = $state<MeterEvent | null>(null);
   const nudge = $derived(prefs.meterNudge[instanceId] ?? 0);
   const delay = $derived(meterDelayMs(outputDelayMs, nudge));
-  function setNudge(ms: number | null) {
-    const next = { ...prefs.meterNudge };
-    if (ms === null) delete next[instanceId];
-    else next[instanceId] = clampNudge(ms);
-    prefs.meterNudge = next;
-    savePrefs();
-  }
   /** The view last drawn on the big canvas. */
   let drawn: string | null = null;
 
@@ -127,11 +115,6 @@
       holdRight.update(right, now);
       if (e.corr) corr.update(e.corr);
       dyn.push(now, e.levels);
-      if (about && onset.feed(now, Math.max(...e.levels.map((c) => c[1] ?? -120)))) {
-        hit = true;
-        clearTimeout(hitTimer);
-        hitTimer = setTimeout(() => (hit = false), 120);
-      }
       crestDb = crest(dyn.points);
       if (mini) levels(mini, e.levels);
       if (!big || !open) return;
@@ -164,9 +147,6 @@
   const peaks = $derived(shown?.live ? peakWords(shown.levels) : "");
   const rows = $derived(shown?.live ? peakRows(shown.levels) : []);
   const nowLabel = $derived(crestDb === null ? "now" : `now · crest ${crestDb.toFixed(1)} dB`);
-  const bufferNote = $derived(
-    outputDelayMs != null ? ` (HQPlayer reports ${(outputDelayMs / 1000).toFixed(1)} s of output buffer)` : "",
-  );
   const VIEW_NOTES: Record<View, string> = {
     bars: "Each bar is the loudest frequency in its band, as it plays (no averaging).",
     line: "The line is each band as it plays; the dashed line its peak, held 1.5 s, then falling.",
@@ -262,43 +242,15 @@
         <p class="sr">{peaks || "No levels yet"}</p>
         <div class="scale" id="meter-about" hidden={!about}>
           <p>{VIEW_NOTES[view]}</p>
-          <More>
-            The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak; the
-            numbers beside it are each side's peak in dB. All of it is the music before upsampling, after HQPlayer's volume.
-          </More>
-        </div>
-        <div class="scale timing" hidden={!about}>
-          <div class="trow">
-            <strong>Timing</strong>
-            <span class="nudge">
-              <span class="beat" class:hit aria-hidden="true"></span>
-              <button aria-label="Meter earlier" disabled={delay === 0} onclick={() => setNudge(nudge - NUDGE_STEP_MS)}
-                >Earlier</button
-              >
-              <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
-              {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
-                <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(2)} s</span>{/if}
-            </span>
-          </div>
-          <p>The meter waits {(delay / 1000).toFixed(2)} s to line up with what you hear{bufferNote}.</p>
-          {#if delay === 0}<p class="floor">It can't go earlier: it would have to show music before it plays.</p>{/if}
-          <button class="byear" onclick={() => calibrator?.open()}>Line up by ear…</button>
-          <More>
-            Your DAC and network add their own delay, so set it by ear: the dot flashes on each hit the meter sees; move it until
-            the flashes land on the drum hits you hear. Or let hqpweb measure it: Line up by ear plays six claps through HQPlayer
-            and you tap each one.
-          </More>
+          <p>
+            Timing: waits {(delay / 1000).toFixed(2)} s
+            <button class="link" onclick={ontiming}>Settings ›</button>
+          </p>
         </div>
       {/if}
     {/if}
   {/if}
 </section>
-<MeterCalibrate
-  bind:this={calibrator}
-  {instanceId}
-  outputDelayMs={outputDelayMs ?? null}
-  onresult={(ms, buffer) => setNudge(nudgeForDelay(ms, buffer))}
-/>
 
 <style>
   .meter {
@@ -394,64 +346,8 @@
     color: var(--text);
     cursor: pointer;
   }
-  .trow {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-  }
   .scale p {
     margin: 6px 0 0;
-  }
-  .nudge {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-  }
-  .nudge button {
-    font: inherit;
-    min-height: 36px;
-    padding: 0 12px;
-    border-radius: 18px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    cursor: pointer;
-  }
-  .nudge button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  .beat {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 2px solid var(--accent);
-    background: transparent;
-  }
-  .beat.hit {
-    background: var(--accent);
-  }
-  .byear {
-    display: block;
-    margin-top: 8px;
-    font: inherit;
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--accent-text);
-    cursor: pointer;
-  }
-  .floor {
-    display: block;
-    margin-top: 4px;
-  }
-  .nudge .by {
-    font-family: var(--font-mono);
   }
   .views .info {
     margin-left: auto;
@@ -475,6 +371,14 @@
     max-height: 340px;
     border-radius: 10px;
     background: var(--bg);
+  }
+  .link {
+    font: inherit;
+    border: 0;
+    background: none;
+    color: var(--accent-text);
+    cursor: pointer;
+    padding: 0 4px;
   }
   .canvas {
     position: relative;

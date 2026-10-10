@@ -6,3 +6,5 @@
   not an empty box. Sheets rise in gently and rows answer a press (not when the device asks
   for less motion). In the guide, Done is the one filled button. The result bar fades from
   15 s and goes at 30 s; a touch brings it back, and it stays while HQPlayer is struggling.
+- **The meter's (i) is two lines:** what the view shows, and how long it waits, with a
+  link to Settings, where you line it up by ear. Earlier, Later and the beat dot are gone.

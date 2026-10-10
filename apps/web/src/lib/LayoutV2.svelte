@@ -34,6 +34,7 @@
     presets,
     onguide,
     onhistory,
+    onmetertiming,
     selected,
     roonZone,
     onstatus,
@@ -59,6 +60,8 @@
     presets?: Snippet;
     onguide: () => void;
     onhistory: () => void;
+    /** The meter's "Settings ›": Settings → Listening → Meter timing. */
+    onmetertiming: () => void;
     selected: string;
     roonZone: RoonZone | null;
     onstatus: (status: Status) => void;
@@ -101,7 +104,7 @@
 <div class="v2">
   <div class="v2-now">
     <div bind:this={nowEl}>{@render nowCard()}</div>
-    <MeterStrip instanceId={selected} {playing} outputDelayMs={snap.status.outputDelayMs} />
+    <MeterStrip instanceId={selected} {playing} outputDelayMs={snap.status.outputDelayMs} ontiming={onmetertiming} />
   </div>
   <div class="v2-path">
     <SignalCard
