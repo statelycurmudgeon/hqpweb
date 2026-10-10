@@ -10,8 +10,7 @@ import { CONFIG_DOC, configText, loadConfig, type AppConfig } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
 import { SETTINGS_FORMAT } from "@app/core";
 import { LearnedStore } from "@app/core";
-import { PresetStore } from "@app/core";
-import { RoonLink } from "../src/roon/roon.ts";
+import { PresetStore, RoonLink } from "@app/core";
 
 const FIXTURES = join(import.meta.dirname, "fixtures/settings-0.1");
 const fresh = () => {
@@ -68,14 +67,15 @@ describe("settings from 0.1 (no format number) load and survive a save", () => {
     expect(saved.failures[0]).toEqual(once(before[0]));
   });
 
-  it("Roon: install id, core, approval tokens and zone mapping", () => {
+  it("Roon: install id, core, approval tokens and zone mapping", async () => {
     const dir = fresh();
     const before = json(dir, "roon.json");
-    const link = new RoonLink(join(dir, "roon.json"));
+    const link = await RoonLink.open(new FileDocs(dir));
     links.push(link);
     expect(link.view()).toMatchObject({ enabled: false, host: "192.0.2.20", port: 9330, extensionName: "hqpweb 0a1b" });
     expect(link.view().zoneFor).toEqual(before.zoneFor);
     link.setZone("office", "another-zone");
+    await link.flush();
     const saved = json(dir, "roon.json");
     expect(saved).toMatchObject({ ...before, format: SETTINGS_FORMAT, zoneFor: { ...before.zoneFor, office: "another-zone" } });
   });

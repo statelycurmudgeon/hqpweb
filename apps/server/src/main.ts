@@ -1,13 +1,12 @@
 import { buildApp } from "./app.ts";
-import { parseChange } from "@app/core";
+import { parseChange, RoonLink } from "@app/core";
 import { accessSync, constants } from "node:fs";
-import { join } from "node:path";
 import { loadConfig } from "@app/core";
 import { FileDocs } from "./file-docs.ts";
+import { VERSION } from "./version.ts";
 import { LearnedStore } from "@app/core";
 import { HistoryStore } from "@app/core";
 import { PresetStore } from "@app/core";
-import { RoonLink } from "./roon/roon.ts";
 
 // Loopback by default, because the app has no login (design §7). In a container,
 // set HOST=0.0.0.0 and let network placement be the gate. An authenticating
@@ -42,7 +41,7 @@ const discovery =
   process.env.DISCOVERY === "off" ? (false as const) : target ? { target: { address: target[1]!, port: Number(target[2]) } } : {};
 const presets = await PresetStore.open(docs, parseChange);
 // Roon is optional and off until switched on in Settings.
-const roon = new RoonLink(join(configDir, "roon.json"));
+const roon = await RoonLink.open(docs, { version: VERSION });
 const app = buildApp(config, {
   allowedHosts,
   learned,
@@ -66,6 +65,6 @@ for (const signal of ["SIGTERM", "SIGINT"] as const)
     // Saves run in the background now: let what's pending land before going.
     void app
       .close()
-      .then(() => Promise.all([learned.flush(), history.flush()]))
+      .then(() => Promise.all([learned.flush(), history.flush(), roon.flush()]))
       .finally(() => process.exit(0));
   });

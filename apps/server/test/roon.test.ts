@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeHqp, FakeRoon, loadProfile } from "@app/fake-hqp";
-import { decode, encode } from "../src/roon/moo.ts";
-import { decodePacket, encodeQuery } from "../src/roon/sood.ts";
-import { RoonLink, type RoonView } from "../src/roon/roon.ts";
+import { RoonLink, decode, decodePacket, encode, encodeQuery, type RoonView } from "@app/core";
+import { FileDocs } from "../src/file-docs.ts";
 import { buildApp } from "../src/app.ts";
 import { client } from "./http.ts";
 
@@ -28,8 +27,14 @@ async function core() {
   cleanup.push(() => c.close());
   return { c, port };
 }
-function link(path: string | null = null) {
-  const l = new RoonLink(path, { reconnectMs: 50, replyMs: 1000 });
+function link() {
+  const l = new RoonLink(null, { reconnectMs: 50, replyMs: 1000 });
+  cleanup.push(() => l.close());
+  return l;
+}
+/** A link kept in `dir`, the server's way (file-docs.ts). */
+async function linkAt(dir: string) {
+  const l = await RoonLink.open(new FileDocs(dir), { reconnectMs: 50, replyMs: 1000 });
   cleanup.push(() => l.close());
   return l;
 }
@@ -81,19 +86,22 @@ describe("Roon link", () => {
   it("waits for approval, then connects and remembers the token", async () => {
     const { c, port } = await core();
     const dir = mkdtempSync(join(tmpdir(), "roon-"));
-    const l = link(join(dir, "roon.json"));
+    const l = await linkAt(dir);
     l.configure({ enabled: true, host: "127.0.0.1", port });
     await until(() => l.view().status === "unapproved" && c.waiting().length === 1);
     expect(c.waiting()).toEqual([l.view().extensionName]);
     c.approve();
     await until(() => l.view().status === "connected" && l.view().zones.length === 2);
+    await l.flush();
     const saved = JSON.parse(readFileSync(join(dir, "roon.json"), "utf8"));
     expect(Object.keys(saved.tokens)).toEqual([c.coreId]);
+    // It holds approval tokens: owner-only.
+    expect(statSync(join(dir, "roon.json")).mode & 0o777).toBe(0o600);
 
     // A restart reuses the token: no second approval.
     l.close();
     c.approved.clear();
-    const again = link(join(dir, "roon.json"));
+    const again = await linkAt(dir);
     const seen: string[] = [];
     again.onChange(() => seen.push(again.view().status));
     await until(() => again.view().status === "connected");
@@ -151,12 +159,13 @@ describe("Roon link", () => {
   it("reports being taken over by another connection with the same approval", async () => {
     const { c, port } = await core();
     const dir = mkdtempSync(join(tmpdir(), "roon-"));
-    const a = link(join(dir, "roon.json"));
+    const a = await linkAt(dir);
     a.configure({ enabled: true, host: "127.0.0.1", port });
     await until(() => c.waiting().length === 1);
     c.approve();
     await until(() => a.view().status === "connected");
-    const b = link(join(dir, "roon.json")); // same config dir = same install id
+    await a.flush(); // its install id and token, saved
+    const b = await linkAt(dir); // same config dir = same install id
     await until(() => b.view().status === "connected");
     await until(() => a.view().status === "unreachable");
     expect(a.view().error).toMatch(/took over/);
