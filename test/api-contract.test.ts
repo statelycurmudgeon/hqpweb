@@ -1,7 +1,8 @@
 // One suite, two ways to reach the core: over HTTP (the web app's httpApi against the server)
 // and in-process (core localApi over a Service, as a phone app would). Every test runs on
-// both, with the same expectations: the page can't tell which one it's talking to.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+// both, with the same expectations: the page can't tell which one it's talking to. The
+// last test checks that every CoreApi call was made both ways, so a new one can't skip this.
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FakeHqp, FakeMeter, loadProfile } from "@app/fake-hqp";
 import type { CoreApi, Snapshot } from "@app/contract";
 import { Service, localApi, type WatchTiming } from "@app/core";
@@ -43,14 +44,41 @@ const ways: [string, (config: { instances: object[] }) => Promise<CoreApi>][] = 
   ],
 ];
 
+/** Every call the core offers: the in-process API's own keys (its object literal is typed as CoreApi). */
+function everyCall(): string[] {
+  const service = new Service({ instances: [] }, { net: { connect: nodeConnect, discover } });
+  const calls = Object.keys(localApi(service)).sort();
+  service.close();
+  return calls;
+}
+
+/** The API, noting each call made through it. */
+function noting(api: CoreApi, made: Set<string>): CoreApi {
+  return new Proxy(api, {
+    get(target, key, receiver) {
+      const v = Reflect.get(target, key, receiver) as unknown;
+      if (typeof key !== "string" || typeof v !== "function") return v;
+      return (...args: unknown[]) => {
+        made.add(key);
+        return (v as (...a: unknown[]) => unknown).apply(target, args);
+      };
+    },
+  });
+}
+
 describe.each(ways)("the API %s", (_way, start) => {
   let api: CoreApi;
+  const made = new Set<string>();
+  let calls: string[];
+  beforeAll(() => {
+    calls = everyCall();
+  });
   beforeEach(async () => {
     fake = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
     await fake.listen();
     meter = new FakeMeter(fake);
     const meterPort = await meter.listen();
-    api = await start({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port, meterPort }] });
+    api = noting(await start({ instances: [{ id: "mac", name: "Mac", host: "127.0.0.1", port: fake.port, meterPort }] }), made);
   });
 
   /** The words a refusal carries. */
@@ -150,5 +178,46 @@ describe.each(ways)("the API %s", (_way, start) => {
     p.settings.invert = false;
     const again = (await api.presets("mac"))[0];
     expect([again?.name, again?.settings.invert]).toEqual(["A", true]);
+  });
+  it("adds an instance and removes it", async () => {
+    expect(await refused(api.addInstance({ name: "No host" } as never))).toBe("name and host are required strings");
+    const { id } = await api.addInstance({ name: "Extra", host: "127.0.0.1", port: 1 });
+    expect((await api.instances()).map((i) => i.name)).toContain("Extra");
+    expect(await api.removeInstance(id)).toEqual({ ok: true });
+    expect((await api.instances()).map((i) => i.id)).toEqual(["mac"]);
+  });
+
+  it("finds instances (discovery off here: the configured one)", async () => {
+    expect((await api.discover()).map((i) => [i.id, i.discovered])).toEqual([["mac", false]]);
+  });
+
+  it("sets and clears the restart cap", async () => {
+    expect((await api.setRestartCap("mac", -20)).restartVolumeCap).toBe(-20);
+    expect((await api.setRestartCap("mac", null)).restartVolumeCap).toBeUndefined();
+    expect(await refused(api.setRestartCap("mac", "-20" as never))).toBe("maxDb must be a number or null");
+  });
+
+  it("saves and clears setup answers", async () => {
+    expect(await api.saveSetup("mac", { dsd: "direct" })).toMatchObject({
+      instance: { setup: { dsd: "direct" } },
+      savedNow: false,
+    });
+    expect((await api.saveSetup("mac", { dsd: null })).instance.setup).toBeUndefined();
+    expect(await refused(api.saveSetup("mac", { dsd: "loud" } as never))).toMatch(/^dsd must be one of/);
+  });
+
+  it("renames a DAC", async () => {
+    const { dac } = await api.addDac("mac", "Desk");
+    expect(await api.renameDac("mac", dac.id, "Den")).toEqual({ ok: true });
+    expect((await api.instances())[0]?.dacs.find((d) => d.id === dac.id)?.name).toBe("Den");
+  });
+
+  it("dismisses a volume jump", async () => {
+    expect(await api.dismissVolumeJump("mac")).toEqual({ ok: true });
+  });
+
+  // Last: the calls above, made both ways. A new CoreApi call needs a test here too.
+  it("has made every call the core offers", () => {
+    expect(calls.filter((c) => !made.has(c))).toEqual([]);
   });
 });
