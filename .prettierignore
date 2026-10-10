@@ -9,3 +9,7 @@ packages/fake-hqp/profiles
 lint/package-lock.json
 # Written by ESLint (--suppress-all, --prune-suppressions).
 lint/eslint-suppressions.json
+# Copied into the iOS project by `cap sync` (git-ignored there too).
+apps/mobile/ios/App/App/public
+apps/mobile/ios/App/App/capacitor.config.json
+apps/mobile/ios/DerivedData
