@@ -1,4 +1,5 @@
-import { buildApp, parseChange } from "./app.ts";
+import { buildApp } from "./app.ts";
+import { parseChange } from "@app/core";
 import { accessSync, constants } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "@app/core";

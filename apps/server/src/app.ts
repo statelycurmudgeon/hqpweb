@@ -1,28 +1,29 @@
 // HTTP API on node:http, no framework.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
-import type { AppConfig } from "@app/core";
-import { HttpError, Instance, TRANSPORT_ACTIONS, type Change, type TransportAction } from "@app/core";
-import { LearnedStore, type Combo } from "@app/core";
-import { HistoryStore } from "@app/core";
+import {
+  HttpError,
+  Service,
+  type AppConfig,
+  type DocStore,
+  type HistoryStore,
+  type Instance,
+  type KeptTiming,
+  type LearnedStore,
+  type MeterTiming,
+  type PresetStore,
+  type RoonTransport,
+  type WatchTiming,
+} from "@app/core";
+import { PeerError, type DiscoverOptions } from "@app/protocol";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { GITHUB_CLAPS_URL, serveClapTrack } from "./calibration.ts";
 import { playClapTrack } from "./calibrate-play.ts";
 import { COMMIT, VERSION } from "./version.ts";
-import { Registry } from "@app/core";
-import { parseSetupChange } from "@app/core";
-import { PresetStore } from "@app/core";
-import { PeerError, type DiscoverOptions } from "@app/protocol";
 import { nodeNet, type Net } from "./node-net.ts";
-import type { DocStore } from "@app/core";
-import type { WatchTiming } from "@app/core";
-import type { RoonTransport } from "@app/core";
-import type { KeptTiming } from "@app/core";
-import type { MeterTiming } from "@app/core";
 import { ROON_ACTIONS, RoonLink, type RoonAction } from "./roon/roon.ts";
 import { discoverCores } from "./roon/sood.ts";
-import { scopeOf } from "@app/core";
 
 export interface AppOptions {
   pollMs?: number;
@@ -71,47 +72,6 @@ const MAX_BODY = 16 * 1024;
 /** The meter stream's most unsent output per client before frames are skipped (~250 updates). */
 const METER_BACKLOG = 256 * 1024;
 
-const FIELDS: Record<keyof Change, "name" | "number" | "rate" | "boolean"> = {
-  mode: "name",
-  rate: "rate",
-  filterNx: "name",
-  filter1x: "name",
-  shaper: "name",
-  volume: "number",
-  invert: "boolean",
-  filter20k: "boolean",
-  adaptive: "boolean",
-  convolution: "boolean",
-  matrixProfile: "name",
-};
-
-/** Strict: no unknown fields, no type coercion ("-20" is not a volume). */
-export function parseChange(body: unknown): Change {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
-  const entries = Object.entries(body);
-  if (entries.length === 0) throw new HttpError(400, "empty change");
-  for (const [k, v] of entries) {
-    const kind = FIELDS[k as keyof Change];
-    if (!kind) throw new HttpError(400, `unknown field "${k}"`);
-    const ok =
-      kind === "name"
-        ? typeof v === "string" && v.length > 0
-        : kind === "number"
-          ? typeof v === "number" && Number.isFinite(v)
-          : kind === "rate"
-            ? Number.isInteger(v) && (v as number) >= 0
-            : typeof v === "boolean";
-    const want = {
-      name: "a non-empty string",
-      number: "a number",
-      rate: "a whole number of Hz (0 = auto)",
-      boolean: "a boolean",
-    }[kind];
-    if (!ok) throw new HttpError(400, `"${k}" must be ${want}`);
-  }
-  return body as Change;
-}
-
 const hostnameOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, "").toLowerCase();
 
 /**
@@ -121,7 +81,8 @@ const hostnameOf = (hostHeader: string) => hostHeader.replace(/:\d+$/, "").toLow
  */
 const isIpLiteral = (h: string) => isIP(h.replace(/^\[|\]$/g, "")) !== 0;
 
-function send(res: ServerResponse, status: number, body: unknown) {
+/** A body is a value, never a promise: forgetting an `await` would send `{}` (seen in review). */
+function send<T>(res: ServerResponse, status: number, body: T extends PromiseLike<unknown> ? never : T) {
   res.writeHead(status, { ...SECURITY_HEADERS, "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
   res.end(JSON.stringify(body));
 }
@@ -142,47 +103,6 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   }
 }
 
-function parsePresetBody(
-  body: unknown,
-  patch = false,
-): { name?: string; settings?: Change; fromInstance?: string; includeVolume?: boolean; scope?: string | null } {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
-  const { name, settings, fromInstance, includeVolume, scope, ...rest } = body as Record<string, unknown>;
-  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
-  if (name !== undefined && typeof name !== "string") throw new HttpError(400, "name must be a string");
-  if (!patch && name === undefined) throw new HttpError(400, "name is required");
-  if (fromInstance !== undefined && typeof fromInstance !== "string")
-    throw new HttpError(400, "fromInstance must be an instance id");
-  if (includeVolume !== undefined && typeof includeVolume !== "boolean")
-    throw new HttpError(400, "includeVolume must be a boolean");
-  // A DAC's scope (dac-scope.ts): "id" or "id#dac"; null (on a patch) shares it with all DACs.
-  if (
-    scope !== undefined &&
-    !(scope === null && patch) &&
-    !(typeof scope === "string" && /^[a-z0-9-]+(#[a-z0-9-]+)?$/.test(scope))
-  )
-    throw new HttpError(400, "scope must be an instance id, or id#dac");
-  return {
-    ...(name !== undefined ? { name: name as string } : {}),
-    ...(settings !== undefined ? { settings: parseChange(settings) } : {}),
-    ...(fromInstance !== undefined ? { fromInstance: fromInstance as string } : {}),
-    ...(includeVolume !== undefined ? { includeVolume: includeVolume as boolean } : {}),
-    ...(scope !== undefined ? { scope: scope as string | null } : {}),
-  };
-}
-
-/** One combination, by name, to forget ("Forget this" beside a failure). Exactly these fields. */
-export function parseCombo(body: unknown): Combo {
-  if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
-  const { mode, rateHz, filter1x, filterNx, shaper, ...rest } = body as Record<string, unknown>;
-  if (Object.keys(rest).length) throw new HttpError(400, `unknown field: ${Object.keys(rest).join(", ")}`);
-  for (const [k, v] of Object.entries({ mode, filter1x, filterNx, shaper }))
-    if (typeof v !== "string" || v.length > 200) throw new HttpError(400, `${k} must be a name`);
-  if (typeof rateHz !== "number" || !Number.isFinite(rateHz) || rateHz < 0)
-    throw new HttpError(400, "rateHz must be a rate in Hz");
-  return { mode, rateHz, filter1x, filterNx, shaper } as Combo;
-}
-
 function parseRoonSettings(body: unknown): { enabled?: boolean; host?: string; port?: number } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) throw new HttpError(400, "body must be a JSON object");
   const { enabled, host, port, ...rest } = body as Record<string, unknown>;
@@ -197,21 +117,9 @@ function parseRoonSettings(body: unknown): { enabled?: boolean; host?: string; p
   };
 }
 
-function parseNewInstance(body: unknown): { name: string; host: string; port?: number } {
-  if (typeof body !== "object" || body === null) throw new HttpError(400, "body must be a JSON object");
-  const { name, host, port, ...rest } = body as Record<string, unknown>;
-  if (Object.keys(rest).length) throw new HttpError(400, `unknown field "${Object.keys(rest)[0]}"`);
-  if (typeof name !== "string" || typeof host !== "string") throw new HttpError(400, "name and host are required strings");
-  if (port !== undefined && !Number.isInteger(port)) throw new HttpError(400, "port must be a whole number");
-  return { name, host, ...(port !== undefined ? { port: port as number } : {}) };
-}
-
 type Handler = (req: IncomingMessage, res: ServerResponse, inst: Instance) => Promise<unknown> | void;
 
 export function buildApp(config: AppConfig, opts: AppOptions = {}) {
-  const learned = opts.learned ?? new LearnedStore(null);
-  const history = opts.history ?? new HistoryStore(null);
-  const presets = opts.presets ?? new PresetStore(null);
   const roon = opts.roon ?? new RoonLink(null);
   // Pausing for a mode switch goes through Roon when hqpweb has the instance's zone (change-engine.ts).
   const roonTransport =
@@ -224,25 +132,22 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
             playing: () => roon.zoneFor(id)?.state === "playing",
           }
         : null);
-  const net = opts.net ?? nodeNet;
-  const registry = new Registry(config, {
-    ...net,
+  // Everything else is the core's (packages/core service.ts): this file is HTTP around it.
+  const service = new Service(config, {
+    net: opts.net ?? nodeNet,
     docs: opts.docs ?? null,
+    roonTransport,
+    ...(opts.learned ? { learned: opts.learned } : {}),
+    ...(opts.history ? { history: opts.history } : {}),
+    ...(opts.presets ? { presets: opts.presets } : {}),
     discovery: opts.discovery ?? false,
     ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
-    makeInstance: (cfg) =>
-      new Instance(cfg, {
-        connect: net.connect,
-        learned,
-        history,
-        ...(opts.timing ? { timing: opts.timing } : {}),
-        ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
-        ...(opts.keptTiming ? { keptTiming: opts.keptTiming } : {}),
-        ...(opts.meterTiming ? { meterTiming: opts.meterTiming } : {}),
-        ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
-        ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
-        roon: () => roonTransport(cfg.id),
-      }),
+    ...(opts.timing ? { timing: opts.timing } : {}),
+    ...(opts.speedWindowMs ? { speedWindowMs: opts.speedWindowMs } : {}),
+    ...(opts.keptTiming ? { keptTiming: opts.keptTiming } : {}),
+    ...(opts.meterTiming ? { meterTiming: opts.meterTiming } : {}),
+    ...(opts.queueEveryMs ? { queueEveryMs: opts.queueEveryMs } : {}),
+    ...(opts.playWaitMs ? { playWaitMs: opts.playWaitMs } : {}),
   });
   const listedHosts = new Set((opts.allowedHosts ?? []).map((h) => h.toLowerCase()));
   const allowed = new Set([...LOOPBACK, ...listedHosts]);
@@ -257,10 +162,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       "x-accel-buffering": "no",
     });
     res.write(": connected\n\n");
-    const unsubscribe = inst.subscribe((e) => {
-      if (e.snapshot) res.write(`event: now\ndata: ${JSON.stringify({ ...e.snapshot, health: e.health })}\n\n`);
-      else res.write(`event: unreachable\ndata: ${JSON.stringify({ error: e.error })}\n\n`);
-    }, opts.pollMs);
+    const unsubscribe = service.subscribe(
+      inst.cfg.id,
+      (e) => {
+        if (e.snapshot) res.write(`event: now\ndata: ${JSON.stringify({ ...e.snapshot, health: e.health })}\n\n`);
+        else res.write(`event: unreachable\ndata: ${JSON.stringify({ error: e.error })}\n\n`);
+      },
+      opts.pollMs,
+    );
     // Roon now-playing for this instance's zone, only when Roon is switched on.
     // Roon reports the seek position every second. The page advances it itself, so
     // send it only with other changes or when it jumps (a seek, a stall).
@@ -291,17 +200,12 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
   // Per-instance routes: /api/instances/:id/<action>
   const routes: Record<string, Handler> = {
-    "GET now": (_q, _r, i) => i.now(),
-    "GET capabilities": (_q, _r, i) => i.capabilities(),
-    "POST change": async (q, _r, i) => i.applyChange(parseChange(await readJson(q))),
-    "POST undo": (_q, _r, i) => i.undo(),
-    "POST dismissjump": async (_q, _r, i) => i.dismissVolumeJump(),
-    "POST transport": async (q, _r, i) => {
-      const body = (await readJson(q)) as { action?: unknown };
-      if (typeof body !== "object" || body === null || !TRANSPORT_ACTIONS.includes(body.action as TransportAction))
-        throw new HttpError(400, `action must be one of ${TRANSPORT_ACTIONS.join(", ")}`);
-      return i.transport(body.action as TransportAction);
-    },
+    "GET now": (_q, _r, i) => service.now(i.cfg.id),
+    "GET capabilities": (_q, _r, i) => service.capabilities(i.cfg.id),
+    "POST change": async (q, _r, i) => service.change(i.cfg.id, await readJson(q)),
+    "POST undo": (_q, _r, i) => service.undo(i.cfg.id),
+    "POST dismissjump": async (_q, _r, i) => service.dismissVolumeJump(i.cfg.id),
+    "POST transport": async (q, _r, i) => service.transport(i.cfg.id, await readJson(q)),
     // Play the clap track for the tap calibration, from the address this page was opened at.
     "POST calibrate": async (q, _r, i) => {
       await i.client.status(); // an open connection, for its local address
@@ -312,22 +216,11 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       const page = `${scheme}://${q.headers.host}/api/calibration.wav`;
       return playClapTrack(i.client, [GITHUB_CLAPS_URL, page, ...(at ? [at] : [])]);
     },
-    "POST seek": async (q, _r, i) => {
-      const body = (await readJson(q)) as { seconds?: unknown };
-      if (
-        typeof body !== "object" ||
-        body === null ||
-        typeof body.seconds !== "number" ||
-        !Number.isFinite(body.seconds) ||
-        body.seconds < 0
-      )
-        throw new HttpError(400, "seconds must be a number ≥ 0");
-      return i.seek(body.seconds);
-    },
-    "GET learned": async (_q, _r, i) => i.learnedFailures(),
-    "GET history": async (_q, _r, i) => i.changeHistory(),
-    "DELETE learned": async (_q, _r, i) => i.forgetFailures(),
-    "POST forget": async (q, _r, i) => i.forgetFailures(parseCombo(await readJson(q))),
+    "POST seek": async (q, _r, i) => service.seek(i.cfg.id, await readJson(q)),
+    "GET learned": async (_q, _r, i) => service.learned(i.cfg.id),
+    "GET history": async (_q, _r, i) => service.history(i.cfg.id),
+    "DELETE learned": async (_q, _r, i) => service.forget(i.cfg.id),
+    "POST forget": async (q, _r, i) => service.forget(i.cfg.id, await readJson(q)),
     "GET events": events,
     "GET meter": (req, res, inst) => {
       res.writeHead(200, {
@@ -340,7 +233,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       res.write(": connected\n\n");
       // A stalled client (a phone asleep, the tab still open) mustn't make Node buffer frames
       // without end: skip them while its unsent output is over a small cap.
-      const off = inst.subscribeMeter((e) => {
+      const off = service.subscribeMeter(inst.cfg.id, (e) => {
         if (res.writableLength < METER_BACKLOG) res.write(`event: meter\ndata: ${JSON.stringify(e)}\n\n`);
       });
       req.on("close", off);
@@ -375,17 +268,6 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     },
   };
 
-  /** An instance's current settings, by name, as preset settings. */
-  async function captureFrom(instanceId: string, includeVolume: boolean): Promise<Change> {
-    const inst = registry.get(instanceId);
-    if (!inst) throw new HttpError(404, "unknown instance");
-    const settings: Change = { ...(await inst.currentSettings()) };
-    if (!includeVolume) delete settings.volume;
-    // "" means no matrix profile is active: nothing to restore, so leave it out.
-    if (!settings.matrixProfile) delete settings.matrixProfile;
-    return settings;
-  }
-
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = hostnameOf(req.headers.host ?? "");
     if (!allowed.has(host) && !isIpLiteral(host)) throw new HttpError(403, `host "${host}" not allowed; add it to ALLOWED_HOSTS`);
@@ -410,13 +292,10 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     if (req.method === "GET" && path === "/api/health")
       return send(res, 200, { ok: true, version: VERSION, ...(COMMIT ? { commit: COMMIT } : {}) });
     if (path === "/api/instances") {
-      if (req.method === "GET") return send(res, 200, await registry.list());
-      if (req.method === "POST") return send(res, 200, await registry.add(parseNewInstance(await readJson(req))));
+      if (req.method === "GET") return send(res, 200, await service.instances());
+      if (req.method === "POST") return send(res, 200, await service.addInstance(await readJson(req)));
     }
-    if (req.method === "POST" && path === "/api/discover") {
-      await registry.scan();
-      return send(res, 200, await registry.list());
-    }
+    if (req.method === "POST" && path === "/api/discover") return send(res, 200, await service.discover());
     // ---- Roon (optional) ----
     if (path === "/api/roon") {
       if (req.method === "GET") return send(res, 200, roon.view());
@@ -441,56 +320,21 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
 
     // ---- presets (global) ----
     if (path === "/api/presets") {
-      if (req.method === "GET") return send(res, 200, presets.list());
-      if (req.method === "POST") {
-        const body = parsePresetBody(await readJson(req));
-        let settings = body.settings;
-        if (body.fromInstance) settings = await captureFrom(body.fromInstance, body.includeVolume ?? false);
-        if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
-        return send(res, 200, await presets.create(body.name ?? "", settings, body.scope ?? undefined));
-      }
+      if (req.method === "GET") return send(res, 200, await service.listPresets());
+      if (req.method === "POST") return send(res, 200, await service.createPreset(await readJson(req)));
     }
     const pm = /^\/api\/presets\/([^/]+)$/.exec(path);
     if (pm) {
       const id = decodeURIComponent(pm[1]!);
-      if (req.method === "DELETE") {
-        await presets.remove(id);
-        return send(res, 200, { ok: true });
-      }
-      if (req.method === "PATCH") {
-        const body = parsePresetBody(await readJson(req), true);
-        let settings = body.settings;
-        if (body.fromInstance) {
-          // "Update from current": replace the settings with the instance's current ones.
-          settings = await captureFrom(body.fromInstance, body.includeVolume ?? presets.get(id).settings.volume !== undefined);
-        }
-        return send(
-          res,
-          200,
-          await presets.update(id, {
-            ...(body.name !== undefined ? { name: body.name } : {}),
-            ...(settings ? { settings } : {}),
-            ...(body.scope !== undefined ? { scope: body.scope } : {}),
-          }),
-        );
-      }
+      if (req.method === "DELETE") return send(res, 200, await service.deletePreset(id));
+      if (req.method === "PATCH") return send(res, 200, await service.updatePreset(id, await readJson(req)));
     }
     const ipm = /^\/api\/instances\/([^/]+)\/presets(?:\/([^/]+)\/apply)?$/.exec(path);
     if (ipm) {
-      const inst = registry.get(decodeURIComponent(ipm[1]!));
-      if (!inst) throw new HttpError(404, "unknown instance");
-      if (!ipm[2] && req.method === "GET") {
-        // The shared presets, and the in-use DAC's own (dac-scope.ts).
-        const list = presets.list().filter((p) => !p.scope || p.scope === inst.scope());
-        const previews = await inst.previewPresets(list.map((p) => p.settings));
-        return send(
-          res,
-          200,
-          list.map((p, i) => ({ ...p, preview: previews[i] })),
-        );
-      }
-      if (ipm[2] && req.method === "POST")
-        return send(res, 200, await inst.applyPreset(presets.get(decodeURIComponent(ipm[2])).settings));
+      const id = decodeURIComponent(ipm[1]!);
+      service.instance(id); // 404 for an unknown instance, before anything else
+      if (!ipm[2] && req.method === "GET") return send(res, 200, await service.presetsFor(id));
+      if (ipm[2] && req.method === "POST") return send(res, 200, await service.applyPreset(id, decodeURIComponent(ipm[2])));
       throw new HttpError(404, "not found");
     }
 
@@ -499,51 +343,28 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     if (dacsRoute) {
       const id = decodeURIComponent(dacsRoute[1]!);
       const dacId = dacsRoute[2] ? decodeURIComponent(dacsRoute[2]) : undefined;
-      const body = req.method === "DELETE" ? {} : ((await readJson(req)) as Record<string, unknown>);
-      if (!dacId && req.method === "POST")
-        return send(res, 200, await registry.addDac(id, { name: body.name, currentName: body.currentName }));
-      if (dacId && req.method === "PATCH") {
-        await registry.renameDac(id, dacId, body.name);
-        return send(res, 200, { ok: true });
-      }
-      if (dacId && req.method === "DELETE") {
-        await registry.removeDac(id, dacId);
-        await presets.unscope(scopeOf(id, dacId));
-        return send(res, 200, { ok: true });
-      }
+      const body = req.method === "DELETE" ? {} : await readJson(req);
+      if (!dacId && req.method === "POST") return send(res, 200, await service.addDac(id, body));
+      if (dacId && req.method === "PATCH") return send(res, 200, await service.renameDac(id, dacId, body));
+      if (dacId && req.method === "DELETE") return send(res, 200, await service.removeDac(id, dacId));
       throw new HttpError(404, "not found");
     }
     const dacRoute = /^\/api\/instances\/([^/]+)\/dac$/.exec(path);
-    if (dacRoute && req.method === "PUT") {
-      const body = (await readJson(req)) as { dac?: unknown };
-      if (typeof body?.dac !== "string") throw new HttpError(400, "body must be { dac }");
-      await registry.selectDac(decodeURIComponent(dacRoute[1]!), body.dac);
-      return send(res, 200, { ok: true });
-    }
-
+    if (dacRoute && req.method === "PUT")
+      return send(res, 200, await service.selectDac(decodeURIComponent(dacRoute[1]!), await readJson(req)));
     const setupRoute = /^\/api\/instances\/([^/]+)\/setup$/.exec(path);
     if (setupRoute && req.method === "PUT")
-      return send(res, 200, await registry.saveSetup(decodeURIComponent(setupRoute[1]!), parseSetupChange(await readJson(req))));
-
+      return send(res, 200, await service.saveSetup(decodeURIComponent(setupRoute[1]!), await readJson(req)));
     const capRoute = /^\/api\/instances\/([^/]+)\/restartcap$/.exec(path);
-    if (capRoute && req.method === "PUT") {
-      const body = (await readJson(req)) as { maxDb?: unknown };
-      if (typeof body !== "object" || body === null || Object.keys(body).length !== 1 || !("maxDb" in body))
-        throw new HttpError(400, "body must be { maxDb: number | null }");
-      if (body.maxDb !== null && typeof body.maxDb !== "number") throw new HttpError(400, "maxDb must be a number or null");
-      return send(res, 200, await registry.setRestartCap(decodeURIComponent(capRoute[1]!), body.maxDb));
-    }
+    if (capRoute && req.method === "PUT")
+      return send(res, 200, await service.setRestartCap(decodeURIComponent(capRoute[1]!), await readJson(req)));
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
-    if (one && req.method === "PATCH") {
-      const body = (await readJson(req)) as { name?: unknown };
-      if (typeof body !== "object" || body === null || typeof body.name !== "string" || Object.keys(body).length !== 1)
-        throw new HttpError(400, "body must be { name }");
-      return send(res, 200, await registry.rename(decodeURIComponent(one[1]!), body.name));
-    }
+    if (one && req.method === "PATCH")
+      return send(res, 200, await service.renameInstance(decodeURIComponent(one[1]!), await readJson(req)));
     if (one && req.method === "DELETE") {
-      await registry.remove(decodeURIComponent(one[1]!));
+      const out = await service.removeInstance(decodeURIComponent(one[1]!));
       roon.forgetInstance(decodeURIComponent(one[1]!));
-      return send(res, 200, { ok: true });
+      return send(res, 200, out);
     }
 
     const m = /^\/api\/instances\/([^/]+)\/([a-z]+)$/.exec(path);
@@ -557,8 +378,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         return;
       throw new HttpError(404, "not found");
     }
-    const inst = registry.get(decodeURIComponent(m[1]!));
-    if (!inst) throw new HttpError(404, "unknown instance");
+    const inst = service.instance(decodeURIComponent(m[1]!));
     const route = routes[`${req.method} ${m[2]}`];
     if (!route) throw new HttpError(404, "not found");
     const out = await route(req, res, inst);
@@ -591,7 +411,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       );
     },
     async close() {
-      registry.close();
+      service.close();
       roon.close();
       server.closeAllConnections();
       await new Promise<void>((r) => server.close(() => r()));
