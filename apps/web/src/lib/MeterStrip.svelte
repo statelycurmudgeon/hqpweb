@@ -74,13 +74,12 @@
   let drawn: string | null = null;
 
   $effect(() => {
-    const es = api.meter(instanceId);
-    es.addEventListener("meter", (e) => {
-      latest = JSON.parse((e as MessageEvent).data) as MeterEvent;
+    const stop = api.meter(instanceId, (m) => {
+      latest = m;
       pending.push(performance.now(), latest);
     });
     return () => {
-      es.close();
+      stop();
       pending.clear();
     };
   });

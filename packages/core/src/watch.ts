@@ -122,8 +122,11 @@ export const BUSY_MS = 2000;
 /** Stop waiting once HQPlayer has been busy this long in all. */
 export const MAX_BUSY_MS = 60_000;
 
-/** A verdict, and how long HQPlayer was too busy to answer (absent when it never was). */
-export type WatchResult = Verdict & { busyMs?: number };
+/**
+ * A verdict, and how long HQPlayer was too busy to answer (absent when it never was). Never
+ * "pending": that only means "keep watching" inside the loop (the web's PlaybackCheck has no such kind).
+ */
+export type WatchResult = Exclude<Verdict, { kind: "pending" }> & { busyMs?: number };
 
 /**
  * Sample until a verdict is reached or time runs out. If HQPlayer is busy (a reply takes

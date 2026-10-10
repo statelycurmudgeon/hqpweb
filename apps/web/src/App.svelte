@@ -141,27 +141,27 @@
     online = "connecting";
     roonZone = null;
     seekBase = null;
-    const es = api.events(id);
-    es.addEventListener("now", (e) => {
-      snap = JSON.parse((e as MessageEvent).data);
-      behind = speedRules.behindStreak(behind, snap?.health?.processSpeed ?? null);
-      online = "live";
-      offlineSince = null;
+    return api.status(id, {
+      now: (s) => {
+        snap = s;
+        behind = speedRules.behindStreak(behind, snap?.health?.processSpeed ?? null);
+        online = "live";
+        offlineSince = null;
+      },
+      // Only sent when Roon is switched on in Settings.
+      roon: (r) => {
+        roonZone = r.zone;
+        // The server sends the position only when it jumps; advance it locally.
+        const seek = roonZone?.nowPlaying?.seek;
+        seekBase = seek != null ? { seek, at: Date.now() } : null;
+      },
+      unreachable: (error) => {
+        if (online !== "unreachable") offlineSince = new Date();
+        online = "unreachable";
+        offlineReason = error;
+      },
+      lost: () => (online = "lost"),
     });
-    // Only sent when Roon is switched on in Settings.
-    es.addEventListener("roon", (e) => {
-      roonZone = JSON.parse((e as MessageEvent).data).zone;
-      // The server sends the position only when it jumps; advance it locally.
-      const seek = roonZone?.nowPlaying?.seek;
-      seekBase = seek != null ? { seek, at: Date.now() } : null;
-    });
-    es.addEventListener("unreachable", (e) => {
-      if (online !== "unreachable") offlineSince = new Date();
-      online = "unreachable";
-      offlineReason = JSON.parse((e as MessageEvent).data).error;
-    });
-    es.onerror = () => (online = "lost");
-    return () => es.close();
   });
 
   // Lists depend on the mode: (re)load when the mode differs from what we hold.

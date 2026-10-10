@@ -1,372 +1,104 @@
-// Thin client for the app's own HTTP API.
+// The page's way to hqpweb: the API over HTTP (httpApi), and small shared formatting helpers.
 
-export type Inst = {
-  id: string;
-  name: string;
-  host: string;
-  port: number;
-  source: "configured" | "discovered";
-  discovered: boolean;
-  reachable: boolean | null;
-  error?: string;
-  product?: string;
-  engine?: string;
-  /** The listener's setup answers for the DAC in use (server: config.ts). Absent: none answered. */
-  setup?: Setup;
-  /** Named DACs behind this HQPlayer (server: dac-scope.ts): main first; one unnamed = no picker. */
-  dacs: { id: string; name: string }[];
-  /** The DAC in use. */
-  dac: string;
-  /** After HQPlayer restarts, hqpweb lowers its volume to at most this (dB); absent: off. */
-  restartVolumeCap?: number;
-};
-/** What the modulator and dither advice needs to know, and HQPlayer can't tell us. */
-export type Setup = {
-  dsd?: "older-ess" | "remodulates" | "direct" | "converts";
-  pcm?: "delta-sigma" | "ladder";
-  amp?: "class-d-or-tube" | "other" | "unsure";
-  link?: "usb" | "spdif" | "i2s";
-  volume?: "hqplayer" | "fixed";
-};
-/** description: HQPlayer 6 only (filters: "5/5 timbre ⥮ Any"; modulators: "Gen8"). */
-export type Named = { index: number; name: string; description?: string };
-export type State = {
-  mode: number;
-  /** The mode's value: -1 [source], 0 PCM, 1 SDM (HQPlayer's numbering). */
-  activeMode: number;
-  rate: number;
-  filter1x: number;
-  filterNx: number;
-  filterInUse: number;
-  shaper: number;
-  volume: number;
-  invert: boolean;
-  filter20k: boolean;
-  adaptive: boolean;
-  convolution: boolean;
-  matrixProfile: string;
-  state: number;
-};
-export type Status = {
-  state: number;
-  activeMode: string;
-  activeRate: number;
-  activeFilter: string;
-  activeShaper: string;
-  /** Bits per sample of the output stream (32 in PCM, 1 in SDM): not the DAC Bits setting. */
-  activeBits: number;
-  volume: number;
-  position: number;
-  length: number;
-  source: { sampleRate: number; bits: number; channels: number; song: string } | null;
-  /** HQPlayer's output buffering in ms (server: parse.ts); null when not reported. */
-  outputDelayMs?: number | null;
-  /** HQPlayer's apodization and clip counters (0 when not reported). */
-  apod?: number;
-  clips?: number;
-};
-export type Snapshot = {
-  status: Status;
-  state: State;
-  /** speed: position fit over 30 s; processSpeed: HQPlayer's own figure (×real time, 3 s average) when reported. */
-  health?: { latencyMs: number; speed: number | null; processSpeed?: number | null };
-  /** While stopped: the rate of the track HQPlayer's playlist would play next (null if none known). */
-  queuedRate?: number | null;
-  /** The volume rose sharply without hqpweb, e.g. HQPlayer restarted at its saved level. */
-  volumeJump?: { from: number; to: number; at: string; restarted: boolean };
-};
-export type Failure = {
-  mode: string;
-  rateHz: number;
-  filterNx: string;
-  filter1x: string;
-  shaper: string;
-  reason: string;
-  at: string;
-  /** How many times it has failed here (the server keeps a history); absent: once. */
-  count?: number;
-  first?: string;
-  /** Source sample rates it failed with; absent in older records. */
-  sourceRates?: number[];
-};
-/** A combination that kept up here once settled (server: kept-up.ts), per source rate. */
-export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
-  sourceRate: number;
-  /** Lowest settled 5-second average, times faster than real time. */
-  low: number;
-  typical: number;
-  sessions: number;
-  first: string;
-};
-/** A filter HQPlayer was slow to switch to here (server: learned.ts SlowSwitch). */
-export type SlowSwitch = {
-  mode: string;
-  rateHz: number;
-  filter: string;
-  sourceRate: number;
-  /** How long HQPlayer answered nothing while switching, the latest time. */
-  busyMs: number;
-  at: string;
-  count: number;
-};
-/** One entry of an instance's change history (server: history.ts), newest first from the API. */
-export type HistoryEntry = {
-  at: string;
-  instance: string;
-  source: "hqpweb" | "preset" | "undo" | "elsewhere";
-  changes: { field: string; from: unknown; to: unknown; applied?: boolean }[];
-  playback?: string;
-  detail?: string;
-  rolledBack?: boolean;
-};
-/** One meter update (server meter-stream.ts). */
-export type MeterEvent = {
-  live: boolean;
-  connected: boolean;
-  levels?: number[][];
-  bands?: number[][];
-  edgesHz?: number[];
-  /** Left/right correlation per band, −1 (out of phase) .. 1 (mono). */
-  corr?: number[];
-};
-export type Mode = { index: number; name: string; value: number };
-export type Capabilities = {
-  engine: string;
-  mode: Mode;
-  modes: Mode[];
-  filters: Named[];
-  shapers: Named[];
-  rates: { index: number; rate: number; allowed: boolean; note?: string }[];
-  rateSettable: boolean;
-  matrixProfiles: string[];
-  volumeRange: { min: number; max: number; enabled: boolean };
-  knownBad: Failure[];
-  keptUp: KeptUp[];
-  slowSwitches: SlowSwitch[];
-  /** Each mode's settings as hqpweb last saw them, for the DAC in use (server: history.ts). */
-  lastSeen: Record<string, { rate: number; filterNx: string; filter1x: string; shaper: string; at: string }>;
-  /** Each mode's lists as last read on this engine, by name (server: history.ts); for choosing before switching. */
-  modeLists: Record<
-    string,
-    { filters: string[]; shapers: string[]; rates: { rate: number; allowed: boolean; note?: string }[]; at: string }
-  >;
-};
-export type Change = Partial<{
-  mode: string;
-  rate: number;
-  filterNx: string;
-  filter1x: string;
-  shaper: string;
-  volume: number;
-  invert: boolean;
-  filter20k: boolean;
-  adaptive: boolean;
-  convolution: boolean;
-  matrixProfile: string;
-}>;
-export type FieldResult = {
-  field: keyof Change;
-  requested: string | number | boolean;
-  actual: string | number | boolean;
-  applied: boolean;
-  note?: string;
-};
-export type PlaybackCheck = {
-  kind: "playing" | "stopped" | "struggling" | "inconclusive" | "not-checked";
-  detail?: string;
-  /** How long HQPlayer answered nothing after the change (a filter slow to build); absent when it always answered. */
-  busyMs?: number;
-};
-export type RoonZone = {
-  id: string;
-  name: string;
-  state: string;
-  hqplayer: boolean;
-  nowPlaying: { track: string; artist: string; album: string; imageKey?: string; seek?: number; length?: number } | null;
-  allowed: { play: boolean; pause: boolean; next: boolean; previous: boolean; seek: boolean };
-};
-export type RoonStatus = "off" | "connecting" | "unapproved" | "connected" | "unreachable";
-export type RoonView = {
-  enabled: boolean;
-  host?: string;
-  port?: number;
-  status: RoonStatus;
-  error?: string;
-  core?: { name: string; version: string };
-  extensionName: string;
-  zones: RoonZone[];
-  zoneFor: Record<string, string>;
-};
-export type FoundCore = { host: string; port: number; name?: string; version?: string };
-export type Preset = {
-  id: string;
-  name: string;
-  settings: Change;
-  createdAt: string;
-  updatedAt: string;
-  /** Kept for one DAC only (its scope, lib/dac-scope.ts); absent: shared by all. */
-  scope?: string;
-};
-export type PresetView = Preset & {
-  preview: {
-    kind: "active" | "quick" | "major";
-    differs: (keyof Change)[];
-    missing: { field: keyof Change; reason: string }[];
-    unchecked: boolean;
-    predicted?: { level: "hard" | "soft"; text: string };
-  };
-};
-export type ApplyResult = {
-  class: "quick" | "major";
-  results: FieldResult[];
-  playback: PlaybackCheck;
-  rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
-  incompatible?: { level: "hard" | "soft"; text: string };
-  skipped?: { field: keyof Change; reason: string }[];
-  state: State;
-  undoAvailable: boolean;
-};
+import type { Api, Change, Failure } from "@app/contract";
+export type * from "@app/contract";
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, init);
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
-  return body as T;
+export interface HttpApiOptions {
+  /** Where the server is; "" (the default) is this page's own origin. */
+  base?: string;
+  fetch?: typeof fetch;
+  EventSource?: typeof EventSource;
 }
 
-export const api = {
-  health: () => call<{ ok: boolean; version: string; commit?: string }>("/api/health"),
-  instances: () => call<Inst[]>("/api/instances"),
-  addInstance: (body: { name: string; host: string; port?: number }) =>
-    call<{ id: string }>("/api/instances", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  renameInstance: (id: string, name: string) =>
-    call<{ id: string; name: string }>(`/api/instances/${id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name }),
-    }),
-  /** Set (a value) or clear (null) setup answers. A discovered instance is saved first: `savedNow`. */
-  setRestartCap: (id: string, maxDb: number | null) =>
-    call<Inst>(`/api/instances/${encodeURIComponent(id)}/restartcap`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ maxDb }),
-    }),
-  saveSetup: (id: string, change: { [K in keyof Setup]?: Setup[K] | null }) =>
-    call<{ instance: { id: string; setup?: Setup }; savedNow: boolean }>(`/api/instances/${id}/setup`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(change),
-    }),
-  removeInstance: (id: string) => call<{ ok: true }>(`/api/instances/${id}`, { method: "DELETE" }),
-  // Named DACs behind one HQPlayer (server: dac-scope.ts).
-  addDac: (id: string, name: string, currentName?: string) =>
-    call<{ dac: { id: string; name: string } }>(`/api/instances/${id}/dacs`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, ...(currentName ? { currentName } : {}) }),
-    }),
-  renameDac: (id: string, dac: string, name: string) =>
-    call<{ ok: true }>(`/api/instances/${id}/dacs/${encodeURIComponent(dac)}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name }),
-    }),
-  removeDac: (id: string, dac: string) =>
-    call<{ ok: true }>(`/api/instances/${id}/dacs/${encodeURIComponent(dac)}`, { method: "DELETE" }),
-  selectDac: (id: string, dac: string) =>
-    call<{ ok: true }>(`/api/instances/${id}/dac`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ dac }),
-    }),
-  discover: () => call<Inst[]>("/api/discover", { method: "POST" }),
-  capabilities: (id: string) => call<Capabilities>(`/api/instances/${id}/capabilities`),
-  change: (id: string, change: Change) =>
-    call<ApplyResult>(`/api/instances/${id}/change`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(change),
-    }),
-  transport: (id: string, action: "play" | "pause" | "stop" | "previous" | "next") =>
-    call<{ reply: unknown; status: Status; notStarted?: { explained?: string } }>(`/api/instances/${id}/transport`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action }),
-    }),
-  undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
-  /** Stop what's playing and play the clap track through HQPlayer (server calibrate-play.ts). */
-  calibrate: (id: string) =>
-    call<{ playingAt: number; clapsMs: number[]; trackMs: number; outputDelayMs: number | null }>(
-      `/api/instances/${id}/calibrate`,
-      { method: "POST" },
-    ),
-  dismissVolumeJump: (id: string) => call<{ ok: boolean }>(`/api/instances/${id}/dismissjump`, { method: "POST" }),
-  presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
-  savePreset: (
-    body: { name: string; scope?: string } & ({ fromInstance: string; includeVolume: boolean } | { settings: Change }),
-  ) =>
-    call<Preset>("/api/presets", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
-  renamePreset: (pid: string, name: string) =>
-    call<Preset>(`/api/presets/${pid}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name }),
-    }),
-  updatePresetFromCurrent: (pid: string, fromInstance: string) =>
-    call<Preset>(`/api/presets/${pid}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ fromInstance }),
-    }),
-  deletePreset: (pid: string) => call<{ ok: true }>(`/api/presets/${pid}`, { method: "DELETE" }),
-  applyPreset: (id: string, pid: string) => call<ApplyResult>(`/api/instances/${id}/presets/${pid}/apply`, { method: "POST" }),
-  learned: (id: string) => call<(Failure & { engine: string })[]>(`/api/instances/${id}/learned`),
-  history: (id: string) => call<HistoryEntry[]>(`/api/instances/${id}/history`),
-  forgetLearned: (id: string) => call<{ forgotten: number }>(`/api/instances/${id}/learned`, { method: "DELETE" }),
-  /** Forget one combination's failures and slow runs here ("Forget this"). */
-  forgetCombo: (id: string, c: Combo) =>
-    call<{ forgotten: number }>(`/api/instances/${id}/forget`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mode: c.mode, rateHz: c.rateHz, filter1x: c.filter1x, filterNx: c.filterNx, shaper: c.shaper }),
-    }),
-  events: (id: string) => new EventSource(`/api/instances/${id}/events`),
-  /** HQPlayer's meter, paced and condensed (server meter-stream.ts): event "meter". */
-  meter: (id: string) => new EventSource(`/api/instances/${id}/meter`),
-  roon: () => call<RoonView>("/api/roon"),
-  configureRoon: (body: { enabled?: boolean; host?: string; port?: number }) =>
-    call<RoonView>("/api/roon", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
-  discoverRoon: () => call<FoundCore[]>("/api/roon/discover", { method: "POST" }),
-  setRoonZone: (id: string, zone: string | null) =>
-    call<RoonView>(`/api/instances/${id}/roonzone`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ zone }),
-    }),
-  seek: (id: string, seconds: number) =>
-    call<{ status: Status }>(`/api/instances/${id}/seek`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ seconds }),
-    }),
-  roonSeek: (id: string, seconds: number) =>
-    call<RoonZone>(`/api/instances/${id}/roonseek`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ seconds }),
-    }),
-  roonTransport: (id: string, action: "play" | "pause" | "playpause" | "previous" | "next") =>
-    call<RoonZone>(`/api/instances/${id}/roontransport`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action }),
-    }),
-};
+/**
+ * The API over HTTP: the self-hosted server (apps/server app.ts). Its calls and the JSON
+ * they carry are @app/contract's; an app could serve the same `CoreApi` in-process instead.
+ */
+export function httpApi(opts: HttpApiOptions = {}): Api {
+  const base = opts.base ?? "";
+  // Looked up at each call, not now, so a page (or a test) can replace them.
+  const doFetch = (input: string, init?: RequestInit) => (opts.fetch ?? fetch)(input, init);
+  const Source = () => opts.EventSource ?? EventSource;
+
+  async function call<T>(path: string, init?: RequestInit): Promise<T> {
+    const r = await doFetch(base + path, init);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`);
+    return body as T;
+  }
+  const send = (method: string, body: unknown): RequestInit => ({
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const inst = (id: string) => `/api/instances/${id}`;
+  /** A server-sent-events stream: each named event's JSON to its handler. Returns how to stop. */
+  function stream(path: string, events: Record<string, (data: never) => void>, lost?: () => void): () => void {
+    const es = new (Source())(base + path);
+    for (const [name, fn] of Object.entries(events))
+      es.addEventListener(name, (e) => fn(JSON.parse((e as MessageEvent).data) as never));
+    if (lost) es.onerror = () => lost();
+    return () => es.close();
+  }
+
+  return {
+    health: () => call("/api/health"),
+    instances: () => call("/api/instances"),
+    addInstance: (body) => call("/api/instances", send("POST", body)),
+    renameInstance: (id, name) => call(inst(id), send("PATCH", { name })),
+    setRestartCap: (id, maxDb) => call(`/api/instances/${encodeURIComponent(id)}/restartcap`, send("PUT", { maxDb })),
+    saveSetup: (id, change) => call(`${inst(id)}/setup`, send("PUT", change)),
+    removeInstance: (id) => call(inst(id), { method: "DELETE" }),
+    // Named DACs behind one HQPlayer (server: dac-scope.ts).
+    addDac: (id, name, currentName) => call(`${inst(id)}/dacs`, send("POST", { name, ...(currentName ? { currentName } : {}) })),
+    renameDac: (id, dac, name) => call(`${inst(id)}/dacs/${encodeURIComponent(dac)}`, send("PATCH", { name })),
+    removeDac: (id, dac) => call(`${inst(id)}/dacs/${encodeURIComponent(dac)}`, { method: "DELETE" }),
+    selectDac: (id, dac) => call(`${inst(id)}/dac`, send("PUT", { dac })),
+    discover: () => call("/api/discover", { method: "POST" }),
+    capabilities: (id) => call(`${inst(id)}/capabilities`),
+    change: (id, change) => call(`${inst(id)}/change`, send("POST", change)),
+    transport: (id, action) => call(`${inst(id)}/transport`, send("POST", { action })),
+    undo: (id) => call(`${inst(id)}/undo`, { method: "POST" }),
+    calibrate: (id) => call(`${inst(id)}/calibrate`, { method: "POST" }),
+    dismissVolumeJump: (id) => call(`${inst(id)}/dismissjump`, { method: "POST" }),
+    presets: (id) => call(`${inst(id)}/presets`),
+    savePreset: (body) => call("/api/presets", send("POST", body)),
+    renamePreset: (pid, name) => call(`/api/presets/${pid}`, send("PATCH", { name })),
+    updatePresetFromCurrent: (pid, fromInstance) => call(`/api/presets/${pid}`, send("PATCH", { fromInstance })),
+    deletePreset: (pid) => call(`/api/presets/${pid}`, { method: "DELETE" }),
+    applyPreset: (id, pid) => call(`${inst(id)}/presets/${pid}/apply`, { method: "POST" }),
+    learned: (id) => call(`${inst(id)}/learned`),
+    history: (id) => call(`${inst(id)}/history`),
+    forgetLearned: (id) => call(`${inst(id)}/learned`, { method: "DELETE" }),
+    forgetCombo: (id, c) =>
+      call(
+        `${inst(id)}/forget`,
+        send("POST", { mode: c.mode, rateHz: c.rateHz, filter1x: c.filter1x, filterNx: c.filterNx, shaper: c.shaper }),
+      ),
+    status: (id, on) =>
+      stream(
+        `${inst(id)}/events`,
+        {
+          now: on.now,
+          unreachable: (d: { error: string }) => on.unreachable(d.error),
+          // Only sent when Roon is switched on in Settings.
+          ...(on.roon ? { roon: on.roon } : {}),
+        },
+        on.lost,
+      ),
+    meter: (id, on) => stream(`${inst(id)}/meter`, { meter: on }),
+    roon: () => call("/api/roon"),
+    configureRoon: (body) => call("/api/roon", send("PUT", body)),
+    discoverRoon: () => call("/api/roon/discover", { method: "POST" }),
+    setRoonZone: (id, zone) => call(`${inst(id)}/roonzone`, send("PUT", { zone })),
+    seek: (id, seconds) => call(`${inst(id)}/seek`, send("POST", { seconds })),
+    roonSeek: (id, seconds) => call(`${inst(id)}/roonseek`, send("POST", { seconds })),
+    roonTransport: (id, action) => call(`${inst(id)}/roontransport`, send("POST", { action })),
+  };
+}
+
+/** The page's API: its own server. */
+export const api: Api = httpApi();
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];
 
@@ -410,10 +142,10 @@ export const FIELD_LABEL: Record<keyof Change, string> = {
   matrixProfile: "Matrix profile",
 };
 
-/** Fields that make up a combination that can fail. */
-export type Combo = Pick<Failure, "mode" | "rateHz" | "filterNx" | "filter1x" | "shaper">;
-
-export function knownBad(list: Failure[], combo: Combo): Failure | undefined {
+export function knownBad(
+  list: Failure[],
+  combo: Pick<Failure, "mode" | "rateHz" | "filterNx" | "filter1x" | "shaper">,
+): Failure | undefined {
   return list.find(
     (f) =>
       f.mode === combo.mode &&

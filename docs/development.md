@@ -19,6 +19,8 @@ Because of type stripping, source uses only erasable TypeScript: no `enum`, no
 packages/protocol   HQPlayer control protocol: client, request builders, reply parsers. No Node in its main entry.
 packages/core       What talks to HQPlayer and decides: instances, change engine with rollback, presets,
                     learned results, history, meter. No Node (it takes connections and storage in).
+packages/contract   The API's wire types and calls (types only): the web app imports them; the core is
+                    checked against them.
 packages/fake-hqp   Fake HQPlayer (and a fake Roon core) for tests and development.
 apps/server         The server around the core: HTTP API, files, Node networking, Roon link.
 apps/web            The PWA.
