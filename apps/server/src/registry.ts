@@ -2,7 +2,7 @@
 // merged with instances found by discovery, deduplicated, each with a health
 // check. Discovered-only instances are usable without saving them.
 import { lookup } from "node:dns/promises";
-import { HqpClient, discover, type DiscoverOptions, type Discovered } from "@app/protocol";
+import { HqpClient, type Connect, type Discover, type DiscoverOptions, type Discovered } from "@app/protocol";
 import { HttpError, Instance } from "./instance.ts";
 import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
 import { applySetupChange, type SetupChange } from "./setup.ts";
@@ -52,6 +52,9 @@ interface Health {
 }
 
 export interface RegistryOptions {
+  /** How HQPlayer is reached and found (transport.ts, discover.ts): the shell (app.ts) chooses. */
+  connect: Connect;
+  discover: Discover;
   /** Where instances.json lives; null = in memory only (tests). */
   configDir: string | null;
   makeInstance: (cfg: InstanceConfig) => Instance;
@@ -108,7 +111,8 @@ export class Registry {
 
   scan(): Promise<void> {
     if (this.opts.discovery === false) return Promise.resolve();
-    this.scanning ??= discover(this.opts.discovery)
+    this.scanning ??= this.opts
+      .discover(this.opts.discovery)
       .then((found) => {
         const now = Date.now();
         for (const d of found)
@@ -274,7 +278,7 @@ export class Registry {
     const host = input.host.trim();
     const port = input.port ?? 4321;
     if (!name && /^[A-Za-z0-9.\-:[\]]{1,253}$/.test(host)) {
-      const probe = new HqpClient(host, { port, timeoutMs: 3000 });
+      const probe = new HqpClient(host, { port, timeoutMs: 3000, connect: this.opts.connect });
       try {
         name = (await probe.info()).name.trim().slice(0, 64);
       } catch {

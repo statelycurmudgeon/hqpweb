@@ -1,0 +1,15 @@
+{
+  // The portable entry (index.ts) type-checked with no Node types: anything reachable from it
+  // that needs Node (node: imports, Buffer, NodeJS.*, process) fails here. Node-only code
+  // lives behind @app/protocol/node (node.ts). A phone app runs the portable part.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["es2024", "dom"],
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true
+  },
+  "files": ["src/index.ts"]
+}

@@ -1,26 +1,13 @@
 // One HQPlayer instance: a thin front over its parts. It keeps the capability cache and
 // runs writes one at a time; changes, rollback and undo are the change engine's
 // (change-engine.ts), the live status stream is the poller's (poller.ts).
-import {
-  HqpClient,
-  cmd,
-  type Hint,
-  type Filter,
-  type Info,
-  type Mode,
-  type Outcome,
-  type Rate,
-  type Shaper,
-  type State,
-  type Status,
-  type VolumeRange,
-} from "@app/protocol";
+import { HqpClient, cmd, type Connect, type Info, type Outcome, type State, type Status } from "@app/protocol";
 import type { InstanceConfig } from "./config.ts";
-import { LearnedStore, type Combo, type Failure, type KeptUp, type SlowSwitch } from "./learned.ts";
+import { LearnedStore, type Combo, type Failure } from "./learned.ts";
 import { KEPT_TIMING, KeptUpTracker, type KeptTiming } from "./kept-up.ts";
 import { HistoryStore, changedFields, type ChangeSource } from "./history.ts";
 import { MeterStream, type MeterEvent, type MeterTiming } from "./meter-stream.ts";
-import { DEFAULT_TIMING, MAJOR_TIMING, type WatchResult, type WatchTiming } from "./watch.ts";
+import { DEFAULT_TIMING, MAJOR_TIMING, type WatchTiming } from "./watch.ts";
 import { previewOne, type PresetPreview } from "./preset-preview.ts";
 import { settingsOf, type Settings } from "./settings.ts";
 import { StatusPoller, type Snapshot, type StatusEvent } from "./poller.ts";
@@ -38,98 +25,15 @@ export { RISKY } from "./change-engine.ts";
 
 export { MAX_RAISE_DB } from "./volume.ts";
 
-/** A change, by NAME (never index), design §4.3. Every field optional. */
-export interface Change {
-  mode?: string;
-  /** Output rate in Hz; 0 is auto. */
-  rate?: number;
-  filterNx?: string;
-  filter1x?: string;
-  shaper?: string;
-  volume?: number;
-  invert?: boolean;
-  filter20k?: boolean;
-  adaptive?: boolean;
-  /** On/off only: impulse responses can't be configured over the control API. */
-  convolution?: boolean;
-  /** A matrix profile already set up in HQPlayer, by name. */
-  matrixProfile?: string;
-}
-export type Field = keyof Change;
-
-export interface RateOption extends Rate {
-  /** False when above this instance's configured limit. */
-  allowed: boolean;
-  note?: string;
-}
-
-export interface Capabilities {
-  engine: string;
-  mode: Mode;
-  modes: Mode[];
-  filters: Filter[];
-  shapers: Shaper[];
-  rates: RateOption[];
-  /** SetRate is ignored in [source] mode (reported by HQPTuner). */
-  rateSettable: boolean;
-  volumeRange: VolumeRange;
-  /** Matrix profiles set up in HQPlayer (may be empty). */
-  matrixProfiles: string[];
-  /** Combinations that failed here before, for this engine and mode. */
-  knownBad: Failure[];
-  /** Combinations that kept up here, settled, with how fast (kept-up.ts). */
-  keptUp: KeptUp[];
-  /** Filters HQPlayer was slow to switch to here (learned.ts SlowSwitch). */
-  slowSwitches: SlowSwitch[];
-  /** Each mode's settings as hqpweb last saw them, for the DAC in use (history.ts). */
-  lastSeen: ReturnType<HistoryStore["lastSeen"]>;
-  /**
-   * Each mode's lists as last read on this engine, by name, with this instance's rate
-   * limits applied: what another mode offers, for choosing before switching (Compare).
-   */
-  modeLists: Record<string, { filters: string[]; shapers: string[]; rates: Omit<RateOption, "index">[]; at: string }>;
-}
-
-export interface FieldResult {
-  field: Field;
-  requested: string | number | boolean;
-  /** What State reports afterwards, translated back to a name where relevant. */
-  actual: string | number | boolean;
-  /** Whether State shows the requested value. This, not the reply, is the verdict. */
-  applied: boolean;
-  /** The command's own reply, for diagnostics only. */
-  reply: Outcome;
-  note?: string;
-}
-
-/** What the check said, and how long HQPlayer was too busy to answer, if it was (watch.ts). */
-export type PlaybackCheck = WatchResult | { kind: "not-checked"; detail: string; busyMs?: number };
-
-export interface ApplyResult {
-  /** Major = mode or rate changed (design §4.2). */
-  class: "quick" | "major";
-  results: FieldResult[];
-  playback: PlaybackCheck;
-  /** Present when playback failed and the change was undone automatically. */
-  rolledBack: { results: FieldResult[]; playback: PlaybackCheck } | null;
-  /**
-   * Set when HQPlayer's own rules explain the failure (e.g. a filter that needs a
-   * whole-number ratio). Such failures are not learned as this machine's limits.
-   */
-  incompatible?: Hint;
-  /** Lenient applies (presets): settings this instance couldn't take, and why. */
-  skipped?: { field: Field; reason: string }[];
-  state: State;
-  undoAvailable: boolean;
-}
-
-export const TRANSPORT_ACTIONS = ["play", "pause", "stop", "previous", "next"] as const;
-export type TransportAction = (typeof TRANSPORT_ACTIONS)[number];
+export * from "./instance-types.ts";
+import type { ApplyResult, Capabilities, Change, TransportAction } from "./instance-types.ts";
 
 /** What a kept-up session is about: DAC scope, engine, combination and source rate. */
 type KeptKey = Combo & { instance: string; engine: string; sourceRate: number };
 
 export interface InstanceOptions {
+  /** How to reach HQPlayer and its meter (transport.ts): the shell (app.ts) chooses. */
+  connect: Connect;
   client?: HqpClient;
   learned?: LearnedStore;
   timing?: { quick: WatchTiming; major: WatchTiming };
@@ -161,13 +65,14 @@ export class Instance {
   private caps: { key: string; value: Capabilities } | null = null;
   /** Writes to one instance run one at a time. */
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(cfg: InstanceConfig, opts: InstanceOptions = {}) {
+  constructor(cfg: InstanceConfig, opts: InstanceOptions) {
     this.cfg = cfg;
-    this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port });
+    this.client = opts.client ?? new HqpClient(cfg.host, { port: cfg.port, connect: opts.connect });
     this.learned = opts.learned ?? new LearnedStore(null);
     this.kept = new KeptUpTracker(opts.keptTiming ?? KEPT_TIMING);
     this.history = opts.history ?? new HistoryStore(null);
-    this.meterTiming = opts.meterTiming ?? {};
+    const meterPort = cfg.meterPort ?? cfg.port + 1;
+    this.openMeter = () => new MeterStream(cfg.host, meterPort, opts.connect, opts.meterTiming ?? {});
     this.poller = new StatusPoller(this.client, {
       speedWindowMs: opts.speedWindowMs ?? 30_000,
       queueEveryMs: opts.queueEveryMs ?? 5000,
@@ -536,9 +441,9 @@ export class Instance {
 
   /** HQPlayer's meter, while someone watches it (meter-stream.ts). */
   private meter: MeterStream | null = null;
-  private readonly meterTiming: Partial<MeterTiming>;
+  private readonly openMeter: () => MeterStream;
   subscribeMeter(fn: (e: MeterEvent) => void): () => void {
-    this.meter ??= new MeterStream(this.cfg.host, this.cfg.meterPort ?? this.cfg.port + 1, this.meterTiming);
+    this.meter ??= this.openMeter();
     return this.meter.subscribe(fn);
   }
 

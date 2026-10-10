@@ -5,6 +5,7 @@ import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
 import { setTimeout as slowReply } from "node:timers/promises";
 import { client } from "./http.ts";
+import { nodeConnect } from "@app/protocol/node";
 
 let fake: FakeHqp;
 let app: ReturnType<typeof buildApp>;
@@ -208,7 +209,7 @@ describe("polling when HQPlayer itself is slow", () => {
     const real = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0 });
     await real.listen();
     const { HqpClient } = await import("@app/protocol");
-    const c = new HqpClient("127.0.0.1", { port: real.port });
+    const c = new HqpClient("127.0.0.1", { connect: nodeConnect, port: real.port });
     // HQPlayer answering slowly (~1.1 s), with no write of hqpweb's in flight.
     const slow = Object.assign(Object.create(c) as typeof c, {
       status: () => slowReply(1100).then(() => c.status()),

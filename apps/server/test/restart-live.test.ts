@@ -9,6 +9,7 @@ import { HqpClient, cmd } from "@app/protocol";
 import { buildApp } from "../src/app.ts";
 import type { HistoryEntry } from "../src/history.ts";
 import { client } from "./http.ts";
+import { nodeConnect } from "@app/protocol/node";
 
 let fake: FakeHqp;
 let app: ReturnType<typeof buildApp>;
@@ -65,7 +66,7 @@ describe("after HQPlayer restarts", () => {
     await restartAt(-15);
     // Starting up, HQPlayer passes through other states (seen: the mode flipping); here, a
     // mode switch and back, made straight after it answers again.
-    const hqp = new HqpClient("127.0.0.1", { port: fake.port });
+    const hqp = new HqpClient("127.0.0.1", { connect: nodeConnect, port: fake.port });
     await hqp.send(cmd.setMode(1));
     await sleep(1200);
     await hqp.send(cmd.setMode(2));

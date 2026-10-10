@@ -35,52 +35,65 @@ const HEADER = 32;
 
 export const frameSize = (channels: number, length: number) => HEADER + channels * (16 + 8 * length);
 
-export function parseMeterFrame(buf: Buffer): MeterFrame {
-  const channels = buf.readUInt32LE(4);
-  const length = buf.readUInt32LE(8);
+// Little-endian throughout. Plain bytes and DataView, not Node's Buffer, so it runs anywhere.
+const view = (b: Uint8Array) => new DataView(b.buffer, b.byteOffset, b.byteLength);
+
+/** A whole frame's size, from its first 32 bytes (the header). */
+export function meterFrameSize(header: Uint8Array): number {
+  const v = view(header);
+  return frameSize(v.getUint32(4, true), v.getUint32(8, true));
+}
+
+export function parseMeterFrame(buf: Uint8Array): MeterFrame {
+  const v = view(buf);
+  const f32 = (at: number) => v.getFloat32(at, true);
+  const channels = v.getUint32(4, true);
+  const length = v.getUint32(8, true);
   if (buf.length < frameSize(channels, length)) throw new Error(`meter frame too short: ${buf.length} bytes`);
   const chans: MeterChannel[] = [];
   let off = HEADER;
   for (let c = 0; c < channels; c++) {
-    const levels = [0, 1, 2, 3].map((i) => buf.readFloatLE(off + 4 * i)) as MeterChannel["levels"];
+    const levels = [0, 1, 2, 3].map((i) => f32(off + 4 * i)) as MeterChannel["levels"];
     off += 16;
     const re = new Float32Array(length);
     const im = new Float32Array(length);
-    for (let i = 0; i < length; i++) re[i] = buf.readFloatLE(off + 4 * i);
+    for (let i = 0; i < length; i++) re[i] = f32(off + 4 * i);
     off += 4 * length;
-    for (let i = 0; i < length; i++) im[i] = buf.readFloatLE(off + 4 * i);
+    for (let i = 0; i < length; i++) im[i] = f32(off + 4 * i);
     off += 4 * length;
     chans.push({ levels, re, im });
   }
   return {
-    version: buf.readUInt32LE(0),
+    version: v.getUint32(0, true),
     channels,
     length,
-    bits: buf.readUInt32LE(12),
-    bandwidth: buf.readFloatLE(16),
-    xformTime: buf.readFloatLE(20),
-    gain: buf.readFloatLE(24),
+    bits: v.getUint32(12, true),
+    bandwidth: f32(16),
+    xformTime: f32(20),
+    gain: f32(24),
     chans,
   };
 }
 
 /** The same layout, for the fake HQPlayer. */
-export function encodeMeterFrame(f: MeterFrame): Buffer {
-  const buf = Buffer.alloc(frameSize(f.channels, f.length));
-  buf.writeUInt32LE(f.version, 0);
-  buf.writeUInt32LE(f.channels, 4);
-  buf.writeUInt32LE(f.length, 8);
-  buf.writeUInt32LE(f.bits, 12);
-  buf.writeFloatLE(f.bandwidth, 16);
-  buf.writeFloatLE(f.xformTime, 20);
-  buf.writeFloatLE(f.gain, 24);
+export function encodeMeterFrame(f: MeterFrame): Uint8Array {
+  const buf = new Uint8Array(frameSize(f.channels, f.length));
+  const v = view(buf);
+  const f32 = (x: number, at: number) => v.setFloat32(at, x, true);
+  v.setUint32(0, f.version, true);
+  v.setUint32(4, f.channels, true);
+  v.setUint32(8, f.length, true);
+  v.setUint32(12, f.bits, true);
+  f32(f.bandwidth, 16);
+  f32(f.xformTime, 20);
+  f32(f.gain, 24);
   let off = HEADER;
   for (const c of f.chans) {
-    c.levels.forEach((v, i) => buf.writeFloatLE(v, off + 4 * i));
+    c.levels.forEach((x, i) => f32(x, off + 4 * i));
     off += 16;
-    for (let i = 0; i < f.length; i++) buf.writeFloatLE(c.re[i] ?? 0, off + 4 * i);
+    for (let i = 0; i < f.length; i++) f32(c.re[i] ?? 0, off + 4 * i);
     off += 4 * f.length;
-    for (let i = 0; i < f.length; i++) buf.writeFloatLE(c.im[i] ?? 0, off + 4 * i);
+    for (let i = 0; i < f.length; i++) f32(c.im[i] ?? 0, off + 4 * i);
     off += 4 * f.length;
   }
   return buf;

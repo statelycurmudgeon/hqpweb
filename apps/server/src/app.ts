@@ -13,7 +13,8 @@ import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
 import { parseSetupChange } from "./setup.ts";
 import { PresetStore } from "./presets.ts";
-import { PeerError, type DiscoverOptions } from "@app/protocol";
+import { PeerError, type Connect, type Discover, type DiscoverOptions } from "@app/protocol";
+import { discover, nodeConnect } from "@app/protocol/node";
 import type { WatchTiming } from "./watch.ts";
 import type { RoonTransport } from "./change-engine.ts";
 import type { KeptTiming } from "./kept-up.ts";
@@ -60,6 +61,8 @@ export interface AppOptions {
   roon?: RoonLink;
   /** Tests: stand in for Roon's transport per instance (default: the RoonLink's linked zone). */
   roonTransport?: (instanceId: string) => RoonTransport | null;
+  /** How HQPlayer is reached (TCP) and found (UDP). Default: Node's (@app/protocol/node). */
+  net?: { connect: Connect; discover: Discover };
 }
 
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
@@ -220,12 +223,15 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
             playing: () => roon.zoneFor(id)?.state === "playing",
           }
         : null);
+  const net = opts.net ?? { connect: nodeConnect, discover };
   const registry = new Registry(config, {
+    ...net,
     configDir: opts.configDir ?? null,
     discovery: opts.discovery ?? false,
     ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
     makeInstance: (cfg) =>
       new Instance(cfg, {
+        connect: net.connect,
         learned,
         history,
         ...(opts.timing ? { timing: opts.timing } : {}),

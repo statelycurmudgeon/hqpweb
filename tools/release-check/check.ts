@@ -11,6 +11,7 @@
 import { cmd, element, HqpClient, type Status } from "@app/protocol";
 import { buildApp } from "../../apps/server/src/app.ts";
 import { compare, named, type Lists, type Named } from "./settings.ts";
+import { nodeConnect } from "@app/protocol/node";
 
 const host = process.env.HQPWEB_CHECK_HOST;
 const file = process.env.HQPWEB_CHECK_FILE;
@@ -27,7 +28,7 @@ const POW2 = "sinc-M"; // needs a power-of-two ratio (manual §4.6): fine at 4×
 const FITS = 176_400; // 44.1k × 4
 const NOT = 192_000; // 44.1k × 4.35
 
-const hq = new HqpClient(host, { port });
+const hq = new HqpClient(host, { connect: nodeConnect, port });
 const log = (s: string) => console.log(`${new Date().toISOString().slice(11, 19)}  ${s}`);
 const results: { step: string; ok: boolean; detail: string }[] = [];
 const record = (step: string, ok: boolean, detail = "") => {
