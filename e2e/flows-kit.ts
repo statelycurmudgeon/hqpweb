@@ -29,6 +29,8 @@ export interface Flow {
   speed?: FakeOptions["speed"];
   /** How long it answers nothing after switching to a filter, in ms (a filter slow to build). */
   busyAfterFilter?: FakeOptions["busyAfterFilter"];
+  /** How long it answers nothing after a mode switch, in ms. */
+  busyAfterModeSwitch?: FakeOptions["busyAfterModeSwitch"];
   /** A fake meter stream beside it (the fake's meter.ts); without one, nothing listens there. */
   meter?: boolean;
 }

@@ -47,6 +47,12 @@ export interface FakeOptions {
    */
   busyAfterFilter?: (filterName: string) => number;
   /**
+   * Milliseconds HQPlayer answers nothing after a SetMode. Measured 2026-10-09 (Desktop
+   * 5.35.10 and Embedded 6.2.5, macOS, own playlist): Status went unanswered ~2 s around a
+   * switch; with Roon, up to ~7 s. Default: 0 (the switch's own reply delay is DELAY.mode).
+   */
+  busyAfterModeSwitch?: number;
+  /**
    * Whether HQPlayer could fetch a URL added to its playlist. Measured 2026-10-09 (Embedded
    * 6.2.5): one it can't fetch, or that isn't served as it wants, gets OK and isn't kept.
    * Default: every URL can be fetched.

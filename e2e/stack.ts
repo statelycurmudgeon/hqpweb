@@ -52,6 +52,7 @@ export async function startStack() {
       timeScale: 0,
       ...(flow.speed ? { speed: flow.speed } : {}),
       ...(flow.busyAfterFilter ? { busyAfterFilter: flow.busyAfterFilter } : {}),
+      ...(flow.busyAfterModeSwitch ? { busyAfterModeSwitch: flow.busyAfterModeSwitch } : {}),
     });
     flow.setup?.(fake);
     await fake.listen();

@@ -14,6 +14,7 @@
   import { prefs } from "./lib/prefs.svelte.ts";
   import { describe, type ResultMessage } from "./lib/result.ts";
   import { applyLabel, control, isQuiet, isRisky } from "./lib/control.ts";
+  import { switchFooter, switchHold } from "./lib/switching.ts";
   import * as hints from "./lib/hints.ts";
   import { watchForUpdate } from "./lib/update.ts";
   import * as speedRules from "./lib/speed.ts";
@@ -70,18 +71,9 @@
   let busy = $state(false);
   let undoAvailable = $state(false);
   let message = $state<ResultMessage | null>(null);
-  // The footer (result + Undo) fades 30 s after the last change; it stays while a
-  // change is running or HQPlayer is falling behind (the banner points at Undo).
-  let footerOpen = $state(false);
-  $effect(() => {
-    // From a local, not footerOpen: reading the state it sets made the timer's own close
-    // re-run this effect, which reopened the bar and restarted the 30 s, for ever.
-    const open = !!(message || undoAvailable);
-    footerOpen = open;
-    if (!open || busy) return;
-    const t = setTimeout(() => (footerOpen = false), 30_000);
-    return () => clearTimeout(t);
-  });
+  /** The mode a switch is going to while it runs (lib/switching.ts): one steady state till it plays. */
+  let switchingTo = $state<string | null>(null);
+  const holding = $derived(switchHold(switchingTo, snap));
   let volDraft = $state<number | null>(null);
   let settings: Settings;
   // Local, so a re-render can't snap it shut; Settings only sets the starting state.
@@ -304,7 +296,9 @@
   );
   const apply = (change: Change) => {
     if (isRisky(change)) riskyAt = Date.now();
-    return run(applyLabel(change, snap?.status.state === 2), () => api.change(selected!, change), isQuiet(change));
+    switchingTo = change.mode ?? null;
+    const done = () => (switchingTo = null);
+    return run(applyLabel(change, snap?.status.state === 2), () => api.change(selected!, change), isQuiet(change)).finally(done);
   };
 
   // Roon's zone for this instance, when Roon is on and a zone is mapped.
@@ -376,6 +370,7 @@
         onstatus={(status) => snap && (snap = { ...snap, status })}
         onmessage={(m) => (message = m)}
         showSpeed={prefs.layout !== "v2"}
+        switching={holding ? switchingTo : null}
       />
     {/if}
   {/snippet}
@@ -483,6 +478,7 @@
           {roonZone}
           onstatus={(status) => snap && (snap = { ...snap, status })}
           onmessage={(m) => (message = m)}
+          switching={holding ? switchingTo : null}
         />
       {:else}
         {@render nowCard()}
@@ -519,9 +515,8 @@
 
 <!-- Keyed by the message, so each new result starts its 15 s at full strength. -->
 {#key message}<Footer
-    show={footerOpen || (speedClass === "bad" && undoAvailable)}
-    fade={!(speedClass === "bad" && undoAvailable)}
-    {message}
+    struggling={speedClass === "bad" && undoAvailable}
+    message={switchFooter(switchingTo, snap, message)}
     {busy}
     {undoAvailable}
     onrestart={restartPlayback}
