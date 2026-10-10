@@ -8,6 +8,128 @@ may change behaviour; upgrade notes say what you need to do.
 Changes since the last release are notes in [`changes/`](changes/), one file per change; a
 release gathers them here (`tools/release/changes.ts`).
 
+## 0.1.0-beta.6 — the new layout for everyone, filters that fit, and calmer mode switches
+
+**Update:** `docker compose pull && docker compose up -d`. Settings, presets and history
+are kept. The new layout is now everyone's; the earlier one is Settings → Appearance →
+"Classic layout", per device. If you set the meter's timing by ear before, set it again: the
+meter now holds a fixed time in PCM and DSD.
+
+### Added
+
+- **Filters that fit, and what it would take.** In the filter sheet, filters that won't
+  play as set (a ratio they can't do, a failure here, or trouble inferred from one) move
+  below "Won't fit your settings", each with why. Load is only ever what this machine measured;
+  inference goes through a short, sourced list of what's no heavier than what (e.g.
+  sinc-Lh is about an eighth of sinc-L's load), so if sinc-Lh couldn't keep up, sinc-L is
+  flagged too. Picking one asks first ("Try anyway?"). "What would it take?" offers the
+  fewest changes to the modulator or rate that would let it play, with either kept if you
+  like, nearest and lightest first.
+- **An (i) on every filter.** Each filter in the pickers has a short note on what it's
+  like (its family, its own character, phase, two-stage), paraphrased from HQPlayer 6's
+  help and manual, with Jussi Laako's forum remarks where he's been specific, every line
+  cited and his older posts marked "possibly dated". The filter sheet's title has one on
+  the two slots: 1x for CD-rate sources, Nx for the rest, HQPlayer's defaults, and the
+  Apod counter rule. Characters, not a ranking.
+- **Control over the filter sort.** Settings → HQPlayer → Learned performance has "Sort filters by what's
+  worked here" (on by default; off gives one plain list with no questions), and a slider:
+  "Forget load results older than" a week, a month, 3 months (default), 6 months, a year,
+  or never. Older results are ignored, not deleted. Beside a failure in the filter sheet,
+  "Forget this" clears that one record (and anything inferred from it). Inferred trouble
+  now reads as a guess: "Probably won't keep up here: sinc-Lh couldn't, and this is no
+  lighter (…)".
+- **The guide hands over to filters.** Its last step has a Filters → button
+  beside Done, which closes the guide and opens the filter sheet for the slot in use, with
+  a line on where to start: HQPlayer's defaults, then your ears.
+- **A fuller install guide** ([docs/install.md](docs/install.md)): where your settings
+  live and how to back them up, the ports hqpweb uses (the meter needs TCP 4322),
+  options, reverse proxies (nginx and Caddy; both live streams, now playing and the
+  meter, must not be buffered), running without Docker, and what to check when
+  something doesn't work. The README keeps a short quick start.
+- **Line the meter up by ear.** In Settings → Listening (the meter's (i) links there), "Line up by ear…" opens a
+  short two-step screen: the phone clicks six times and you tap (your reaction time), then
+  hqpweb plays six claps through HQPlayer and you tap each one you hear from your speakers.
+  hqpweb works out how long after a clap reaches the meter you heard it, less your reaction
+  time, and sets the meter's wait to match. It stops what's playing; press Play again after.
+  HQPlayer fetches the clap track from hqpweb's GitHub, or from hqpweb itself if it can't.
+- **The meter keeps the same timing in PCM and DSD.** hqpweb held back a fixed number of
+  meter frames, about 0.33 s in PCM but much less in DSD (more frames a second), so the
+  meter's lag shifted by up to ~0.4 s when you changed mode. It now holds a fixed time. If
+  you set the meter's timing by ear before, set it again.
+- **Volume after HQPlayer restarts.** HQPlayer comes back from a restart at its saved
+  volume, which can be louder than you left it. In Settings → Listening you can set a cap
+  per HQPlayer: when hqpweb sees HQPlayer stop answering and come back at a different,
+  louder volume, it turns it down to the cap, about a second after HQPlayer answers again
+  (measured on a real restart), and notes it in History. It never raises the volume, and a
+  network blip that leaves the volume alone is left alone. It works only while hqpweb is
+  running; with a cap set, hqpweb checks HQPlayer once a second even with no page open.
+  Off by default.
+
+### Changed
+
+- **The new layout is the layout.** One card for the signal path, meters, Compare,
+  History, the guide as a flow and the filter sort, on phones and laptops. Everyone moves
+  to it, including anyone who never switched it on. The earlier layout stays, for now, as
+  an opt-in: Settings → Appearance → "Classic layout", per device. Its filter order
+  ("Grouped by rating") shows only there.
+- **Calmer, more finished.** Compare, History and Presets are rows of one card, like the
+  signal card's. Section labels are sentence case, not capitals. When every filter or
+  modulator in a narrowed list shares a fact (all apodizing, say), it's said once by the
+  count instead of on every row. The meter's (i) says one line about the view, with the rest
+  behind More, and timing is its own row; before the first frames it says it's lining up,
+  not an empty box. Sheets rise in gently and rows answer a press (not when the device asks
+  for less motion). In the guide, Done is the one filled button. The result bar fades from
+  15 s and goes at 30 s; a touch brings it back, and it stays while HQPlayer is struggling.
+- **The meter's (i) is two lines:** what the view shows, and how long it waits, with a
+  link to Settings, where you line it up by ear. Earlier, Later and the beat dot are gone.
+- **Settings has four tabs:** HQPlayer (your HQPlayers, DAC answers, learned failures),
+  Listening (volume buttons, the restart cap), Appearance (theme, layout) and
+  Roon.
+- **Simpler to read and use.** One guide: the Modulator and Dither sheets are the list, with
+  "Not sure where to start? Guide me" opening the step-by-step guide (no List/Guide tabs in
+  the new layout). The filter and modulator lists open straight onto the list; their
+  narrowing controls sit behind **Narrow**, which shows how many are on. Settings says each
+  thing in a line, with the detail behind **More**. "Meter unavailable" replaces a technical
+  note, with the reason a tap away. On a laptop the meter starts open, until you close it.
+  Plainer words: "Fits your settings" / "Won't fit your settings", History's "Elsewhere",
+  "Your answers are saved", and "In DSD, Auto picks the highest rate on offer".
+- **Switching mode is calmer to watch.** While a switch runs, the now card and the mini bar
+  say "Switching" and hold still, instead of showing each step HQPlayer passes through
+  (paused, stopped, paused again); play and pause wait until it's done. Once the music is
+  back, the footer says it's checking playback. The footer keeps one height as the result and
+  Undo appear, so the mini bar above it no longer jumps, and it doesn't start fading while a
+  long switch is still running.
+
+### Fixed
+
+- **History no longer logs HQPlayer's start-up as changes.** Right after a restart
+  HQPlayer passes through other states (its mode flipping within a second); hqpweb now
+  waits 10 s before it compares settings again.
+- **The meter no longer drops short peaks.** hqpweb shows about 20 updates a second of
+  HQPlayer's 43 (PCM) to 180 (DSD) meter frames; each update now carries the loudest peak
+  of the frames it stands for, so drum hits show.
+- **Switching back into DSD no longer fails when the remembered rate can't play.** A mode
+  switch brings back the rate last used in that mode. If the modulator HQPlayer comes back
+  with can't play at that rate (AHM modulators stop below DSD1024), hqpweb now leaves the
+  rate out and keeps HQPlayer's own, instead of switching, stalling and rolling back. Seen with
+  two HQPlayer engines on one machine, where the remembered rate came from the other engine.
+- **Switching mode no longer crashes HQPlayer Embedded.** Switching between PCM and DSD
+  while music played, or was paused, could crash Embedded 6.2.5 (measured: paused, 1 of 2
+  tries crashed; stopped, none of 3). hqpweb now stops HQPlayer first (pausing Roon first
+  when its zone is linked), switches, then carries on: Roon is played again until it's
+  playing, and HQPlayer's own playlist plays and seeks back to where it was. It takes a
+  while, up to about 20 seconds of silence, and the switch sheet and footer say so.
+- **The result bar goes away again.** It was meant to leave 30 s after a change, but its own
+  timer reopened it each time, so it (and Undo) stayed for good.
+- **Settings no longer jumps between tabs.** The sheet's top edge stays where it is when
+  you switch tabs, and About follows each tab's content instead of being squeezed at the bottom.
+- **A filter HQPlayer is slow to build no longer fools the check.** Switching to a very
+  long filter (sinc-L, measured on a Mac) can leave HQPlayer answering nothing for ~10 s
+  and the music silent for longer. hqpweb gave up on the check as "inconclusive". It now
+  waits HQPlayer out, judges playback once it answers, and remembers the filter: the sheet
+  shows "⏳ slow to switch here (9 s)" and asks before you switch to it again. A warning,
+  never a block.
+
 ## 0.1.0-beta.5 — a new layout to try, a meter, Compare and a guided flow
 
 **Update:** `docker compose pull && docker compose up -d`. Settings, presets and history
