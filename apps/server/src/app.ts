@@ -15,6 +15,7 @@ import { parseSetupChange } from "./setup.ts";
 import { PresetStore } from "./presets.ts";
 import { PeerError, type Connect, type Discover, type DiscoverOptions } from "@app/protocol";
 import { discover, nodeConnect } from "@app/protocol/node";
+import type { DocStore } from "./docs.ts";
 import type { WatchTiming } from "./watch.ts";
 import type { RoonTransport } from "./change-engine.ts";
 import type { KeptTiming } from "./kept-up.ts";
@@ -33,8 +34,8 @@ export interface AppOptions {
   allowedHosts?: string[];
   /** Built web app to serve (production). Unset in development, where Vite serves it. */
   staticDir?: string;
-  /** Where instances added in Settings are saved; unset = in memory only. */
-  configDir?: string;
+  /** Where instances added in Settings are saved (docs.ts); unset = in memory only. */
+  docs?: DocStore;
   /** Discovery settings; false disables it (tests default to false). */
   discovery?: DiscoverOptions | false;
   /** Control port assumed for discovered instances (default 4321). */
@@ -226,7 +227,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const net = opts.net ?? { connect: nodeConnect, discover };
   const registry = new Registry(config, {
     ...net,
-    configDir: opts.configDir ?? null,
+    docs: opts.docs ?? null,
     discovery: opts.discovery ?? false,
     ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
     makeInstance: (cfg) =>
@@ -446,14 +447,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         let settings = body.settings;
         if (body.fromInstance) settings = await captureFrom(body.fromInstance, body.includeVolume ?? false);
         if (!settings || Object.keys(settings).length === 0) throw new HttpError(400, "a preset needs settings or fromInstance");
-        return send(res, 200, presets.create(body.name ?? "", settings, body.scope ?? undefined));
+        return send(res, 200, await presets.create(body.name ?? "", settings, body.scope ?? undefined));
       }
     }
     const pm = /^\/api\/presets\/([^/]+)$/.exec(path);
     if (pm) {
       const id = decodeURIComponent(pm[1]!);
       if (req.method === "DELETE") {
-        presets.remove(id);
+        await presets.remove(id);
         return send(res, 200, { ok: true });
       }
       if (req.method === "PATCH") {
@@ -466,7 +467,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         return send(
           res,
           200,
-          presets.update(id, {
+          await presets.update(id, {
             ...(body.name !== undefined ? { name: body.name } : {}),
             ...(settings ? { settings } : {}),
             ...(body.scope !== undefined ? { scope: body.scope } : {}),
@@ -500,14 +501,14 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       const dacId = dacsRoute[2] ? decodeURIComponent(dacsRoute[2]) : undefined;
       const body = req.method === "DELETE" ? {} : ((await readJson(req)) as Record<string, unknown>);
       if (!dacId && req.method === "POST")
-        return send(res, 200, registry.addDac(id, { name: body.name, currentName: body.currentName }));
+        return send(res, 200, await registry.addDac(id, { name: body.name, currentName: body.currentName }));
       if (dacId && req.method === "PATCH") {
-        registry.renameDac(id, dacId, body.name);
+        await registry.renameDac(id, dacId, body.name);
         return send(res, 200, { ok: true });
       }
       if (dacId && req.method === "DELETE") {
-        registry.removeDac(id, dacId);
-        presets.unscope(scopeOf(id, dacId));
+        await registry.removeDac(id, dacId);
+        await presets.unscope(scopeOf(id, dacId));
         return send(res, 200, { ok: true });
       }
       throw new HttpError(404, "not found");
@@ -516,7 +517,7 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     if (dacRoute && req.method === "PUT") {
       const body = (await readJson(req)) as { dac?: unknown };
       if (typeof body?.dac !== "string") throw new HttpError(400, "body must be { dac }");
-      registry.selectDac(decodeURIComponent(dacRoute[1]!), body.dac);
+      await registry.selectDac(decodeURIComponent(dacRoute[1]!), body.dac);
       return send(res, 200, { ok: true });
     }
 
@@ -530,17 +531,17 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       if (typeof body !== "object" || body === null || Object.keys(body).length !== 1 || !("maxDb" in body))
         throw new HttpError(400, "body must be { maxDb: number | null }");
       if (body.maxDb !== null && typeof body.maxDb !== "number") throw new HttpError(400, "maxDb must be a number or null");
-      return send(res, 200, registry.setRestartCap(decodeURIComponent(capRoute[1]!), body.maxDb));
+      return send(res, 200, await registry.setRestartCap(decodeURIComponent(capRoute[1]!), body.maxDb));
     }
     const one = /^\/api\/instances\/([^/]+)$/.exec(path);
     if (one && req.method === "PATCH") {
       const body = (await readJson(req)) as { name?: unknown };
       if (typeof body !== "object" || body === null || typeof body.name !== "string" || Object.keys(body).length !== 1)
         throw new HttpError(400, "body must be { name }");
-      return send(res, 200, registry.rename(decodeURIComponent(one[1]!), body.name));
+      return send(res, 200, await registry.rename(decodeURIComponent(one[1]!), body.name));
     }
     if (one && req.method === "DELETE") {
-      registry.remove(decodeURIComponent(one[1]!));
+      await registry.remove(decodeURIComponent(one[1]!));
       roon.forgetInstance(decodeURIComponent(one[1]!));
       return send(res, 200, { ok: true });
     }

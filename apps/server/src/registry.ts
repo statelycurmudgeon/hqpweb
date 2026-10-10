@@ -4,7 +4,8 @@
 import { lookup } from "node:dns/promises";
 import { HqpClient, type Connect, type Discover, type DiscoverOptions, type Discovered } from "@app/protocol";
 import { HttpError, Instance } from "./instance.ts";
-import { ID_PATTERN, saveConfig, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
+import { CONFIG_DOC, ID_PATTERN, configText, type AppConfig, type InstanceConfig, type InstanceSetup } from "./config.ts";
+import { DocWriter, type DocStore } from "./docs.ts";
 import { applySetupChange, type SetupChange } from "./setup.ts";
 import { MAIN, activeDac, addDac, cleanDacs, removeDac, renameDac, selectDac, type DacEntry } from "./dac-scope.ts";
 
@@ -55,8 +56,8 @@ export interface RegistryOptions {
   /** How HQPlayer is reached and found (transport.ts, discover.ts): the shell (app.ts) chooses. */
   connect: Connect;
   discover: Discover;
-  /** Where instances.json lives; null = in memory only (tests). */
-  configDir: string | null;
+  /** Where the instances are saved (docs.ts); null = in memory only (tests). */
+  docs: DocStore | null;
   makeInstance: (cfg: InstanceConfig) => Instance;
   /** false disables discovery. */
   discovery?: DiscoverOptions | false;
@@ -87,9 +88,11 @@ export class Registry {
   private resolved = new Map<string, string>();
   private timer: NodeJS.Timeout | null = null;
   private scanning: Promise<void> | null = null;
+  private readonly writer: DocWriter | null;
 
   constructor(config: AppConfig, opts: RegistryOptions) {
     this.config = structuredClone(config);
+    this.writer = opts.docs && new DocWriter(opts.docs, CONFIG_DOC);
     this.opts = {
       scanEveryMs: 60_000,
       healthTtlMs: 10_000,
@@ -296,7 +299,7 @@ export class Registry {
     for (let n = 2; this.config.instances.some((i) => i.id === id); n++) id = `${slug(name)}-${n}`;
     const cfg: InstanceConfig = { id, name, host, port };
     this.config.instances.push(cfg);
-    this.persist();
+    await this.persist();
     return cfg;
   }
 
@@ -305,7 +308,7 @@ export class Registry {
    * Sets or clears the volume cap after HQPlayer restarts (dB; null: off). On a saved
    * instance only, like a name; its watch starts or stops at once.
    */
-  setRestartCap(id: string, cap: number | null): InstanceConfig {
+  async setRestartCap(id: string, cap: number | null): Promise<InstanceConfig> {
     const cfg = this.config.instances.find((i) => i.id === id);
     if (!cfg) throw new HttpError(404, "not a configured instance");
     if (cap === null) delete cfg.restartVolumeCap;
@@ -313,18 +316,18 @@ export class Registry {
       if (!Number.isFinite(cap) || cap > 0 || cap < -120) throw new HttpError(400, "cap must be a volume in dB, −120 to 0");
       cfg.restartVolumeCap = Math.round(cap * 2) / 2;
     }
-    this.persist();
+    await this.persist();
     this.get(id)?.watchForRestarts();
     return cfg;
   }
 
-  rename(id: string, name: string): InstanceConfig {
+  async rename(id: string, name: string): Promise<InstanceConfig> {
     const cfg = this.config.instances.find((i) => i.id === id);
     if (!cfg) throw new HttpError(404, "not a configured instance");
     const n = name.trim();
     if (!n || n.length > 64) throw new HttpError(400, "name must be 1–64 characters");
     cfg.name = n;
-    this.persist();
+    await this.persist();
     return cfg;
   }
 
@@ -355,7 +358,7 @@ export class Registry {
       else delete entry.setup;
       cfg.dacs = dacs;
     }
-    this.persist();
+    await this.persist();
     return { instance: cfg, savedNow };
   }
 
@@ -367,51 +370,52 @@ export class Registry {
     return cfg;
   }
 
-  addDac(id: string, input: { name: unknown; currentName?: unknown }) {
+  async addDac(id: string, input: { name: unknown; currentName?: unknown }) {
     const cfg = this.configured(id);
     const r = addDac(cleanDacs(cfg.dacs), input);
     cfg.dacs = r.dacs;
-    this.persist();
+    await this.persist();
     return { dac: r.dac };
   }
 
-  renameDac(id: string, dacId: string, name: unknown) {
+  async renameDac(id: string, dacId: string, name: unknown) {
     const cfg = this.configured(id);
     cfg.dacs = renameDac(cleanDacs(cfg.dacs), dacId, name);
-    this.persist();
+    await this.persist();
   }
 
-  removeDac(id: string, dacId: string) {
+  async removeDac(id: string, dacId: string) {
     const cfg = this.configured(id);
     const r = removeDac(cleanDacs(cfg.dacs), activeDac(cfg), dacId);
     cfg.dacs = r.dacs;
     if (r.dac === MAIN) delete cfg.dac;
     else cfg.dac = r.dac;
-    this.persist();
+    await this.persist();
   }
 
   /** Chooses the DAC in use. Refused mid-change: its failure must be learned for the DAC it started on. */
-  selectDac(id: string, dacId: string) {
+  async selectDac(id: string, dacId: string) {
     const cfg = this.configured(id);
     const dac = selectDac(cleanDacs(cfg.dacs), dacId);
     if (this.live.get(id)?.busy) throw new HttpError(409, "a change is still running; switch DACs when it's done");
     if (dac === MAIN) delete cfg.dac;
     else cfg.dac = dac;
-    this.persist();
+    await this.persist();
   }
 
-  remove(id: string) {
+  async remove(id: string) {
     const before = this.config.instances.length;
     this.config.instances = this.config.instances.filter((i) => i.id !== id);
     if (this.config.instances.length === before) throw new HttpError(404, "not a configured instance");
     this.live.get(id)?.close();
     this.live.delete(id);
     this.health.delete(id);
-    this.persist();
+    await this.persist();
   }
 
-  private persist() {
-    if (this.opts.configDir) saveConfig(this.opts.configDir, this.config);
+  /** Edits wait for the save, so one that couldn't be saved fails where it was asked for. */
+  private async persist() {
+    await this.writer?.write(configText(this.config));
   }
 
   close() {

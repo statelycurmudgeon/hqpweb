@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { FakeHqp, loadProfile, type FakeOptions } from "@app/fake-hqp";
 import { buildApp } from "../src/app.ts";
@@ -8,6 +8,7 @@ import type { InstanceConfig } from "../src/config.ts";
 import { LearnedStore } from "../src/learned.ts";
 import type { WatchTiming } from "../src/watch.ts";
 import { client } from "./http.ts";
+import { FileDocs } from "../src/file-docs.ts";
 
 const FAST: WatchTiming = { graceMs: 100, healthyMs: 300, maxMs: 1200, sampleMs: 40, minSpeed: 0.85 };
 const timing = { quick: FAST, major: { ...FAST, maxMs: 1500 } };
@@ -121,7 +122,8 @@ describe("quick changes", () => {
 describe("rollback when playback fails", () => {
   it("rolls back the measured stall (AHM7EC8B at DSD512) and explains it without learning", async () => {
     const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
-    await setup({}, {}, new LearnedStore(learnedPath));
+    const learned = await LearnedStore.open(new FileDocs(dirname(learnedPath)));
+    await setup({}, {}, learned);
     const body = (await change({ rate: 22579200 })).json();
     expect(body.class).toBe("major");
     expect(body.results[0]).toMatchObject({ field: "rate", actual: 22579200, applied: true });
@@ -133,19 +135,18 @@ describe("rollback when playback fails", () => {
 
     expect(body.incompatible).toMatchObject({ level: "hard", text: expect.stringMatching(/AHM7EC8B needs/) });
     expect((await caps()).knownBad).toEqual([]);
+    await learned.flush();
     expect(() => readFileSync(learnedPath, "utf8")).toThrow(); // nothing learned, nothing written
   });
 
   it("learns an unexplained failure (overload) and persists it", async () => {
     const learnedPath = join(mkdtempSync(join(tmpdir(), "learned-")), "learned.json");
-    await setup(
-      { speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) },
-      {},
-      new LearnedStore(learnedPath),
-    );
+    const learned = await LearnedStore.open(new FileDocs(dirname(learnedPath)));
+    await setup({ speed: ({ filterName }) => (filterName === "poly-sinc-gauss-long" ? 0.5 : 1) }, {}, learned);
     const body = (await change({ filter1x: "poly-sinc-gauss-long" })).json();
     expect(body.incompatible).toBeUndefined();
     expect((await caps()).knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", rateHz: 45158400 })]);
+    await learned.flush(); // saved in the background (docs.ts)
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toHaveLength(1);
 
     // "Forget this": exactly the combination's fields, or 400; then it's gone, on disk too.
@@ -219,7 +220,7 @@ describe("rollback when playback fails", () => {
     const dir = mkdtempSync(join(tmpdir(), "learned-"));
     const { writeFileSync } = await import("node:fs");
     writeFileSync(join(dir, "blocker"), "");
-    await setup({}, {}, new LearnedStore(join(dir, "blocker", "learned.json")));
+    await setup({}, {}, await LearnedStore.open(new FileDocs(join(dir, "blocker"))));
     const body = (await change({ rate: 22579200 })).json();
     expect(body.playback.kind).toBe("stopped");
     expect(body.rolledBack.results[0]).toMatchObject({ field: "rate", actual: 0, applied: true });

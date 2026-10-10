@@ -7,6 +7,7 @@ import {} from "@app/protocol";
 import { buildApp } from "../src/app.ts";
 import { client } from "./http.ts";
 import { discover } from "@app/protocol/node";
+import { FileDocs } from "../src/file-docs.ts";
 
 const fakes: FakeHqp[] = [];
 let app: ReturnType<typeof buildApp> | undefined;
@@ -94,7 +95,7 @@ describe("registry", () => {
   it("adds and removes instances, persisting to instances.json", async () => {
     const { f } = await fake();
     const dir = mkdtempSync(join(tmpdir(), "cfg-"));
-    app = buildApp({ instances: [] }, { configDir: dir });
+    app = buildApp({ instances: [] }, { docs: new FileDocs(dir) });
     const req = client(await app.listen(0, "127.0.0.1"));
     const added = (await req("POST", "/api/instances", { body: { name: "Office HQP", host: "127.0.0.1", port: f.port } })).json();
     expect(added).toMatchObject({ id: "office-hqp", host: "127.0.0.1", port: f.port });

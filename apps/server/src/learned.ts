@@ -1,10 +1,10 @@
 // Combinations that failed on an instance, learned from rollbacks (design §4.4), and
 // ones that kept up, with how fast (kept-up.ts). Kept per instance (or named DAC) and
 // engine version, because both change what works.
-import { mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { loadList, loadOptionalList } from "./jsonstore.ts";
+import { DocWriter, listOf, loadDoc, type DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT } from "./format.ts";
-import { dirname } from "node:path";
+
+const DOC = "learned.json";
 
 export interface Combo {
   mode: string;
@@ -72,16 +72,25 @@ export class LearnedStore {
   private failures: Failure[] = [];
   private kept: KeptUp[] = [];
   private slow: SlowSwitch[] = [];
-  private readonly path: string | null;
+  private readonly writer: DocWriter | null;
 
-  /** path null = in memory only (tests). */
-  constructor(path: string | null) {
-    this.path = path;
-    if (!path) return;
+  /** Saved in `docs` (docs.ts), as loaded from there; null: in memory only (tests). */
+  constructor(saved: { docs: DocStore; data: Record<string, unknown> | null } | null) {
+    this.writer = saved && new DocWriter(saved.docs, DOC);
+    const data = saved?.data ?? null;
     // Saved before counts existed: once each, first seen when last seen.
-    this.failures = loadList<Failure>(path, "failures").map((x) => ({ ...x, count: x.count ?? 1, first: x.first ?? x.at }));
-    this.kept = loadOptionalList<KeptUp>(path, "kept");
-    this.slow = loadOptionalList<SlowSwitch>(path, "slow");
+    this.failures = listOf<Failure>(data, "failures").map((x) => ({ ...x, count: x.count ?? 1, first: x.first ?? x.at }));
+    this.kept = listOf<KeptUp>(data, "kept");
+    this.slow = listOf<SlowSwitch>(data, "slow");
+  }
+
+  static async open(docs: DocStore): Promise<LearnedStore> {
+    return new LearnedStore({ docs, data: await loadDoc(docs, DOC, "failures") });
+  }
+
+  /** Wait until what's been learned so far is saved. */
+  flush(): Promise<void> {
+    return this.writer?.flush() ?? Promise.resolve();
   }
 
   /** A failure: counted against the same instance, engine and combination when there is one. */
@@ -168,14 +177,10 @@ export class LearnedStore {
     this.save();
   }
 
+  /** In the background: a failed save is logged, never thrown, so it can't block a rollback. */
   private save() {
-    if (!this.path) return;
-    mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    writeFileSync(
-      tmp,
+    this.writer?.writeQuietly(
       JSON.stringify({ format: SETTINGS_FORMAT, failures: this.failures, kept: this.kept, slow: this.slow }, null, 1) + "\n",
     );
-    renameSync(tmp, this.path);
   }
 }

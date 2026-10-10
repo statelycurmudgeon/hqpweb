@@ -2,9 +2,13 @@
 // last seen in each mode (HQPlayer's State only reports the mode in use).
 import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { HistoryStore, changedFields, type ModeLists } from "../src/history.ts";
+import { FileDocs } from "../src/file-docs.ts";
+
+/** The store as saved in history.json's directory, the server's way (file-docs.ts). */
+const open = (path: string) => HistoryStore.open(new FileDocs(dirname(path)));
 import type { Settings } from "../src/settings.ts";
 
 const S: Settings = {
@@ -58,23 +62,26 @@ describe("history", () => {
     });
   });
 
-  it("saves both, reads them back, and forgets an instance with its DACs", () => {
+  it("saves both, reads them back, and forgets an instance with its DACs", async () => {
     const dir = mkdtempSync(join(tmpdir(), "history-"));
     const path = join(dir, "history.json");
-    const h = new HistoryStore(path);
+    const h = await open(path);
     h.push(entry());
     h.seen("mac#desk", S, "2026-10-08T15:00:00.000Z");
-    const again = new HistoryStore(path);
+    await h.flush();
+    const again = await open(path);
     expect([again.forInstance("mac").length, Object.keys(again.lastSeen("mac#desk"))]).toEqual([1, ["SDM (DSD)"]]);
     again.forget("mac");
-    expect([new HistoryStore(path).forInstance("mac"), new HistoryStore(path).lastSeen("mac#desk")]).toEqual([[], {}]);
+    await again.flush();
+    const third = await open(path);
+    expect([third.forInstance("mac"), third.lastSeen("mac#desk")]).toEqual([[], {}]);
   });
 
-  it("reads a file without last-seen settings as empty, not corrupt", () => {
+  it("reads a file without last-seen settings as empty, not corrupt", async () => {
     const dir = mkdtempSync(join(tmpdir(), "history-"));
     const path = join(dir, "history.json");
     writeFileSync(path, JSON.stringify({ format: 1, entries: [entry()] }));
-    expect(new HistoryStore(path).forInstance("mac")).toHaveLength(1);
+    expect((await open(path)).forInstance("mac")).toHaveLength(1);
     expect(readdirSync(dir)).toEqual(["history.json"]);
   });
 });
@@ -105,15 +112,18 @@ describe("each mode's lists as last read", () => {
     expect(h.modeLists("mac", "5.35.10")).toEqual({});
     expect(Object.keys(h.modeLists("office", "5.35.10"))).toEqual(["PCM"]);
   });
-  it("persists, and rewrites the file only when the lists change", () => {
+  it("persists, and rewrites the file only when the lists change", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hqpweb-lists-"));
     const path = join(dir, "history.json");
-    const h = new HistoryStore(path);
+    const h = await open(path);
     h.listsSeen(l());
+    await h.flush();
     writeFileSync(path, JSON.stringify({ format: 1, entries: [], lists: [l({ shapers: ["marker"] })] }));
     h.listsSeen(l({ at: "2026-10-08T16:00:00.000Z" })); // same lists: no write
-    expect(new HistoryStore(path).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["marker"]);
+    await h.flush();
+    expect((await open(path)).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["marker"]);
     h.listsSeen(l({ shapers: ["TPDF"] })); // changed: written
-    expect(new HistoryStore(path).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["TPDF"]);
+    await h.flush();
+    expect((await open(path)).modeLists("mac", "5.35.10").PCM?.shapers).toEqual(["TPDF"]);
   });
 });
