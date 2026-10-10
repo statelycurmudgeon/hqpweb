@@ -294,7 +294,10 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
       await i.client.status(); // an open connection, for its local address
       const self = i.client.localAddress?.replace(/^::ffff:/, "");
       const at = self && `http://${self.includes(":") ? `[${self}]` : self}:${q.socket.localPort}/api/calibration.wav`;
-      return playClapTrack(i.client, [GITHUB_CLAPS_URL, `http://${q.headers.host}/api/calibration.wav`, ...(at ? [at] : [])]);
+      // Behind an HTTPS proxy (Caddy and the like say so), the page's own scheme: no redirect to follow.
+      const scheme = q.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+      const page = `${scheme}://${q.headers.host}/api/calibration.wav`;
+      return playClapTrack(i.client, [GITHUB_CLAPS_URL, page, ...(at ? [at] : [])]);
     },
     "POST seek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };

@@ -62,7 +62,7 @@ describe("playing it through HQPlayer", () => {
 
 describe("which address HQPlayer is given", () => {
   /** A server whose page is opened at a name HQPlayer can't fetch (an HTTPS proxy, a tailnet name). */
-  async function behindName(fetchable: (uri: string) => boolean) {
+  async function behindName(fetchable: (uri: string) => boolean, extra: Record<string, string> = {}) {
     const f = new FakeHqp(loadProfile("desktop5-mac-sdm"), { timeScale: 0, fetchable });
     await f.listen();
     const a = buildApp(
@@ -72,7 +72,7 @@ describe("which address HQPlayer is given", () => {
     const b = await a.listen(0, "127.0.0.1");
     const r = await client(b)("POST", "/api/instances/mac/calibrate", {
       body: {},
-      headers: { host: "hqpweb.example", origin: "http://hqpweb.example" },
+      headers: { host: "hqpweb.example", origin: "http://hqpweb.example", ...extra },
     });
     const out = { status: r.status, body: r.json(), playlist: [...f.playlist], port: new URL(b).port };
     await a.close();
@@ -84,6 +84,11 @@ describe("which address HQPlayer is given", () => {
     const r = await behindName((u) => u !== GITHUB_CLAPS_URL);
     expect(r.status).toBe(200);
     expect(r.playlist).toEqual(["http://hqpweb.example/api/calibration.wav"]);
+  }, 10_000);
+
+  it("behind an HTTPS proxy, offers the page's address over HTTPS (measured: HQPlayer plays HTTPS)", async () => {
+    const r = await behindName((u) => u !== GITHUB_CLAPS_URL, { "x-forwarded-proto": "https" });
+    expect(r.playlist).toEqual(["https://hqpweb.example/api/calibration.wav"]);
   }, 10_000);
 
   it("falls back to this server's own address on its connection to HQPlayer", async () => {
