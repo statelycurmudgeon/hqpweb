@@ -53,7 +53,11 @@ describe("after HQPlayer restarts", () => {
     expect(await until(() => fake.received.some((r) => r.includes("<Status")))).toBe(true); // watching, unviewed
     await restartAt(-15);
     expect(await until(() => fake.volume === -30)).toBe(true);
-    const h: HistoryEntry[] = (await req("GET", "/api/instances/mac/history")).json();
+    // hqpweb logs it once it has read the volume back, a moment after HQPlayer took it: wait for the entry.
+    let h: HistoryEntry[] = [];
+    await expect
+      .poll(async () => (h = (await req("GET", "/api/instances/mac/history")).json()).length, { timeout: 5000 })
+      .toBeGreaterThan(0);
     expect(h[0]).toMatchObject({ source: "hqpweb", changes: [{ field: "volume", from: -15, to: -30, applied: true }] });
     expect(h[0]!.detail).toMatch(/restarted/);
   }, 20_000);
