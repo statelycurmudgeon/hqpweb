@@ -1,6 +1,7 @@
 <script lang="ts">
   // The warnings above the Now card: no instances, falling behind, answering slowly,
   // unreachable (with restart steps, recovery.ts), and a lost connection to the app's server.
+  import { can } from "./api.ts";
   import type { RestartSteps } from "./recovery.ts";
 
   let {
@@ -30,7 +31,11 @@
 </script>
 
 {#if noInstances}
-  <p class="banner warn">No HQPlayer instances yet. Open Settings (⚙) to scan the network or add one by address.</p>
+  <p class="banner warn">
+    No HQPlayer instances yet. Open Settings (⚙) to {can.discover
+      ? "scan the network or add one by address"
+      : "add one by address"}.
+  </p>
 {/if}
 
 {#if fallingBehind}

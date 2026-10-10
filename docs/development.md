@@ -24,6 +24,8 @@ packages/contract   The API's wire types and calls (types only): the web app imp
 packages/fake-hqp   Fake HQPlayer (and a fake Roon core) for tests and development.
 apps/server         The server around the core: HTTP API, files, Node networking, Roon link.
 apps/web            The PWA.
+apps/mobile         The phone app (Capacitor): the web app with the core in-process, on your own devices.
+packages/capacitor-tcp  Plain TCP for the phone app (Swift, Network.framework): HQPlayer's control and meter ports.
 tools/probe         Read-only Python probe for real instances (stdlib only).
 tools/fixtures      Builds fake-hqp profiles from read-only captures.
 tools/hooks         Git hooks that keep personal data out of history (see CLAUDE.md).
@@ -55,6 +57,27 @@ instance follow CLAUDE.md rule 3.
 Fake options: `--profile desktop5-mac-sdm|desktop5-linux-pcm`, `--time-scale 0` (no
 delays), `--source-rate 96000` (switches the in-use filter from 1x to Nx), and
 `--discovery PORT` (answers UDP discovery; off by default).
+
+## The phone app (your own devices)
+
+`apps/mobile` is the web app with the core running in-process (packages/core `localApi`),
+wrapped by Capacitor. HQPlayer is reached through `packages/capacitor-tcp`; what the app
+keeps lives on the phone (each phone keeps its own). It hides what it can't do yet: Roon,
+the restart volume cap, lining the meter up by ear, and network scanning. Add HQPlayer by
+address in Settings.
+
+Needs Xcode. To build and run it in the iOS simulator, which shares the Mac's network:
+
+```sh
+npm run build -w apps/mobile && (cd apps/mobile && npx cap copy ios)
+xcodebuild -project apps/mobile/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+```
+
+Then install the built `App.app` with `xcrun simctl install`, or open
+`apps/mobile/ios/App/App.xcodeproj` in Xcode and press Run. On a real iPhone, sign it with
+your own Apple ID (Xcode → Settings → Accounts, a free "Personal Team"); such builds last 7
+days. The app id `dev.hqpweb.app` is a placeholder for builds on your own devices.
 
 ## Remote development
 

@@ -28,6 +28,8 @@ export default tseslint.config(
       "e2e/test-results/",
       "e2e/report/",
       ".claude/worktrees/",
+      // The phone app's native project: Swift, and a copy of the built page.
+      "apps/mobile/ios/",
     ],
   },
   {

@@ -30,6 +30,7 @@ jobs:
       - run: npm run lines
       - run: npm run typecheck
       - run: npm run check -w apps/web
+      - run: npm run check -w apps/mobile
       - run: npm test
       - run: npm run build -w apps/web
 

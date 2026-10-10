@@ -1,0 +1,27 @@
+{
+  "name": "@app/mobile",
+  "version": "0.1.0-beta.6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "sync": "vite build && cap sync",
+    "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+  },
+  "dependencies": {
+    "@app/capacitor-tcp": "*",
+    "@app/contract": "*",
+    "@app/core": "*",
+    "@app/protocol": "*",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/ios": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "vite": "^8.3.2"
+  }
+}

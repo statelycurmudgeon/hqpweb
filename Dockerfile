@@ -9,9 +9,11 @@ COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/core/package.json packages/core/
 COPY packages/contract/package.json packages/contract/
+COPY packages/capacitor-tcp/package.json packages/capacitor-tcp/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+COPY apps/mobile/package.json apps/mobile/
 RUN npm ci
 COPY . .
 RUN npm run build -w apps/web && \
@@ -29,9 +31,11 @@ COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/core/package.json packages/core/
 COPY packages/contract/package.json packages/contract/
+COPY packages/capacitor-tcp/package.json packages/capacitor-tcp/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
+COPY apps/mobile/package.json apps/mobile/
 RUN npm ci --omit=dev -w @app/server && npm cache clean --force
 COPY packages/protocol/src packages/protocol/src
 COPY packages/core/src packages/core/src
