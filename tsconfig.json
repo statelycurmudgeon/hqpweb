@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/protocol" },
     { "path": "packages/fake-hqp" },
+    { "path": "packages/contract" },
     { "path": "packages/core" },
     { "path": "apps/server" }
   ]

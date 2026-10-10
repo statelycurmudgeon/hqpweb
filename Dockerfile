@@ -8,6 +8,7 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/core/package.json packages/core/
+COPY packages/contract/package.json packages/contract/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
@@ -27,6 +28,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/core/package.json packages/core/
+COPY packages/contract/package.json packages/contract/
 COPY packages/fake-hqp/package.json packages/fake-hqp/
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/

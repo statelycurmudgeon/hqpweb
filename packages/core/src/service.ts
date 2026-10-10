@@ -195,7 +195,7 @@ export class Service {
     const inst = this.instance(id);
     const list = this.presets.list().filter((p) => !p.scope || p.scope === inst.scope());
     const previews = await inst.previewPresets(list.map((p) => p.settings));
-    return list.map((p, i) => ({ ...p, preview: previews[i] }));
+    return list.map((p, i) => ({ ...p, preview: previews[i]! })); // one preview per preset
   }
   async applyPreset(id: string, presetId: string) {
     const inst = this.instance(id);

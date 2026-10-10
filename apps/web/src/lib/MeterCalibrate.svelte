@@ -92,13 +92,10 @@
     tapCount = 0;
     const onsets: number[] = [];
     const detector = new OnsetDetector();
-    const es = api.meter(instanceId);
-    es.addEventListener("meter", (e) => {
-      const m = JSON.parse((e as MessageEvent).data) as { live?: boolean; levels?: number[][] };
+    stopMeter = api.meter(instanceId, (m) => {
       const now = performance.now();
       if (m.live && m.levels && detector.feed(now, Math.max(...m.levels.map((l) => l[1] ?? -120)))) onsets.push(now);
     });
-    stopMeter = () => es.close();
     let track;
     try {
       track = await api.calibrate(instanceId);

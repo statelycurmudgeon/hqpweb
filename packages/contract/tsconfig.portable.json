@@ -1,0 +1,13 @@
+{
+  // The contract (index.ts) type-checked with no Node types: the web app and a phone app use it.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["es2024", "dom"],
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true
+  },
+  "files": ["src/index.ts"]
+}
