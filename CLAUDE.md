@@ -88,7 +88,9 @@ evidence; keep files under the limits, splitting before adding.
   `<spec>.flows.ts` beside it; the stack loads them all. Every spec runs twice: against the
   server (`web`) and against the phone app's page with its core in-process (`app`,
   `e2e/app-host.ts`), each with its own fakes. A spec that needs something one host lacks asks
-  `can()` (`e2e/hosts.ts`), as the page does. First time: `npx playwright install chromium`.
+  `can()` (`e2e/hosts.ts`), as the page does. Each runs in Chromium and in WebKit (Safari's engine): four lanes (`e2e/lanes.ts`); one
+  engine: `npm run test:e2e -- --project web --project app`. First time:
+  `npx playwright install chromium webkit`.
   Screenshots go to `e2e/screenshots/` (git-ignored; CI uploads them as an artifact), for
   people to look at; they're never compared. Flows check outcomes and short key phrases,
   not whole sentences, so rewording the UI doesn't break them.

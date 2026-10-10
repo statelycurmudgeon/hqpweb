@@ -71,7 +71,8 @@ test("v2: the mini bar takes over when the now card scrolls away", async ({ page
   const footer = page.locator("footer");
   await expect(footer).toContainText("IIR");
   await page.getByRole("button", { name: "History" }).scrollIntoViewIfNeeded();
-  await page.mouse.wheel(0, 2000);
+  // Scrolled by the page, not a mouse wheel: WebKit's phone mode has no wheel.
+  await page.evaluate(() => window.scrollBy(0, 2000));
   await expect(mini).toBeVisible();
   await expect(mini).toContainText("keeping up");
   await mini.getByRole("button", { name: /^Down/ }).click();
