@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 import {
   HttpError,
   Service,
+  wireError,
   type AppConfig,
   type DocStore,
   type HistoryStore,
@@ -15,7 +16,7 @@ import {
   type RoonTransport,
   type WatchTiming,
 } from "@app/core";
-import { PeerError, type DiscoverOptions } from "@app/protocol";
+import type { DiscoverOptions } from "@app/protocol";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
 import { GITHUB_CLAPS_URL, serveClapTrack } from "./calibration.ts";
@@ -388,15 +389,11 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
   const server = createServer((req, res) => {
     handle(req, res).catch((err: Error) => {
       if (res.headersSent) return res.destroy();
-      if (err instanceof HttpError) send(res, err.status, { error: err.message });
-      else if (err instanceof URIError) send(res, 400, { error: "malformed URL" });
-      // Failures talking to HQPlayer (network, timeouts, odd replies) are 502;
-      // anything else is our bug, so say so and log it.
-      else if (err instanceof PeerError) send(res, 502, { error: `instance error: ${err.message}` });
-      else {
-        console.error(err);
-        send(res, 500, { error: "internal error" });
-      }
+      if (err instanceof URIError) return send(res, 400, { error: "malformed URL" });
+      // The same status and words an in-process caller gets (core wire-error.ts).
+      const w = wireError(err);
+      if (w.unexpected) console.error(err);
+      send(res, w.status, { error: w.error });
     });
   });
 
