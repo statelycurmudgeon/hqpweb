@@ -1,6 +1,6 @@
 // The page's way to hqpweb: the API over HTTP (httpApi), and small shared formatting helpers.
 
-import type { Api, Change, Failure } from "@app/contract";
+import type { Api, Change, Failure, Host, HostCan } from "@app/contract";
 export type * from "@app/contract";
 
 export interface HttpApiOptions {
@@ -97,8 +97,21 @@ export function httpApi(opts: HttpApiOptions = {}): Api {
   };
 }
 
-/** The page's API: its own server. */
-export const api: Api = httpApi();
+/** Everything, as the self-hosted server offers it. */
+export const SERVER_CAN: HostCan = { restartCap: true, calibrate: true, roon: true, discover: true };
+
+/** The page's API, and what its host can do: its own server, unless a host says otherwise. */
+export let api: Api = httpApi();
+export let can: HostCan = SERVER_CAN;
+
+/**
+ * Called by a host (a phone app) before the page mounts: its API (the core in-process) and
+ * what it can do. Modules read `api` and `can` when they use them, so this takes effect everywhere.
+ */
+export function useHost(host: Host) {
+  api = host.api;
+  can = host.can;
+}
 
 export const PLAYBACK = ["Stopped", "Paused", "Playing", "Stopping"];
 

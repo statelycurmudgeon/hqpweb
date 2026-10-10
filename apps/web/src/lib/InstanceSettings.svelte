@@ -1,6 +1,6 @@
 <script lang="ts">
   // Settings → Instances: the configured and discovered HQPlayer instances, scan, and add.
-  import { api, type Inst } from "./api.ts";
+  import { api, can, type Inst } from "./api.ts";
 
   let { instances, onchange }: { instances: Inst[]; onchange: () => Promise<void> } = $props();
 
@@ -108,7 +108,7 @@
   Discovery only sees HQPlayer on this server's own network segment; add instances on other VLANs or subnets by hand. “Not seen by
   discovery” is normal for those.
 </p>
-<button class="small" onclick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan now"}</button>
+{#if can.discover}<button class="small" onclick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan now"}</button>{/if}
 
 <form class="add" onsubmit={addInstance}>
   <input

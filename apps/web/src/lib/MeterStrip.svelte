@@ -2,7 +2,7 @@
   // The v2 meter (docs/design-v2-layout.md rule 9): a strip under the now card that says it
   // opens, and the open square with its views. Data from the server's meter stream (paced,
   // condensed: meter-stream.ts); drawing rules in meter-view.ts. It only connects while shown.
-  import { api, type MeterEvent } from "./api.ts";
+  import { api, can, type MeterEvent } from "./api.ts";
   import {
     bandBoxes,
     crest,
@@ -243,7 +243,7 @@
           <p>{VIEW_NOTES[view]}</p>
           <p>
             Timing: waits {(delay / 1000).toFixed(2)} s
-            <button class="link" onclick={ontiming}>Settings ›</button>
+            {#if can.calibrate}<button class="link" onclick={ontiming}>Settings ›</button>{/if}
           </p>
         </div>
       {/if}

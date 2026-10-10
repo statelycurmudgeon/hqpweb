@@ -2,7 +2,7 @@
   import { tick } from "svelte";
   // Settings sheet: per-device preferences, learned failures for the selected
   // instance, and About.
-  import { api, formatRate, type Failure, type Inst } from "./api.ts";
+  import { api, can, formatRate, type Failure, type Inst } from "./api.ts";
   import { THEMES, prefs, savePrefs, type Prefs } from "./prefs.svelte.ts";
   import InstanceSettings from "./InstanceSettings.svelte";
   import RoonSettings from "./RoonSettings.svelte";
@@ -41,7 +41,8 @@
     prefs.meterNudge = next;
     savePrefs();
   }
-  let roon: RoonSettings;
+  // Absent when the host has no Roon (api.ts can).
+  let roon = $state<RoonSettings>();
   // Four tabs (owner's call, 2026-10-09): the HQPlayer and its DAC, listening, appearance, Roon.
   let tab = $state<"hqplayer" | "listening" | "appearance" | "roon">("hqplayer");
   let learned = $state<(Failure & { engine: string })[] | null>(null);
@@ -52,7 +53,7 @@
     if (opts.tab) tab = opts.tab;
     dialog.showModal();
     loadLearned();
-    roon.refresh();
+    roon?.refresh();
     if (opts.section) {
       await tick();
       dialog.querySelector(`#${opts.section}`)?.scrollIntoView({ block: "start" });
@@ -85,7 +86,7 @@
   const STEPS: Prefs["volumeStep"][] = [0.5, 1, 2];
 </script>
 
-<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()} onclose={() => roon.stop()}>
+<dialog bind:this={dialog} onclick={(e) => e.target === dialog && dialog.close()} onclose={() => roon?.stop()}>
   <div class="sheet">
     <header>
       <h3>Settings</h3>
@@ -101,14 +102,19 @@
       <button role="tab" aria-selected={tab === "appearance"} class:on={tab === "appearance"} onclick={() => (tab = "appearance")}
         >Appearance</button
       >
-      <button role="tab" aria-selected={tab === "roon"} class:on={tab === "roon"} onclick={() => ((tab = "roon"), roon.refresh())}
-        >Roon</button
-      >
+      {#if can.roon}
+        <button
+          role="tab"
+          aria-selected={tab === "roon"}
+          class:on={tab === "roon"}
+          onclick={() => ((tab = "roon"), roon?.refresh())}>Roon</button
+        >
+      {/if}
     </div>
     <!-- One scrolling area under the tabs: each tab, then About after it. -->
     <div class="scroll">
       <div class="body" hidden={tab !== "roon"}>
-        <RoonSettings bind:this={roon} {instances} />
+        {#if can.roon}<RoonSettings bind:this={roon} {instances} />{/if}
       </div>
       <div class="body" hidden={tab !== "hqplayer"}>
         <InstanceSettings {instances} {onchange} />
@@ -179,9 +185,9 @@
           {/each}
         </div>
 
-        <RestartCapSettings {instance} {onchange} />
+        {#if can.restartCap}<RestartCapSettings {instance} {onchange} />{/if}
 
-        {#if instance}
+        {#if instance && can.calibrate}
           <h4 id="meter-timing">Meter timing</h4>
           <p class="help">
             Line the meter up with what you hear.{nudge
