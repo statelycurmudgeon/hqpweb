@@ -20,12 +20,12 @@ export class FileDocs implements DocStore {
     }
   }
 
-  async write(name: string, text: string): Promise<void> {
+  async write(name: string, text: string, opts: { private?: boolean } = {}): Promise<void> {
     await mkdir(this.dir, { recursive: true });
     const path = join(this.dir, name);
     const tmp = `${path}.tmp`;
     await rm(tmp, { force: true }); // a leftover from a crash may have other permissions
-    await writeFile(tmp, text);
+    await writeFile(tmp, text, opts.private ? { mode: 0o600 } : {});
     await rename(tmp, path);
   }
 

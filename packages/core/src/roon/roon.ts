@@ -6,13 +6,18 @@
 // node-roon-api-transport); no code copied. Measured against a real core
 // (2.73): discovery, the port (9330), approval and token reuse, HQPlayer zones
 // carrying a source control named "HQPlayer", transport control and seek.
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { SETTINGS_FORMAT, checkFormat } from "@app/core";
-import { dirname } from "node:path";
-import { randomBytes } from "node:crypto";
+//
+// Portable (packages/core): the WebSocket is the platform's own (Node's, or the app's
+// WebView's), and its state lives in a DocStore (roon.json, owner-only: it holds tokens).
+import { DocWriter, loadDoc, type DocStore } from "../docs.ts";
+import { HttpError } from "../errors.ts";
+import { SETTINGS_FORMAT } from "../format.ts";
 import { decode, encode, type MooMessage } from "./moo.ts";
-import { HttpError } from "@app/core";
-import { VERSION } from "../version.ts";
+
+const DOC = "roon.json";
+/** WebSocket ready states (the same numbers everywhere). */
+const CONNECTING = 0;
+const OPEN = 1;
 
 export const ROON_ACTIONS = ["play", "pause", "playpause", "previous", "next"] as const;
 export type RoonAction = (typeof ROON_ACTIONS)[number];
@@ -80,10 +85,9 @@ interface RawZone {
   outputs?: { source_controls?: { display_name?: string }[] }[];
 }
 
-const newInstallId = () => randomBytes(4).toString("hex");
+const newInstallId = () => [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join("");
 const extensionName = (installId: string) => `hqpweb ${installId.slice(0, 4)}`;
 const EXTENSION = {
-  display_version: VERSION,
   publisher: "hqpweb",
   email: "",
   website: "https://github.com/statelycurmudgeon/hqpweb",
@@ -129,6 +133,10 @@ const stringMap = (v: unknown): Record<string, string> =>
 export const validRoonHost = (h: string) => /^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/.test(h);
 
 export interface RoonOptions {
+  /** This hqpweb's version, as Roon shows it under Extensions. */
+  version?: string;
+  /** The WebSocket to use; default the platform's own. */
+  WebSocket?: typeof WebSocket;
   /** Liveness check interval: Node's WebSocket can't send pings, so a cheap request stands in. */
   aliveMs?: number;
   /** Reply deadline for requests. */
@@ -139,8 +147,9 @@ export interface RoonOptions {
 
 export class RoonLink {
   private settings: RoonSettings = { installId: newInstallId(), enabled: false, tokens: {}, zoneFor: {} };
-  private readonly path: string | null;
-  private readonly opts: Required<RoonOptions>;
+  private readonly writer: DocWriter | null;
+  private readonly opts: Required<Omit<RoonOptions, "WebSocket">>;
+  private readonly Socket: typeof WebSocket;
   private ws: WebSocket | null = null;
   private gen = 0;
   private nextId = 0;
@@ -155,36 +164,40 @@ export class RoonLink {
   private retryMs: number;
   private closed = false;
 
-  constructor(path: string | null, opts: RoonOptions = {}) {
-    this.path = path;
-    this.opts = { aliveMs: 30_000, replyMs: 10_000, reconnectMs: 2000, ...opts };
+  /** Saved in `docs` (docs.ts), as loaded from there; null: in memory only (tests). */
+  constructor(saved: { docs: DocStore; data: Record<string, unknown> | null } | null, opts: RoonOptions = {}) {
+    this.writer = saved && new DocWriter(saved.docs, DOC, { private: true });
+    const { WebSocket: Socket, ...rest } = opts;
+    this.opts = { aliveMs: 30_000, replyMs: 10_000, reconnectMs: 2000, version: "", ...rest };
+    this.Socket = Socket ?? globalThis.WebSocket;
     this.retryMs = this.opts.reconnectMs;
+    const s = (saved?.data ?? null) as Partial<RoonSettings> | null;
     let needsSave = false;
-    if (path && existsSync(path)) {
-      try {
-        const s = JSON.parse(readFileSync(path, "utf8")) as Partial<RoonSettings>;
-        checkFormat(path, s);
-        const hasId = typeof s.installId === "string" && /^[0-9a-f]{8}$/.test(s.installId);
-        // A newly made install id must survive restarts, or every restart would need re-approval.
-        needsSave = !hasId;
-        this.settings = {
-          installId: hasId ? (s.installId as string) : newInstallId(),
-          enabled: s.enabled === true,
-          ...(typeof s.host === "string" && validRoonHost(s.host) ? { host: s.host } : {}),
-          ...(Number.isInteger(s.port) ? { port: s.port as number } : {}),
-          tokens: stringMap(s.tokens),
-          zoneFor: stringMap(s.zoneFor),
-        };
-      } catch (e) {
-        const aside = `${path}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-        try {
-          renameSync(path, aside);
-        } catch {}
-        console.error(`could not read ${path} (${(e as Error).message}); moved it to ${aside}; Roon is off`);
-      }
+    if (s) {
+      const hasId = typeof s.installId === "string" && /^[0-9a-f]{8}$/.test(s.installId);
+      // A newly made install id must survive restarts, or every restart would need re-approval.
+      needsSave = !hasId;
+      this.settings = {
+        installId: hasId ? (s.installId as string) : newInstallId(),
+        enabled: s.enabled === true,
+        ...(typeof s.host === "string" && validRoonHost(s.host) ? { host: s.host } : {}),
+        ...(Number.isInteger(s.port) ? { port: s.port as number } : {}),
+        tokens: stringMap(s.tokens),
+        zoneFor: stringMap(s.zoneFor),
+      };
     }
     if (needsSave) this.save();
     if (this.settings.enabled && this.settings.host) this.connect();
+  }
+
+  /** Load from `docs` (an unreadable file is set aside, and Roon starts off), then start. */
+  static async open(docs: DocStore, opts: RoonOptions = {}): Promise<RoonLink> {
+    return new RoonLink({ docs, data: await loadDoc(docs, DOC) }, opts);
+  }
+
+  /** Wait until the settings so far are saved. */
+  flush(): Promise<void> {
+    return this.writer?.flush() ?? Promise.resolve();
   }
 
   view(): RoonView {
@@ -277,7 +290,7 @@ export class RoonLink {
   }
 
   /** Album art from the core's plain-HTTP image endpoint (no MOO needed). */
-  async image(key: string, size: number): Promise<{ type: string; data: Buffer }> {
+  async image(key: string, size: number): Promise<{ type: string; data: Uint8Array }> {
     if (this.status !== "connected" || !this.settings.host) throw new HttpError(409, "Roon not connected");
     const port = this.settings.port ?? DEFAULT_ROON_PORT;
     const url = `http://${this.settings.host}:${port}/api/image/${encodeURIComponent(key)}?scale=fit&width=${size}&height=${size}&format=image/jpeg`;
@@ -301,7 +314,13 @@ export class RoonLink {
       }
       chunks.push(chunk);
     }
-    return { type: r.headers.get("content-type") ?? "", data: Buffer.concat(chunks) };
+    const data = new Uint8Array(received);
+    let at = 0;
+    for (const c of chunks) {
+      data.set(c, at);
+      at += c.length;
+    }
+    return { type: r.headers.get("content-type") ?? "", data };
   }
 
   close() {
@@ -318,7 +337,7 @@ export class RoonLink {
     this.setStatus("connecting");
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url);
+      ws = new this.Socket(url);
     } catch (e) {
       this.lost(gen, (e as Error).message);
       return;
@@ -327,12 +346,12 @@ export class RoonLink {
     this.ws = ws;
     // A connect that neither opens nor fails (a silent firewall) must not hang.
     const opening = setTimeout(
-      () => gen === this.gen && ws.readyState === WebSocket.CONNECTING && (ws.close(), this.lost(gen, `can't connect to ${url}`)),
+      () => gen === this.gen && ws.readyState === CONNECTING && (ws.close(), this.lost(gen, `can't connect to ${url}`)),
       this.opts.replyMs,
     );
     ws.onopen = () => {
       clearTimeout(opening);
-      if (gen === this.gen) this.handshake(gen);
+      if (gen === this.gen) void this.handshake(gen); // it handles its own failures
     };
     ws.onmessage = (ev) => {
       if (gen !== this.gen) return;
@@ -348,7 +367,7 @@ export class RoonLink {
       try {
         msg = decode(ev.data as ArrayBuffer | string);
       } catch (e) {
-        const raw = typeof ev.data === "string" ? ev.data : Buffer.from(ev.data as ArrayBuffer).toString("utf8");
+        const raw = typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data as ArrayBuffer);
         console.error(`roon: dropping connection: ${(e as Error).message}; message began ${JSON.stringify(raw.slice(0, 160))}`);
         ws.close();
         this.lost(gen, (e as Error).message);
@@ -389,6 +408,7 @@ export class RoonLink {
             extension_id: `com.github.hqpweb.${this.settings.installId}`,
             display_name: extensionName(this.settings.installId),
             ...EXTENSION,
+            display_version: this.opts.version,
             required_services: [TRANSPORT],
             optional_services: [],
             provided_services: [PING, PAIRING],
@@ -497,7 +517,7 @@ export class RoonLink {
 
   private request(name: string, body?: unknown): Promise<MooMessage> {
     return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return reject(new HttpError(409, "Roon not connected"));
+      if (!this.ws || this.ws.readyState !== OPEN) return reject(new HttpError(409, "Roon not connected"));
       const id = String(this.nextId);
       const timer = setTimeout(() => {
         this.pending.delete(id);
@@ -559,13 +579,9 @@ export class RoonLink {
     }
   }
 
+  /** In the background: a failed save is logged, never thrown. Owner-only: it holds tokens. */
   private save() {
-    if (!this.path || this.closed) return;
-    mkdirSync(dirname(this.path), { recursive: true });
-    const tmp = `${this.path}.tmp`;
-    // The file holds Roon approval tokens: owner-only, even if a stale tmp exists.
-    rmSync(tmp, { force: true });
-    writeFileSync(tmp, JSON.stringify({ format: SETTINGS_FORMAT, ...this.settings }, null, 2) + "\n", { mode: 0o600 });
-    renameSync(tmp, this.path);
+    if (this.closed) return;
+    this.writer?.writeQuietly(JSON.stringify({ format: SETTINGS_FORMAT, ...this.settings }, null, 2) + "\n");
   }
 }

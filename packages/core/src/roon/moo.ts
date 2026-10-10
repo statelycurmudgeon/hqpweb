@@ -26,29 +26,35 @@ export interface MooMessage {
   body?: unknown;
 }
 
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
 export function encode(verb: Verb, name: string, requestId: number | string, body?: unknown): Uint8Array<ArrayBuffer> {
   let header = `MOO/1 ${verb} ${name}\nRequest-Id: ${requestId}\n`;
-  let data: Buffer | undefined;
+  let data: Uint8Array | undefined;
   if (body !== undefined) {
-    data = Buffer.from(JSON.stringify(body), "utf8");
+    data = enc.encode(JSON.stringify(body));
     header += `Content-Length: ${data.length}\nContent-Type: application/json\n`;
   }
-  const head = Buffer.from(header + "\n", "utf8");
+  const head = enc.encode(header + "\n");
   const out = new Uint8Array(head.length + (data?.length ?? 0));
   out.set(head);
   if (data) out.set(data, head.length);
   return out;
 }
 
+/** Where the headers end: the first blank line (two newlines), or -1. */
+function headerEnd(buf: Uint8Array): number {
+  for (let i = 0; i + 1 < buf.length; i++) if (buf[i] === 10 && buf[i + 1] === 10) return i;
+  return -1;
+}
+
 /** Parses one message; throws on anything malformed (the caller drops the connection). */
 export function decode(input: ArrayBuffer | Uint8Array | string): MooMessage {
-  const buf =
-    typeof input === "string"
-      ? Buffer.from(input, "utf8")
-      : Buffer.from(input instanceof ArrayBuffer ? new Uint8Array(input) : input);
-  const end = buf.indexOf("\n\n");
+  const buf = typeof input === "string" ? enc.encode(input) : input instanceof ArrayBuffer ? new Uint8Array(input) : input;
+  const end = headerEnd(buf);
   if (end < 0) throw new Error("MOO: no end of headers");
-  const lines = buf.toString("utf8", 0, end).split("\n");
+  const lines = dec.decode(buf.subarray(0, end)).split("\n");
   const first = /^MOO\/\d+ (REQUEST|CONTINUE|COMPLETE) (.+)$/.exec(lines[0] ?? "");
   if (!first) throw new Error(`MOO: bad first line ${JSON.stringify(lines[0])}`);
   const verb = first[1] as Verb;
@@ -78,7 +84,7 @@ export function decode(input: ArrayBuffer | Uint8Array | string): MooMessage {
     if (!Number.isInteger(length) || length < 0 || end + 2 + length > buf.length) throw new Error("MOO: bad Content-Length");
     const raw = buf.subarray(end + 2, end + 2 + length);
     msg.contentType = contentType;
-    msg.body = contentType === "application/json" ? (length ? JSON.parse(raw.toString("utf8")) : undefined) : Buffer.from(raw);
+    msg.body = contentType === "application/json" ? (length ? JSON.parse(dec.decode(raw)) : undefined) : raw.slice();
   }
   return msg;
 }
