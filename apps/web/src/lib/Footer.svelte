@@ -9,6 +9,7 @@
     undoAvailable,
     onrestart,
     onundo,
+    fade = true,
   }: {
     show: boolean;
     message: ResultMessage | null;
@@ -16,6 +17,8 @@
     undoAvailable: boolean;
     onrestart: () => void;
     onundo: () => void;
+    /** Recede from 15 s (gone at 30 s, App's timer); off while HQPlayer struggles, when Undo matters most. */
+    fade?: boolean;
   } = $props();
 
   // Its height while shown, so the v2 mini bar (MiniBar.svelte) can sit above it.
@@ -25,7 +28,7 @@
   });
 </script>
 
-<footer class:show bind:clientHeight={height}>
+<footer class:show class:fade bind:clientHeight={height}>
   {#if message}<p class="msg {message.kind}">{message.text}</p>{/if}
   {#if message?.restart}<button class="undo" onclick={onrestart} disabled={busy}>Restart playback</button>{/if}
   {#if undoAvailable}<button class="undo" onclick={onundo} disabled={busy}>Undo last change</button>{/if}
@@ -56,6 +59,26 @@
     opacity: 1;
     transform: none;
     pointer-events: auto;
+  }
+  /* From 15 s it slowly recedes (owner's call): still there, still tappable; a touch or hover
+     brings it back. One step at 15 s when the device asks for less motion. */
+  footer.show.fade {
+    animation: recede 15s linear 15s forwards;
+  }
+  footer.show.fade:hover,
+  footer.show.fade:focus-within,
+  footer.show.fade:active {
+    animation: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    footer.show.fade {
+      animation-duration: 1ms;
+    }
+  }
+  @keyframes recede {
+    to {
+      opacity: 0.4;
+    }
   }
   .msg {
     margin: 0;

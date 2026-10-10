@@ -22,6 +22,7 @@
   import { prefs, savePrefs } from "./prefs.svelte.ts";
   import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs, nudgeForDelay } from "./meter-delay.ts";
   import MeterCalibrate from "./MeterCalibrate.svelte";
+  import More from "./More.svelte";
   import { OnsetDetector } from "./meter-onset.ts";
 
   let {
@@ -232,7 +233,11 @@
       {:else}
         <!-- The dB scale sits in a gutter beside the plot, so it never covers the top bands. -->
         <div class="plot">
-          <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
+          <div class="canvas">
+            <canvas bind:this={big} class="big" aria-hidden="true"></canvas>
+            <!-- Frames arrive before they're due (they wait to line up with what's heard): say so, not an empty box. -->
+            {#if !shown?.live}<span class="waiting">Lining up with what you hear…</span>{/if}
+          </div>
           <div class="dbs" aria-hidden="true">
             {#if view === "stereo" || view === "width"}
               <!-- Frequency runs up the plot in Stereo and Width; the gutter labels it. -->
@@ -255,26 +260,35 @@
           </div>
         </div>
         <p class="sr">{peaks || "No levels yet"}</p>
-        <p class="scale" id="meter-about" hidden={!about}>
-          {VIEW_NOTES[view]} The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak;
-          the numbers beside it are each side's peak in dB. All of it is the music before upsampling, after HQPlayer's volume.
-        </p>
-        <p class="scale timing" hidden={!about}>
-          Timing: the meter waits {(delay / 1000).toFixed(2)} s to line up with what you hear{bufferNote}. Your DAC and network
-          add their own, so set it by ear: the dot flashes on each hit the meter sees; move it until the flashes land on the drum
-          hits you hear.
-          <span class="nudge">
-            <span class="beat" class:hit aria-hidden="true"></span>
-            <button aria-label="Meter earlier" disabled={delay === 0} onclick={() => setNudge(nudge - NUDGE_STEP_MS)}
-              >Earlier</button
-            >
-            <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
-            {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
-              <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(2)} s</span>{/if}
-          </span>
+        <div class="scale" id="meter-about" hidden={!about}>
+          <p>{VIEW_NOTES[view]}</p>
+          <More>
+            The strip above: left over right; solid is loudness (RMS), light is peak, the tick the highest recent peak; the
+            numbers beside it are each side's peak in dB. All of it is the music before upsampling, after HQPlayer's volume.
+          </More>
+        </div>
+        <div class="scale timing" hidden={!about}>
+          <div class="trow">
+            <strong>Timing</strong>
+            <span class="nudge">
+              <span class="beat" class:hit aria-hidden="true"></span>
+              <button aria-label="Meter earlier" disabled={delay === 0} onclick={() => setNudge(nudge - NUDGE_STEP_MS)}
+                >Earlier</button
+              >
+              <button aria-label="Meter later" onclick={() => setNudge(nudge + NUDGE_STEP_MS)}>Later</button>
+              {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
+                <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(2)} s</span>{/if}
+            </span>
+          </div>
+          <p>The meter waits {(delay / 1000).toFixed(2)} s to line up with what you hear{bufferNote}.</p>
+          {#if delay === 0}<p class="floor">It can't go earlier: it would have to show music before it plays.</p>{/if}
           <button class="byear" onclick={() => calibrator?.open()}>Line up by ear…</button>
-          {#if delay === 0}<span class="floor">It can't go earlier: it would have to show music before it plays.</span>{/if}
-        </p>
+          <More>
+            Your DAC and network add their own delay, so set it by ear: the dot flashes on each hit the meter sees; move it until
+            the flashes land on the drum hits you hear. Or let hqpweb measure it: Line up by ear plays six claps through HQPlayer
+            and you tap each one.
+          </More>
+        </div>
       {/if}
     {/if}
   {/if}
@@ -380,6 +394,15 @@
     color: var(--text);
     cursor: pointer;
   }
+  .trow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .scale p {
+    margin: 6px 0 0;
+  }
   .nudge {
     display: inline-flex;
     flex-wrap: wrap;
@@ -452,6 +475,18 @@
     max-height: 340px;
     border-radius: 10px;
     background: var(--bg);
+  }
+  .canvas {
+    position: relative;
+  }
+  .waiting {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.85rem;
+    color: var(--text-faint);
+    pointer-events: none;
   }
   .plot {
     display: grid;

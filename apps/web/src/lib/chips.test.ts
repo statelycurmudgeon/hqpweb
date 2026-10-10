@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { KeptUp } from "./api.ts";
-import { chooseInGroup, facets, filterChips, grouped, keptLowFor, lengthOf, slowMsFor, narrow, phaseOf, shown } from "./chips.ts";
+import {
+  chooseInGroup,
+  facets,
+  filterChips,
+  grouped,
+  countLine,
+  keptLowFor,
+  lengthOf,
+  sharedFacts,
+  withoutShared,
+  slowMsFor,
+  narrow,
+  phaseOf,
+  shown,
+} from "./chips.ts";
 
 describe("what a filter's name says", () => {
   it("reads the phase from the suffix", () => {
@@ -161,5 +175,28 @@ describe("slow to switch here", () => {
     const chips = filterChips({ index: 0, name: "sinc-L" }, { inUse: false, slowMs: 9400 });
     expect(chips).toContainEqual({ kind: "trouble", label: "⏳ slow to switch here (9 s)", key: "slow" });
     expect(facets([chips, filterChips({ index: 1, name: "x" }, { inUse: false })]).map((f) => f.key)).not.toContain("slow");
+  });
+});
+
+describe("facts every row shares", () => {
+  const fact = (key: string, label = key) => ({ kind: "fact" as const, label, key });
+  const inuse = { kind: "inuse" as const, label: "in use", key: "inuse" };
+  it("are named once beside the count and left off the rows; status chips stay", () => {
+    const a = [
+      inuse,
+      fact("apod:apodizing", "apodizing"),
+      fact("ratio:int", "whole-number ratio"),
+      fact("phase:lp", "linear phase"),
+    ];
+    const b = [fact("apod:apodizing", "apodizing"), fact("ratio:int", "whole-number ratio")];
+    const shared = sharedFacts([a, b]);
+    expect(shared.map((c) => c.key)).toEqual(["apod:apodizing", "ratio:int"]);
+    expect(withoutShared(a, shared).map((c) => c.key)).toEqual(["inuse", "phase:lp"]);
+    expect(countLine(2, 77, shared)).toBe("2 of 77 · all apodizing, whole-number ratio");
+  });
+  it("says nothing shared for one row, or none in common", () => {
+    expect(sharedFacts([[fact("a")]])).toEqual([]);
+    expect(sharedFacts([[fact("a")], [fact("b")]])).toEqual([]);
+    expect(countLine(5, 9, [])).toBe("5 of 9");
   });
 });

@@ -154,8 +154,6 @@
     padding: 16px 12px 6px;
     font-size: 0.78rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
     color: var(--text);
     border-top: 1px solid var(--border);
   }

@@ -6,6 +6,8 @@ async function sheetTops(page: Page) {
   await page.addInitScript(() => localStorage.setItem("instance", "settingssheet"));
   await page.goto("/");
   await page.getByRole("button", { name: "Settings" }).click();
+  // Measure once the sheet has finished rising in (theme.css, 160 ms).
+  await page.waitForFunction(() => (document.querySelector("dialog[open]")?.getAnimations() ?? []).length === 0);
   const top = async () => (await page.locator("dialog[open] .sheet").boundingBox())!.y;
   const tops: number[] = [];
   for (const tab of ["HQPlayer", "Listening", "Appearance", "Roon", "HQPlayer"]) {

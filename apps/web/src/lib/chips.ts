@@ -84,6 +84,23 @@ export function shown(chips: Chip[]): { chips: Chip[]; more: number } {
   return { chips: first, more: chips.length - first.length };
 }
 
+/**
+ * Facts every visible row shares (two rows or more): they don't tell rows apart, so they're
+ * said once, beside the count, not on every row (owner's review, 2026-10-09). Status chips
+ * (in use, trouble, kept up) always stay on their row.
+ */
+export function sharedFacts(lists: Chip[][]): Chip[] {
+  if (lists.length < 2) return [];
+  return lists[0]!.filter((c) => c.kind === "fact" && lists.every((l) => l.some((x) => x.key === c.key)));
+}
+
+/** A row's chips without the shared facts. */
+export const withoutShared = (chips: Chip[], shared: Chip[]) => chips.filter((c) => !shared.some((x) => x.key === c.key));
+
+/** The count line, naming what every row shares: "35 of 77 · all apodizing, whole-number ratio". */
+export const countLine = (n: number, total: number, shared: Chip[]) =>
+  `${n} of ${total}${shared.length ? ` · all ${shared.map((c) => c.label).join(", ")}` : ""}`;
+
 /** Rows that have every chosen chip. */
 export function narrow<T extends { chips: Chip[] }>(rows: T[], keys: Set<string>): T[] {
   return rows.filter((r) => [...keys].every((k) => r.chips.some((c) => c.key === k)));

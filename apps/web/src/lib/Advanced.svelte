@@ -106,8 +106,6 @@
 <style>
   h2 {
     font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--text-dim);
     margin: 22px 4px 8px;
     font-weight: 600;
@@ -132,8 +130,6 @@
   }
   .advanced summary {
     font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--text-dim);
     font-weight: 600;
     padding: 0 4px;

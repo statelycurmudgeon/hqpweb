@@ -51,6 +51,13 @@ test("pick a filter, see it confirmed, undo it", async ({ page }) => {
   await succeeded(page);
   await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-long");
   await shot(page, "pick-2-applied");
+  // The bar recedes from 15 s (gone at 30 s): set up as an animation that waits 15 s, then takes 15 s.
+  const anim = await page.locator("footer").evaluate((el) => {
+    const c = getComputedStyle(el);
+    return [c.animationName, c.animationDelay, c.animationDuration];
+  });
+  expect(anim[0]).toMatch(/recede$/); // Svelte scopes the keyframes' name
+  expect(anim.slice(1)).toEqual(["15s", "15s"]);
 
   await page.getByRole("button", { name: "Undo last change" }).click();
   await expect(row(page, "1x filter")).toContainText("poly-sinc-gauss-xla");

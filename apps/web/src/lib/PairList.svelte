@@ -143,9 +143,10 @@
     cursor: not-allowed;
     opacity: 0.6;
   }
+  /* Outlined in the accent: the screen's one filled button is the guide's Done (owner's review, 2026-10-09). */
   .primary {
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--bg);
+    color: var(--accent-text);
     border-color: var(--accent);
     font-weight: 600;
   }

@@ -9,7 +9,7 @@
   import RuleList from "./RuleList.svelte";
   import type { KeptUp } from "./api.ts";
   import { narrowSections, type Section } from "./advice/catalogue.ts";
-  import { facets, grouped, narrow, shown } from "./chips.ts";
+  import { countLine, facets, grouped, narrow, sharedFacts, shown, withoutShared } from "./chips.ts";
   import { SHAPER_GROUPS, keptLowForShaper, shaperChips, type Badge } from "./shaper-chips.ts";
 
   type Item = { name: string; warn?: string; note?: string; gen?: number; disabled?: boolean };
@@ -62,12 +62,14 @@
   const shownSections = $derived(narrowSections(sections, query, hidden).map((s) => ({ ...s, open: s.open || keys.size > 0 })));
   const total = $derived(sections.reduce((n, s) => n + s.names.length, 0));
   const count = $derived(shownSections.reduce((n, s) => n + s.names.length, 0));
+  // Facts every visible modulator shares are said once, by the count, not on each row.
+  const shared = $derived(sharedFacts(shownSections.flatMap((s) => s.names).map((n) => byName.get(n)?.chips ?? [])));
   const isOpen = (s: Section) => s.open || opened.includes(s.key);
 </script>
 
 <div class="bar">
   <input class="search" type="search" placeholder="Search {total}…" aria-label="Search" autocomplete="off" bind:value={query} />
-  <ChipFacets {offered} {keys} count="{count} of {total}" />
+  <ChipFacets {offered} {keys} count={countLine(count, total, shared)} />
 </div>
 {#if !shownSections.length}<p class="none">Nothing matches.</p>{/if}
 
@@ -79,7 +81,8 @@
     </li>
     {#each isOpen(s) ? s.names : s.names.filter((n) => n === current) as name (name)}
       {@const r = byName.get(name)}
-      {@const sh = shown(r?.chips ?? [])}
+      {@const own = withoutShared(r?.chips ?? [], shared)}
+      {@const sh = shown(own)}
       {@const open = expanded === name}
       <li class="row" class:current={name === current}>
         <button
@@ -92,7 +95,7 @@
           {#if name === current}<span class="tick" aria-label="selected">✓</span>{/if}
         </button>
         <div class="chips">
-          {#each open ? (r?.chips ?? []) : sh.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
+          {#each open ? own : sh.chips as c (c.key)}<Chip kind={c.kind} label={c.label} />{/each}
           {#if sh.more || r?.item.warn || r?.item.note}
             <button class="more" aria-expanded={open} onclick={() => (expanded = open ? null : name)}
               >{open ? "less" : sh.more ? `+${sh.more} · why?` : "why?"}</button
@@ -142,8 +145,6 @@
     padding: 16px 12px 6px;
     font-size: 0.78rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
     border-top: 1px solid var(--border);
   }
   .group:first-child {
