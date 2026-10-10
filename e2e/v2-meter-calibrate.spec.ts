@@ -1,5 +1,5 @@
-// Lining the meter up by ear (MeterCalibrate.svelte): its own screen from the meter's timing
-// controls; the phone clicks and you tap (reaction time), then the claps through HQPlayer.
+// Lining the meter up by ear (MeterCalibrate.svelte): its own screen from Settings → Listening
+// (the meter links there); the phone clicks and you tap (reaction time), then the claps through HQPlayer.
 // Real audio and people's timing can't be checked here: these check the steps and wiring.
 import { expect, test, type Page } from "@playwright/test";
 import { openV2, shot } from "./v2-helpers.ts";
@@ -9,7 +9,8 @@ async function openCalibration(page: Page, id: string) {
   const meter = page.getByRole("region", { name: "Meter" });
   await meter.getByRole("button", { name: "Open the meter" }).click();
   await meter.getByRole("button", { name: "About this meter" }).click();
-  await meter.getByRole("button", { name: "Line up by ear…" }).click();
+  await meter.getByRole("button", { name: "Settings ›" }).click(); // the meter links to its timing in Settings
+  await page.getByRole("button", { name: "Line up by ear…" }).click();
   const sheet = page.getByRole("dialog", { name: "Line up the meter" });
   await expect(sheet).toContainText("Two short steps");
   return sheet;

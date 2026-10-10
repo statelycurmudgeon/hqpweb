@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   // Settings sheet: per-device preferences, learned failures for the selected
   // instance, and About.
   import { api, formatRate, type Failure, type Inst } from "./api.ts";
@@ -46,10 +47,16 @@
   let learned = $state<(Failure & { engine: string })[] | null>(null);
   let learnedError = $state("");
 
-  export function open() {
+  /** Open, optionally on a tab and scrolled to a section (the meter's "Settings ›" opens Meter timing). */
+  export async function open(opts: { tab?: typeof tab; section?: string } = {}) {
+    if (opts.tab) tab = opts.tab;
     dialog.showModal();
     loadLearned();
     roon.refresh();
+    if (opts.section) {
+      await tick();
+      dialog.querySelector(`#${opts.section}`)?.scrollIntoView({ block: "start" });
+    }
   }
 
   async function loadLearned() {
@@ -175,7 +182,7 @@
         <RestartCapSettings {instance} {onchange} />
 
         {#if instance}
-          <h4>Meter timing</h4>
+          <h4 id="meter-timing">Meter timing</h4>
           <p class="help">
             Line the meter up with what you hear.{nudge
               ? ` Set by ear: ${nudge > 0 ? "+" : "−"}${Math.abs(nudge / 1000).toFixed(2)} s.`
