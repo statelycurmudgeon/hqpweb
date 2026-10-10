@@ -23,7 +23,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run build -w apps/web && node e2e/stack.ts",
+    command: "npm run build -w apps/web && npm run build -w apps/mobile && node e2e/stack.ts",
     cwd: "..",
     url: `http://127.0.0.1:${APP_PORT}/api/health`,
     // Never reuse a running stack: flows assume fresh fakes and server state.
