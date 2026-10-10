@@ -133,7 +133,9 @@ control protocol, and to Roon (if you want) through Roon's extension API.
   parser. It holds the connection to each HQPlayer, checks every change, keeps your
   settings in one folder, and serves the app.
 - **A Svelte web app** (Svelte 5, built with Vite): no account, no cloud, no
-  trackers; nothing leaves your network unless you follow a source link.
+  trackers; nothing leaves your network unless you follow a source link, or line up the
+  meter by ear (HQPlayer then fetches hqpweb's clap track from GitHub, or from hqpweb
+  itself if it can't reach GitHub).
 - **One Docker image** for amd64 and arm64.
 - **Tests:** unit tests (Vitest) and browser tests (Playwright) against fake HQPlayers
   built from read-only captures of real ones, plus a release check against a real

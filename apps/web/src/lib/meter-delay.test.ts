@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DelayLine, OWN_LAG_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
+import { DelayLine, OWN_LAG_MS, clampNudge, meterDelayMs, nudgeForDelay } from "./meter-delay.ts";
 
 describe("holding the meter back to match what's heard", () => {
   it("waits HQPlayer's output delay less hqpweb's own lag, plus the nudge", () => {
@@ -37,5 +37,13 @@ describe("the delay line", () => {
     const d = new DelayLine<number>(3);
     for (let i = 0; i < 10; i++) d.push(i, i);
     expect(d.take(100, 0)).toBe(9);
+  });
+});
+
+describe("the nudge for a calibrated wait", () => {
+  it("is the difference from what HQPlayer's buffer gives, within range", () => {
+    expect(nudgeForDelay(1300, 1046)).toBe(754); // auto waits 546 ms
+    expect(nudgeForDelay(200, 1046)).toBe(-346);
+    expect(nudgeForDelay(9000, 1046)).toBe(3000);
   });
 });

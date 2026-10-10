@@ -84,6 +84,7 @@ export class FakeHqp {
       log: opts.log,
       modeSwitchWhilePlayingCrashes: opts.modeSwitchWhilePlayingCrashes ?? true,
       busyAfterFilter: opts.busyAfterFilter ?? (() => 0),
+      fetchable: opts.fetchable ?? (() => true),
     };
     const i = profile.initial;
     this.modeIndex = Number(i.mode);
@@ -486,7 +487,9 @@ export class FakeHqp {
     // the active transport, without it Play stays on the previous source (Roon).
     PlaylistAdd: (req) => {
       if (req.attrs.clear === "1") this.playlist = [];
-      this.playlist.push(req.attrs.uri ?? "");
+      const uri = req.attrs.uri ?? "";
+      if (/^https?:/.test(uri) && !this.opts.fetchable(uri)) return this.ok("PlaylistAdd"); // OK, and nothing kept (measured)
+      this.playlist.push(uri);
       if (req.attrs.start === "1") this.feeder = "playlist";
       return this.ok("PlaylistAdd");
     },

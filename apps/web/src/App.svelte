@@ -338,6 +338,7 @@
     instance={instances.find((i) => i.id === selected) ?? null}
     {instances}
     onchange={refreshInstances}
+    outputDelayMs={snap?.status.outputDelayMs ?? null}
     onforgot={() => selected && api.capabilities(selected).then((c) => (caps = c))}
   />
 

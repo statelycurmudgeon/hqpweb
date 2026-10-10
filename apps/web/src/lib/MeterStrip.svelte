@@ -19,7 +19,8 @@
   import { bars, dynamics, fit, levels, line, stereo, waterfall, width } from "./meter-draw.ts";
 
   import { prefs, savePrefs } from "./prefs.svelte.ts";
-  import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs } from "./meter-delay.ts";
+  import { DelayLine, NUDGE_STEP_MS, clampNudge, meterDelayMs, nudgeForDelay } from "./meter-delay.ts";
+  import MeterCalibrate from "./MeterCalibrate.svelte";
   import { OnsetDetector } from "./meter-onset.ts";
 
   let {
@@ -47,6 +48,7 @@
   let open = $state(prefs.meterOpen);
   /** The captions, shown on (i): the chart stays uncluttered (owner's call). */
   let about = $state(false);
+  let calibrator = $state<MeterCalibrate>();
   // While the timing controls show: a dot that flashes on each hit in the (delayed) meter.
   const onset = new OnsetDetector();
   let hit = $state(false);
@@ -254,12 +256,19 @@
             {#if nudge}<button onclick={() => setNudge(null)}>Auto</button>
               <span class="by">{nudge > 0 ? "+" : "−"}{Math.abs(nudge / 1000).toFixed(2)} s</span>{/if}
           </span>
+          <button class="byear" onclick={() => calibrator?.open()}>Line up by ear…</button>
           {#if delay === 0}<span class="floor">It can't go earlier: it would have to show music before it plays.</span>{/if}
         </p>
       {/if}
     {/if}
   {/if}
 </section>
+<MeterCalibrate
+  bind:this={calibrator}
+  {instanceId}
+  outputDelayMs={outputDelayMs ?? null}
+  onresult={(ms, buffer) => setNudge(nudgeForDelay(ms, buffer))}
+/>
 
 <style>
   .meter {
@@ -374,6 +383,18 @@
   }
   .beat.hit {
     background: var(--accent);
+  }
+  .byear {
+    display: block;
+    margin-top: 8px;
+    font: inherit;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--accent-text);
+    cursor: pointer;
   }
   .floor {
     display: block;

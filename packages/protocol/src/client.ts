@@ -211,6 +211,11 @@ export class HqpClient {
     this.sock = null;
   }
 
+  /** This end's address on the open connection to HQPlayer: an address HQPlayer can reach us at (unless NAT is between). */
+  get localAddress(): string | undefined {
+    return this.sock?.localAddress ?? undefined;
+  }
+
   /** Close the connection. The client reconnects on the next request. */
   close() {
     if (this.idleTimer) clearTimeout(this.idleTimer);

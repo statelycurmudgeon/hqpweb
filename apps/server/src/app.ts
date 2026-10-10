@@ -7,6 +7,8 @@ import { LearnedStore, type Combo } from "./learned.ts";
 import { HistoryStore } from "./history.ts";
 import { serveStatic } from "./static.ts";
 import { SECURITY_HEADERS } from "./headers.ts";
+import { GITHUB_CLAPS_URL, serveClapTrack } from "./calibration.ts";
+import { playClapTrack } from "./calibrate-play.ts";
 import { COMMIT, VERSION } from "./version.ts";
 import { Registry } from "./registry.ts";
 import { parseSetupChange } from "./setup.ts";
@@ -287,6 +289,16 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
         throw new HttpError(400, `action must be one of ${TRANSPORT_ACTIONS.join(", ")}`);
       return i.transport(body.action as TransportAction);
     },
+    // Play the clap track for the tap calibration, from the address this page was opened at.
+    "POST calibrate": async (q, _r, i) => {
+      await i.client.status(); // an open connection, for its local address
+      const self = i.client.localAddress?.replace(/^::ffff:/, "");
+      const at = self && `http://${self.includes(":") ? `[${self}]` : self}:${q.socket.localPort}/api/calibration.wav`;
+      // Behind an HTTPS proxy (Caddy and the like say so), the page's own scheme: no redirect to follow.
+      const scheme = q.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+      const page = `${scheme}://${q.headers.host}/api/calibration.wav`;
+      return playClapTrack(i.client, [GITHUB_CLAPS_URL, page, ...(at ? [at] : [])]);
+    },
     "POST seek": async (q, _r, i) => {
       const body = (await readJson(q)) as { seconds?: unknown };
       if (
@@ -379,6 +391,9 @@ export function buildApp(config: AppConfig, opts: AppOptions = {}) {
     }
 
     const path = new URL(req.url ?? "/", "http://x").pathname;
+    // The clap track for the meter's tap calibration, fetched by HQPlayer (calibration.ts).
+    if ((req.method === "GET" || req.method === "HEAD") && path === "/api/calibration.wav")
+      return serveClapTrack(req, res, SECURITY_HEADERS);
     if (req.method === "GET" && path === "/api/health")
       return send(res, 200, { ok: true, version: VERSION, ...(COMMIT ? { commit: COMMIT } : {}) });
     if (path === "/api/instances") {

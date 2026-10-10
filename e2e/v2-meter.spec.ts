@@ -45,7 +45,11 @@ test("v2: the strip shows levels; it opens to a square of spectrum views", async
   await expect(timing).toContainText("waits 0.80 s");
   await expect(timing).toContainText("+0.25 s");
   // The dot flashes on each hit the meter sees (the fake has one about every second).
-  await expect(timing.locator(".beat.hit")).toHaveCount(1, { timeout: 5000 });
+  // A flash lasts 120 ms: check every animation frame, or it can slip between checks.
+  await page.waitForFunction(() => document.querySelector(".timing .beat.hit") !== null, null, {
+    polling: "raf",
+    timeout: 5000,
+  });
   // Earlier stops where the meter would have to show music before it plays.
   const earlier = timing.getByRole("button", { name: "Meter earlier" });
   for (let i = 0; i < 4 && (await earlier.isEnabled()); i++) await earlier.click();

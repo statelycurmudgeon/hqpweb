@@ -23,10 +23,12 @@ describe("pacing burst frames", () => {
     expect(changes).toBeGreaterThan(shown.length * 0.8);
   });
 
-  it("keeps the delay bounded: never more than ~30 frames behind", () => {
+  it("keeps the delay bounded in time: a flood shows its newest frame within the hold, every frame passed", () => {
     const p = new MeterPacer<number>();
     for (let i = 0; i < 200; i++) p.push(i, 0);
-    expect(p.take(0)! >= 200 - 31).toBe(true);
+    expect(p.take(100)).toBeNull(); // still held
+    expect(p.take(350)).toBe(199);
+    expect(p.passed()).toHaveLength(200);
   });
 
   it("says when frames stopped coming (track change, stop): nothing new after 3 s", () => {
@@ -50,5 +52,31 @@ describe("frames passed at each tick", () => {
     // Every frame up to the last one shown, in order, once (none trimmed at this rate).
     expect(seen).toEqual(Array.from({ length: seen.length }, (_, i) => i));
     expect(seen.length).toBeGreaterThan(100);
+  });
+});
+
+describe("the same lag in PCM and DSD", () => {
+  /**
+   * Bursts every 250 ms of `perBurst` frames (PCM ~43 a second: 11; DSD ~180: 45), ticking every
+   * 50 ms. Each frame's music time is its place in the stream; returns how long after that it's
+   * first shown, on average once settled.
+   */
+  function lag(perBurst: number) {
+    const p = new MeterPacer<number>();
+    const frameMs = 250 / perBurst;
+    const lags: number[] = [];
+    let next = 0;
+    let last = -1;
+    for (let t = 0; t < 6000; t += 50) {
+      if (t % 250 === 0) for (let i = 0; i < perBurst; i++) p.push(next++, t);
+      const shown = p.take(t);
+      if (shown !== null && shown !== last && t > 2000) lags.push(t - (shown + 1) * frameMs);
+      if (shown !== null) last = shown;
+    }
+    return lags.reduce((a, b) => a + b, 0) / lags.length;
+  }
+
+  it("holds frames for the same time whatever the frame rate (a calibration made in DSD holds in PCM)", () => {
+    expect(Math.abs(lag(11) - lag(45))).toBeLessThan(40);
   });
 });
