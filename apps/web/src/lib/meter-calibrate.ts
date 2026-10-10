@@ -70,22 +70,28 @@ export function calibrate(onsets: number[], taps: number[], o: CalibrateOptions)
   return { ok: true, delayMs, matched: offsets.length, spreadMs };
 }
 
+/** Gaps before each of the phone's six clicks, seconds: uneven, so they can't be anticipated. */
+export const CLICK_GAPS_S = [0, 1.7, 1.3, 2.1, 1.5, 1.9];
+
 /**
  * Reaction time from the phone's own clicks: for each click, the first tap 100-900 ms after
- * it (sooner is a guess, later a miss). The median of at least three; null otherwise.
+ * it (sooner is a guess, later a miss). The median of at least four; null otherwise.
  */
 export function reactionMs(clicks: number[], taps: number[]): number | null {
   const rts = clicks
     .map((c) => taps.find((t) => t - c >= 100 && t - c <= 900))
     .map((t, i) => (t === undefined ? null : t - clicks[i]!))
     .filter((x): x is number => x !== null);
-  return rts.length >= 3 ? Math.round(median(rts)) : null;
+  return rts.length >= 4 ? Math.round(median(rts)) : null;
 }
 
 /**
+ * The floor under HQPlayer's buffer (belowPriorMs) is off: it guards against music repeating
+ * every bar, and irregular claps don't repeat. Live, 2026-10-09 (Embedded 6.2.5, 1.5 s buffer):
+ * with the floor on, a real calibration came back "didn't line up".
  * For the clap track's six claps: 100 ms of slack for reaction-time wobble, five matched and
  * 80% of taps. Simulated (500 runs each): no random tapping accepted; ~91% of realistic
  * tappers (reaction wobble SD 45 ms, tap SD 30 ms, an 8% miss rate) within 150 ms. Not
  * measured with people yet.
  */
-export const CLAP_OPTIONS = { tolMs: 100, minTaps: 5, minShare: 0.8 } as const;
+export const CLAP_OPTIONS = { tolMs: 100, minTaps: 5, minShare: 0.8, belowPriorMs: Infinity } as const;

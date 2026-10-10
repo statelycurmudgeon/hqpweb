@@ -3,7 +3,7 @@
   // tap (your reaction time); then hqpweb plays six claps through HQPlayer and you tap each.
   // The answer is how long after a clap reaches the meter you heard it (meter-calibrate.ts).
   import { api } from "./api.ts";
-  import { CLAP_OPTIONS, calibrate, reactionMs } from "./meter-calibrate.ts";
+  import { CLAP_OPTIONS, CLICK_GAPS_S, calibrate, reactionMs } from "./meter-calibrate.ts";
   import { meterDelayMs } from "./meter-delay.ts";
   import { OnsetDetector } from "./meter-onset.ts";
 
@@ -11,7 +11,13 @@
     instanceId,
     outputDelayMs,
     onresult,
-  }: { instanceId: string; outputDelayMs: number | null; onresult: (delayMs: number) => void } = $props();
+  }: {
+    instanceId: string;
+    /** HQPlayer's output buffer as last seen; the claps' own reading replaces it (stopped, it reports none). */
+    outputDelayMs: number | null;
+    /** The wait found, and HQPlayer's buffer while the claps played: the nudge is set against that. */
+    onresult: (delayMs: number, outputDelayMs: number | null) => void;
+  } = $props();
 
   let dialog: HTMLDialogElement;
   type Step = "intro" | "reaction" | "claps" | "done" | "failed";
@@ -45,7 +51,7 @@
     tapCount = taps.length;
   };
 
-  /** Step 1: four clicks from this phone at uneven gaps; the median tap after each is your reaction time. */
+  /** Step 1: six clicks from this phone (as many as the claps) at uneven gaps; the median tap after each is your reaction time. */
   function startReaction() {
     cleanup();
     step = "reaction";
@@ -55,7 +61,7 @@
     const c = ctx;
     const clicks: number[] = [];
     let at = c.currentTime + 1;
-    for (const gap of [0, 1.7, 1.3, 2.1]) {
+    for (const gap of CLICK_GAPS_S) {
       at += gap;
       const osc = c.createOscillator();
       const gain = c.createGain();
@@ -99,7 +105,8 @@
     } catch (e) {
       return fail((e as Error).message);
     }
-    const prior = meterDelayMs(outputDelayMs, 0);
+    const buffer = track.outputDelayMs ?? outputDelayMs;
+    const prior = meterDelayMs(buffer, 0);
     timer = setTimeout(
       () => {
         stopMeter?.();
@@ -108,10 +115,10 @@
           taps.map((t) => t - rt!),
           { priorMs: prior, ...CLAP_OPTIONS },
         );
-        if (!r.ok) return fail(r.reason);
+        if (!r.ok) return fail(`${r.reason} (The meter caught ${onsets.length} claps; you tapped ${taps.length} times.)`);
         result = r;
         step = "done";
-        onresult(r.delayMs);
+        onresult(r.delayMs, buffer);
       },
       track.trackMs + prior + 3000,
     );
@@ -133,7 +140,7 @@
   {#if step === "intro"}
     <p>Two short steps, about 40 seconds:</p>
     <ol>
-      <li>This phone clicks four times: tap as soon as you hear each click.</li>
+      <li>This phone clicks six times: tap as soon as you hear each click.</li>
       <li>hqpweb plays six claps through HQPlayer: tap as soon as you hear each one from your speakers.</li>
     </ol>
     <p class="note">

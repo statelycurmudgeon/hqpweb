@@ -9,9 +9,9 @@ describe("calibrating with the clap track", () => {
   const wobble = (sd: number) => (rand() + rand() + rand() + rand() + rand() + rand() - 3) * sd * Math.SQRT2;
 
   it("measures reaction time from the phone's clicks, ignoring guesses and misses", () => {
-    const clicks = [1000, 3000, 5000, 7000];
-    expect(reactionMs(clicks, [1210, 3190, 5230, 7205])).toBe(208);
-    expect(reactionMs(clicks, [1050, 3190, 5230, 8500])).toBeNull(); // a guess and a miss leave two
+    const clicks = [1000, 3000, 5000, 7000, 9000, 11_000];
+    expect(reactionMs(clicks, [1210, 3190, 5230, 7205, 9220, 11_195])).toBe(208);
+    expect(reactionMs(clicks, [1050, 3190, 5230, 8500, 9500, 11_950])).toBeNull(); // guesses and misses leave three
   });
 
   it("finds the delay from taps on the claps, less reaction time, within ~50 ms", () => {
@@ -53,5 +53,10 @@ describe("calibrating with the clap track", () => {
       ok: false,
       reason: expect.stringMatching(/didn't pick up the claps/),
     });
+  });
+
+  it("finds a delay shorter than HQPlayer's buffer suggests (what's heard can run ahead of it)", () => {
+    const taps = arrive.map((a) => a + 600);
+    expect(calibrate(arrive, taps, { priorMs: 1005, ...CLAP_OPTIONS })).toMatchObject({ ok: true, delayMs: 600 });
   });
 });

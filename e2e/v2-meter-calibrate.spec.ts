@@ -20,15 +20,15 @@ test("v2: tapping after each of the phone's clicks moves on to the claps through
   await shot(page, "v2-cal-1-intro");
   await sheet.getByRole("button", { name: "Start" }).click();
   await expect(sheet).toContainText("Step 1 of 2");
-  // The clicks come 1.0, 2.7, 4.0 and 6.1 s after Start: tap ~0.25 s after each.
+  // The clicks come 1.0, 2.7, 4.0, 6.1, 7.6 and 9.5 s after Start: tap ~0.25 s after each.
   const pad = sheet.getByRole("button", { name: /^Tap/ });
   let last = 0;
-  for (const at of [1250, 2950, 4250, 6350]) {
+  for (const at of [1250, 2950, 4250, 6350, 7850, 9750]) {
     await page.waitForTimeout(at - last);
     last = at;
     await pad.dispatchEvent("pointerdown");
   }
-  await expect(sheet).toContainText("4 tapped");
+  await expect(sheet).toContainText("6 tapped");
   await expect(sheet).toContainText("Step 2 of 2", { timeout: 5000 });
   await shot(page, "v2-cal-2-claps");
   await sheet.getByRole("button", { name: "Cancel" }).click();
@@ -38,6 +38,6 @@ test("v2: tapping after each of the phone's clicks moves on to the claps through
 test("v2: with no taps, it says it didn't catch the clicks and offers another go", async ({ page }) => {
   const sheet = await openCalibration(page, "v2calquiet");
   await sheet.getByRole("button", { name: "Start" }).click();
-  await expect(sheet).toContainText("didn't catch enough clicks", { timeout: 12_000 });
+  await expect(sheet).toContainText("didn't catch enough clicks", { timeout: 16_000 });
   await expect(sheet.getByRole("button", { name: "Try again" })).toBeVisible();
 });

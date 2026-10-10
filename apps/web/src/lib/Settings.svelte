@@ -7,6 +7,8 @@
   import RoonSettings from "./RoonSettings.svelte";
   import SetupSettings from "./SetupSettings.svelte";
   import RestartCapSettings from "./RestartCapSettings.svelte";
+  import MeterCalibrate from "./MeterCalibrate.svelte";
+  import { clampNudge, nudgeForDelay } from "./meter-delay.ts";
   import { AGE_STOPS } from "./fit/evidence.ts";
   import { ageSentence, ageStop } from "./fit/sheet.ts";
 
@@ -15,14 +17,28 @@
     instances,
     onforgot,
     onchange,
+    outputDelayMs = null,
   }: {
     instance: Inst | null;
     instances: Inst[];
+    /** HQPlayer's output buffer as last seen (the meter's timing starts from it). */
+    outputDelayMs?: number | null;
     onforgot: () => void;
     onchange: () => Promise<void>;
   } = $props();
 
   let dialog: HTMLDialogElement;
+  let calibrator = $state<MeterCalibrate>();
+  const nudge = $derived(instance ? (prefs.meterNudge[instance.id] ?? 0) : 0);
+  /** The meter's nudge for this HQPlayer, as MeterStrip keeps it (per device). */
+  function setNudge(ms: number | null) {
+    if (!instance) return;
+    const next = { ...prefs.meterNudge };
+    if (ms === null) delete next[instance.id];
+    else next[instance.id] = clampNudge(ms);
+    prefs.meterNudge = next;
+    savePrefs();
+  }
   let roon: RoonSettings;
   // Four tabs (owner's call, 2026-10-09): the HQPlayer and its DAC, listening, appearance, Roon.
   let tab = $state<"hqplayer" | "listening" | "appearance" | "roon">("hqplayer");
@@ -161,6 +177,17 @@
         </div>
 
         <RestartCapSettings {instance} {onchange} />
+
+        {#if instance}
+          <h4>Meter timing</h4>
+          <p class="help">
+            The meter waits to line up with what you hear. {nudge
+              ? `Set by ear: ${nudge > 0 ? "+" : "−"}${Math.abs(nudge / 1000).toFixed(2)} s on HQPlayer's buffer.`
+              : "Now from HQPlayer's buffer alone."} hqpweb plays six claps through HQPlayer and you tap each one.
+          </p>
+          <button class="small" onclick={() => calibrator?.open()}>Line up by ear…</button>
+          {#if nudge}<button class="small" onclick={() => setNudge(null)}>Reset</button>{/if}
+        {/if}
       </div>
       <div class="body" hidden={tab !== "appearance"}>
         <h4>Theme</h4>
@@ -232,6 +259,14 @@
     </div>
   </div>
 </dialog>
+{#if instance}
+  <MeterCalibrate
+    bind:this={calibrator}
+    instanceId={instance.id}
+    {outputDelayMs}
+    onresult={(ms, buffer) => setNudge(nudgeForDelay(ms, buffer))}
+  />
+{/if}
 
 <style>
   dialog {
@@ -313,6 +348,17 @@
   .age input {
     width: 100%;
     accent-color: var(--accent);
+  }
+  .small {
+    font: inherit;
+    min-height: 40px;
+    padding: 0 14px;
+    margin: 4px 8px 0 0;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--accent-text);
+    cursor: pointer;
   }
   .tabs {
     display: flex;

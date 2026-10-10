@@ -301,7 +301,10 @@ export const api = {
   undo: (id: string) => call<ApplyResult>(`/api/instances/${id}/undo`, { method: "POST" }),
   /** Stop what's playing and play the clap track through HQPlayer (server calibrate-play.ts). */
   calibrate: (id: string) =>
-    call<{ playingAt: number; clapsMs: number[]; trackMs: number }>(`/api/instances/${id}/calibrate`, { method: "POST" }),
+    call<{ playingAt: number; clapsMs: number[]; trackMs: number; outputDelayMs: number | null }>(
+      `/api/instances/${id}/calibrate`,
+      { method: "POST" },
+    ),
   dismissVolumeJump: (id: string) => call<{ ok: boolean }>(`/api/instances/${id}/dismissjump`, { method: "POST" }),
   presets: (id: string) => call<PresetView[]>(`/api/instances/${id}/presets`),
   savePreset: (

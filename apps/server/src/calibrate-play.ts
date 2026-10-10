@@ -13,6 +13,8 @@ export interface ClapPlay {
   /** When each clap starts in the track, and its length. The web app matches hits to these gaps. */
   clapsMs: number[];
   trackMs: number;
+  /** HQPlayer's output buffer while it plays the track (ms): stopped, it reports none. */
+  outputDelayMs: number | null;
 }
 
 /**
@@ -33,7 +35,8 @@ export async function playClapTrack(client: HqpClient, urls: string[], timeoutMs
   const t0 = Date.now();
   for (;;) {
     const s = await client.status();
-    if (s.state === 2 && s.source?.song !== "Roon") return { playingAt: Date.now(), clapsMs: CLAPS_MS, trackMs: TRACK_MS };
+    if (s.state === 2 && s.source?.song !== "Roon")
+      return { playingAt: Date.now(), clapsMs: CLAPS_MS, trackMs: TRACK_MS, outputDelayMs: s.outputDelayMs };
     if (Date.now() - t0 > timeoutMs) throw new HttpError(502, `HQPlayer took the clap track from ${url} but didn't play it.`);
     await new Promise((r) => setTimeout(r, 250));
   }

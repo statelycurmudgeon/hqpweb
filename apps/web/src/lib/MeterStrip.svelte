@@ -267,7 +267,7 @@
   bind:this={calibrator}
   {instanceId}
   outputDelayMs={outputDelayMs ?? null}
-  onresult={(ms) => setNudge(nudgeForDelay(ms, outputDelayMs))}
+  onresult={(ms, buffer) => setNudge(nudgeForDelay(ms, buffer))}
 />
 
 <style>
