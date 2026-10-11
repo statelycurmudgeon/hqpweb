@@ -19,24 +19,28 @@ import {
   localRoonApi,
   parseChange,
   roonTransportFor,
+  sweepForCores,
   type DocStore,
   type ServiceOptions,
 } from "@app/core";
-import type { Connect } from "@app/protocol";
+import { sweepDiscover, sweepHosts, type Connect } from "@app/protocol";
 import { APP_CAN } from "./can.ts";
+import type { Lan } from "./udp.ts";
 
 const unavailable = () => Promise.reject(new Error("not available in this app yet"));
 
 export interface AppParts {
   /** How HQPlayer is reached. */
   connect: Connect;
+  /** How HQPlayer and Roon are found: asking each address on a subnet (udp.ts). */
+  lan: Lan;
   /** Where what's kept lives. */
   docs: DocStore;
   /** Tests: shorter timings, as the server's tests use. */
   tuning?: Pick<ServiceOptions, "timing" | "playWaitMs" | "queueEveryMs" | "pollMs">;
 }
 
-export async function startApp(target: HTMLElement, { connect, docs, tuning }: AppParts) {
+export async function startApp(target: HTMLElement, { connect, lan, docs, tuning }: AppParts) {
   applyTheme();
   /** What start-up is doing, on screen until the page mounts; and why, if it can't. */
   const say = (text: string) => (target.textContent = text);
@@ -50,8 +54,17 @@ export async function startApp(target: HTMLElement, { connect, docs, tuning }: A
       RoonLink.open(docs, { version: __APP_VERSION__ }),
     ]);
     say("Starting…");
-    const service = new Service(config, {
-      net: { connect, discover: async () => [] },
+    // Where to ask, at the time of asking: this phone's subnet, and those of the instances it
+    // knows (so one added by hand on another VLAN brings its neighbours). Only on Scan or Find.
+    const where = async () =>
+      sweepHosts(
+        await lan.own(),
+        (await service.instances()).map((i) => i.host),
+      );
+    const service: Service = new Service(config, {
+      net: { connect, discover: sweepDiscover(lan.ask, where) },
+      discovery: { timeoutMs: 1500 },
+      autoScan: false,
       docs,
       learned,
       history,
@@ -62,7 +75,7 @@ export async function startApp(target: HTMLElement, { connect, docs, tuning }: A
     const host: HostApi = {
       health: async () => ({ ok: true, version: __APP_VERSION__ }),
       calibrate: unavailable,
-      ...localRoonApi(roon, service),
+      ...localRoonApi(roon, service, { findCores: async () => sweepForCores(lan.ask, await where()) }),
     };
     useHost({ api: { ...localApi(service, { roon }), ...host }, can: APP_CAN });
     // Writes wait a moment to batch (docs.ts); the phone may stop the app any time after it's

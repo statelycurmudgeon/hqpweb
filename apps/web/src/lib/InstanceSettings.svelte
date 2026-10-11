@@ -104,10 +104,17 @@
     <li class="empty">No instances yet. Scan, or add one below.</li>
   {/each}
 </ul>
-<p class="help">
-  Discovery only sees HQPlayer on this server's own network segment; add instances on other VLANs or subnets by hand. “Not seen by
-  discovery” is normal for those.
-</p>
+{#if can.discover === "subnets"}
+  <p class="help">
+    Scan asks every address on this device's network, and on the networks of instances you've added, so adding one by hand on
+    another VLAN lets Scan find its neighbours. It only scans when you ask.
+  </p>
+{:else}
+  <p class="help">
+    Discovery only sees HQPlayer on this server's own network segment; add instances on other VLANs or subnets by hand. “Not seen
+    by discovery” is normal for those.
+  </p>
+{/if}
 {#if can.discover}<button class="small" onclick={scan} disabled={scanning}>{scanning ? "Scanning…" : "Scan now"}</button>{/if}
 
 <form class="add" onsubmit={addInstance}>

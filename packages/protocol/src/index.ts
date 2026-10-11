@@ -6,3 +6,4 @@ export * from "./transport.ts";
 export * from "./discover.ts";
 export * from "./compat.ts";
 export * from "./meter.ts";
+export * from "./sweep.ts";

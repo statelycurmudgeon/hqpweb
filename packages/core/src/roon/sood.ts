@@ -1,7 +1,9 @@
 // SOOD: how Roon Cores are found on the LAN: UDP to port 9003, multicast 239.255.90.90 plus
 // broadcast; cores answer the sender directly. Protocol as in Roon's Apache-2.0 node-roon-api
 // (sood.js); no code copied. The packets are here; sending them is the host's (the server's
-// is apps/server src/roon/sood.ts). Like HQPlayer discovery, it doesn't cross VLANs.
+// is apps/server src/roon/sood.ts). Like HQPlayer discovery, multicast doesn't cross VLANs;
+// asking an address directly does (sweepForCores).
+import type { UdpAsk } from "@app/protocol";
 
 export const SOOD_PORT = 9003;
 export const SOOD_MULTICAST = "239.255.90.90";
@@ -66,4 +68,20 @@ export function coreFromReply(buf: Uint8Array, host: string): FoundCore | null {
   if (p.props.display_version) core.version = p.props.display_version;
   if (p.props.unique_id) core.uniqueId = p.props.unique_id;
   return core;
+}
+
+/**
+ * Roon Cores found by asking each of `hosts` directly (unicast), as the phone app does
+ * (@app/protocol sweep.ts): a core answers a query sent to its own address too (measured
+ * 2026-10-11, across VLANs). Deduplicated like the multicast search.
+ */
+export async function sweepForCores(ask: UdpAsk, hosts: string[], waitMs = 1500): Promise<FoundCore[]> {
+  if (hosts.length === 0) return [];
+  const data = encodeQuery({ query_service_id: ROON_CORE_SERVICE, _tid: crypto.randomUUID() });
+  const found = new Map<string, FoundCore>();
+  for (const r of await ask({ hosts, port: SOOD_PORT, data, waitMs })) {
+    const core = coreFromReply(r.data, r.host);
+    if (core) found.set(core.uniqueId ?? `${core.host}:${core.port}`, core);
+  }
+  return [...found.values()];
 }

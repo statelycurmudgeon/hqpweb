@@ -120,8 +120,9 @@
     </ul>
   {:else if found && found.length === 0}
     <p class="help">
-      No core found. Finding needs Docker host networking and the core on the same network segment; enter its address instead (the
-      port is usually 9330).
+      {can.discover === "subnets"
+        ? "No core found on this device's network or your HQPlayers' networks; enter its address instead (the port is usually 9330)."
+        : "No core found. Finding needs Docker host networking and the core on the same network segment; enter its address instead (the port is usually 9330)."}
     </p>
   {/if}
 

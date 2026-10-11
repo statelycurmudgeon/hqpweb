@@ -6,12 +6,15 @@ import { FakeHqp, loadProfile } from "@app/fake-hqp";
 import {} from "@app/protocol";
 import { buildApp } from "../src/app.ts";
 import { client } from "./http.ts";
-import { discover } from "@app/protocol/node";
+import { discover, nodeConnect } from "@app/protocol/node";
+import { Service } from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
 
 const fakes: FakeHqp[] = [];
+const cleanup: (() => void)[] = [];
 let app: ReturnType<typeof buildApp> | undefined;
 afterEach(async () => {
+  for (const c of cleanup.splice(0)) c();
   await app?.close();
   app = undefined;
   await Promise.all(fakes.splice(0).map((f) => f.close()));
@@ -141,5 +144,32 @@ describe("registry", () => {
     const t = Date.now();
     expect((await req("GET", "/api/instances")).json()[0]).toMatchObject({ reachable: false });
     expect(Date.now() - t).toBeLessThan(3000);
+  });
+});
+
+describe("scanning only when asked (the phone app's sweep)", () => {
+  /** A discovery that counts how often it's asked. */
+  function counting() {
+    const asked = { n: 0 };
+    return { asked, discover: async () => (asked.n++, [{ address: "192.0.2.9", name: "Example", version: "v" }]) };
+  }
+  // A registry starts its first scan as it's made (synchronously), so no waiting is needed to see one.
+
+  it("by default scans at start", async () => {
+    const { asked, discover } = counting();
+    const service = new Service({ instances: [] }, { net: { connect: nodeConnect, discover }, discovery: {} });
+    cleanup.push(() => service.close());
+    expect(asked.n).toBe(1);
+  });
+
+  it("with autoScan off, not at start or on a timer, only on discover(); and what it found stays", async () => {
+    const { asked, discover } = counting();
+    const service = new Service({ instances: [] }, { net: { connect: nodeConnect, discover }, discovery: {}, autoScan: false });
+    cleanup.push(() => service.close());
+    expect(asked.n).toBe(0);
+    const found = await service.discover();
+    expect(asked.n).toBe(1);
+    expect(found.map((i) => [i.host, i.source])).toEqual([["192.0.2.9", "discovered"]]);
+    expect((await service.instances()).map((i) => i.host)).toEqual(["192.0.2.9"]);
   });
 });

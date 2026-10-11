@@ -12,7 +12,7 @@ import { FakeHqp, FakeMeter, FakeRoon, loadProfile } from "@app/fake-hqp";
 import type { Flows } from "./flows-kit.ts";
 import { buildApp } from "../apps/server/src/app.ts";
 import { RoonLink, type InstanceConfig } from "@app/core";
-import { startAppHost } from "./app-host.ts";
+import { startAppHost, type TestLan } from "./app-host.ts";
 import { TUNING } from "./tuning.ts";
 
 import { CONTROL_PORT, LANES } from "./lanes.ts";
@@ -47,6 +47,8 @@ interface Poke {
 async function startFakes(flows: Flows) {
   const fakes = new Map<string, FakeHqp>();
   const instances: InstanceConfig[] = [];
+  /** The test LAN (flows' foundAt): address → the fake's TCP port and discovery port. */
+  const lan: TestLan = new Map();
   for (const [id, flow] of Object.entries(flows)) {
     const fake = new FakeHqp(loadProfile(flow.profile), {
       timeScale: 0,
@@ -57,11 +59,16 @@ async function startFakes(flows: Flows) {
     flow.setup?.(fake);
     await fake.listen();
     fakes.set(id, fake);
+    if (flow.foundAt) {
+      if (!flow.foundAt.startsWith("192.0.2.")) throw new Error(`flow ${id}: foundAt must be on the test LAN, 192.0.2.x`);
+      lan.set(flow.foundAt, { tcp: fake.port, discovery: await fake.listenDiscovery(0) });
+      continue;
+    }
     // Port 1: nothing listens, so a flow without a meter can't reach another fake's port.
     const meterPort = flow.meter ? await new FakeMeter(fake).listen() : 1;
     instances.push({ id, name: flow.name, host: "127.0.0.1", port: fake.port, meterPort });
   }
-  return { fakes, instances };
+  return { fakes, instances, lan };
 }
 
 export async function startStack() {
@@ -69,7 +76,7 @@ export async function startStack() {
   type Running = { name: string; fakes: Map<string, FakeHqp>; roon: FakeRoon; roonPort: number; close: () => Promise<unknown> };
   const running: Running[] = [];
   for (const l of LANES) {
-    const { fakes, instances } = await startFakes(flows);
+    const { fakes, instances, lan } = await startFakes(flows);
     // A Roon Core per lane, off until a test switches Roon on and points the app at it.
     const roon = new FakeRoon();
     const roonPort = await roon.listen();
@@ -88,7 +95,7 @@ export async function startStack() {
         close: async () => (link.close(), await app.close(), await roon.close()),
       });
     } else {
-      const host = await startAppHost(l.port, instances);
+      const host = await startAppHost(l.port, instances, lan);
       running.push({ name: l.name, fakes, roon, roonPort, close: async () => (host.close(), await roon.close()) });
     }
   }

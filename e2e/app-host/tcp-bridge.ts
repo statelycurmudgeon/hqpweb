@@ -1,16 +1,28 @@
-// The native Tcp plugin's stand-in for the browser tests: the same calls and events
-// (apps/mobile tcp.ts TcpPlugin), as the native one: "closed" exactly once, however a
-// connection ends. e2e/app-host.ts opens the real TCP connections. All of a page's go over one
+// The native plugin's stand-in for the browser tests: the same calls and events (apps/mobile
+// tcp.ts TcpPlugin, udp.ts UdpPlugin), as the native one: "closed" exactly once, however a
+// connection ends. e2e/app-host.ts opens the real TCP connections and answers UDP asks on the
+// test LAN, where this "phone" is 192.0.2.10. All of a page's go over one
 // WebSocket: a browser caps WebSockets per host and opens them one at a time, which the phone's
 // native sockets don't. Text messages steer ({op, id, …}); binary ones carry bytes, after a
 // 4-byte connection id.
 import { fromBase64, toBase64, type TcpPlugin } from "../../apps/mobile/src/tcp.ts";
+import type { UdpPlugin } from "../../apps/mobile/src/udp.ts";
 
 type Data = { id: string; data: string };
 type Closed = { id: string; error?: string };
-type Reply = { op: "open"; id: number; localAddress: string } | { op: "closed"; id: number; error?: string };
+type Reply =
+  | { op: "open"; id: number; localAddress: string }
+  | { op: "closed"; id: number; error?: string }
+  | { op: "udp"; id: number; replies: { host: string; data: string }[] };
 
-export function bridgeTcp(url: string): TcpPlugin {
+/** This "phone's" interfaces: Wi-Fi on the test LAN, and cellular, which a sweep must leave alone. */
+const INTERFACES = [
+  { name: "en0", address: "192.0.2.10", netmask: "255.255.255.0" },
+  { name: "pdp_ip0", address: "198.51.100.7", netmask: "255.255.255.0" },
+];
+
+export function bridge(url: string): { tcp: TcpPlugin; udp: UdpPlugin } {
+  const asking = new Map<number, (r: { host: string; data: string }[]) => void>();
   const onData: ((e: Data) => void)[] = [];
   const onClosed: ((e: Closed) => void)[] = [];
   const opening = new Map<number, { resolve: (v: { id: string; localAddress: string }) => void; reject: (e: Error) => void }>();
@@ -32,6 +44,11 @@ export function bridgeTcp(url: string): TcpPlugin {
       return;
     }
     const r = JSON.parse(m.data) as Reply;
+    if (r.op === "udp") {
+      asking.get(r.id)?.(r.replies);
+      asking.delete(r.id);
+      return;
+    }
     const waiting = opening.get(r.id);
     opening.delete(r.id);
     if (r.op === "open") {
@@ -42,7 +59,7 @@ export function bridgeTcp(url: string): TcpPlugin {
   };
   const steer = (msg: object) => ws.send(JSON.stringify(msg));
 
-  return {
+  const tcp: TcpPlugin = {
     connect: async ({ host, port, timeoutMs }) => {
       await ready;
       const id = ++next;
@@ -65,4 +82,13 @@ export function bridgeTcp(url: string): TcpPlugin {
       else onClosed.push(fn as (e: Closed) => void);
     }) as TcpPlugin["addListener"],
   };
+  const udp: UdpPlugin = {
+    udpAsk: async (o) => {
+      await ready;
+      const id = ++next;
+      return { replies: await new Promise((resolve) => (asking.set(id, resolve), steer({ op: "udp", id, ...o }))) };
+    },
+    interfaces: async () => ({ interfaces: INTERFACES }),
+  };
+  return { tcp, udp };
 }

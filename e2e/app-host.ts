@@ -3,6 +3,7 @@
 // per page (the protocol is in e2e/app-host/tcp-bridge.ts). Only to the fakes given: loopback,
 // their ports.
 import { createServer, type Server } from "node:http";
+import { createSocket } from "node:dgram";
 import { connect as tcpConnect, type Socket } from "node:net";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
@@ -20,7 +21,10 @@ const TYPES: Record<string, string> = {
   ".webmanifest": "application/manifest+json",
 };
 
-export async function startAppHost(port: number, instances: InstanceConfig[]): Promise<Server> {
+/** The test LAN (192.0.2.x): what the app's Scan can find, mapped to fakes on loopback. */
+export type TestLan = Map<string, { tcp: number; discovery: number }>;
+
+export async function startAppHost(port: number, instances: InstanceConfig[], lan: TestLan = new Map()): Promise<Server> {
   const reachable = new Set(instances.flatMap((i) => [i.port, i.meterPort].filter((p): p is number => p !== undefined)));
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
@@ -58,11 +62,15 @@ export async function startAppHost(port: number, instances: InstanceConfig[]): P
         timeoutMs?: number;
       };
       if (m.op === "close") return void conns.get(m.id)?.destroy();
+      if (m.op === "udp") return void askLan(m as unknown as UdpAsk).then(send);
       if (m.op !== "open") return;
+      // HQPlayer's port at a test-LAN address is that fake's; anything else there, nobody.
+      const onLan = lan.get(m.host ?? "");
+      const to = onLan ? (m.port === 4321 ? onLan.tcp : 0) : m.port!;
       // Port 1 is where a flow without a meter points: nothing listens, as on a real network.
-      if (m.host !== "127.0.0.1" || !(reachable.has(m.port!) || m.port === 1))
+      if (!(onLan ? to : m.host === "127.0.0.1" && (reachable.has(to) || to === 1)))
         return send({ op: "closed", id: m.id, error: `not a test fake: ${m.host}:${m.port}` });
-      const tcp = tcpConnect({ host: m.host, port: m.port!, timeout: m.timeoutMs || 15_000 });
+      const tcp = tcpConnect({ host: "127.0.0.1", port: to, timeout: m.timeoutMs || 15_000 });
       conns.set(m.id, tcp);
       tcp.setNoDelay(true);
       let error = "";
@@ -89,6 +97,28 @@ export async function startAppHost(port: number, instances: InstanceConfig[]): P
     ws.on("close", drop);
     ws.on("error", drop);
   });
+
+  type UdpAsk = { id: number; hosts: string[]; port: number; data: string; waitMs: number };
+  /** The app's udpAsk on the test LAN: each test address's fake answers HQPlayer's discovery. */
+  function askLan(m: UdpAsk): Promise<object> {
+    return new Promise((done) => {
+      const sock = createSocket("udp4");
+      const replies: { host: string; data: string }[] = [];
+      const byPort = new Map([...lan].map(([address, p]) => [p.discovery, address]));
+      sock.on("message", (msg, from) => {
+        const host = byPort.get(from.port);
+        if (host) replies.push({ host, data: msg.toString("base64") });
+      });
+      sock.bind(0, "127.0.0.1", () => {
+        const data = Buffer.from(m.data, "base64");
+        for (const h of m.hosts) {
+          const p = lan.get(h);
+          if (p && m.port === 4321) sock.send(data, p.discovery, "127.0.0.1");
+        }
+        setTimeout(() => (sock.close(), done({ op: "udp", id: m.id, replies })), m.waitMs);
+      });
+    });
+  }
 
   await new Promise<void>((r) => server.listen(port, "127.0.0.1", r));
   return server;

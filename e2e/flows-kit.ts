@@ -33,6 +33,12 @@ export interface Flow {
   busyAfterModeSwitch?: FakeOptions["busyAfterModeSwitch"];
   /** A fake meter stream beside it (the fake's meter.ts); without one, nothing listens there. */
   meter?: boolean;
+  /**
+   * Not configured: only found by the app's Scan, at this address on the test LAN (192.0.2.x,
+   * app-host.ts maps it to the fake). Give the fake its own HQPlayer name in `setup`: one
+   * named like a configured instance is taken for that instance.
+   */
+  foundAt?: string;
 }
 
 export type Flows = Record<string, Flow>;

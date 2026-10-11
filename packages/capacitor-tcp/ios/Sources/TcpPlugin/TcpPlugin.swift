@@ -17,6 +17,9 @@ public class TcpPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "connect", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "close", returnType: CAPPluginReturnPromise),
+        // Udp.swift
+        CAPPluginMethod(name: "udpAsk", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "interfaces", returnType: CAPPluginReturnPromise),
     ]
 
     private let queue = DispatchQueue(label: "hqpweb.tcp")

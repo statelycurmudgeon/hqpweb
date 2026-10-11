@@ -6,6 +6,7 @@ import type { CoreApi, HostApi } from "@app/contract";
 import { parseSeek } from "./requests.ts";
 import { parseRoonAction, parseRoonSettings, parseRoonZone, watchRoonZone } from "./roon/roon-host.ts";
 import type { RoonLink } from "./roon/roon.ts";
+import type { FoundCore } from "./roon/sood.ts";
 import type { Service } from "./service.ts";
 import { wireError } from "./wire-error.ts";
 
@@ -111,15 +112,19 @@ type RoonApi = Pick<
 
 /**
  * Roon for a page in-process (the phone app): the same checks and answers as the server's
- * Roon routes. No finding the core (that's multicast; the page hides Find): its address is typed in.
+ * Roon routes. Finding a core is the host's (`findCores`, the app's sweep); without it, none.
  */
-export function localRoonApi(roon: RoonLink, service: Service): RoonApi {
+export function localRoonApi(
+  roon: RoonLink,
+  service: Service,
+  { findCores }: { findCores?: () => Promise<FoundCore[]> } = {},
+): RoonApi {
   // An unknown instance is refused first, as the server's routes do.
   const known = (id: string) => void service.instance(id);
   return {
     roon: () => run(async () => roon.view()),
     configureRoon: (body) => run(async () => roon.configure(parseRoonSettings(wire(body)))),
-    discoverRoon: () => run(async () => []),
+    discoverRoon: () => run(async () => (findCores ? findCores() : [])),
     setRoonZone: (id, zone) => run(async () => (known(id), roon.setZone(id, parseRoonZone({ zone })))),
     roonSeek: (id, seconds) => run(async () => (known(id), roon.seek(id, parseSeek({ seconds })))),
     roonTransport: (id, action) => run(async () => (known(id), roon.control(id, parseRoonAction({ action })))),

@@ -3,7 +3,18 @@ import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FakeHqp, FakeRoon, loadProfile } from "@app/fake-hqp";
-import { RoonLink, decode, decodePacket, encode, encodeQuery, type RoonView } from "@app/core";
+import {
+  ROON_CORE_SERVICE,
+  RoonLink,
+  Service,
+  decode,
+  decodePacket,
+  encode,
+  encodeQuery,
+  localRoonApi,
+  sweepForCores,
+  type RoonView,
+} from "@app/core";
 import { FileDocs } from "../src/file-docs.ts";
 import { buildApp } from "../src/app.ts";
 import { client } from "./http.ts";
@@ -71,6 +82,43 @@ describe("SOOD", () => {
     const p = decodePacket(encodeQuery({ query_service_id: "abc", _tid: "t1" }));
     expect(p).toEqual({ type: "Q", props: { query_service_id: "abc", _tid: "t1" } });
   });
+  it("finds cores by asking addresses directly: answers by where they came from, once each", async () => {
+    /** A core's reply: a query packet's layout with type R. */
+    const reply = (props: Record<string, string>) => {
+      const b = encodeQuery(props);
+      b[5] = "R".charCodeAt(0);
+      return b;
+    };
+    const core = reply({ service_id: ROON_CORE_SERVICE, http_port: "9330", name: "Example Core", unique_id: "u1" });
+    let asked: { hosts: string[]; port: number; data: Uint8Array } | null = null;
+    const found = await sweepForCores(
+      async (o) => {
+        asked = o;
+        return [
+          { host: "192.0.2.10", data: core },
+          { host: "192.0.2.10", data: core }, // answered twice
+          { host: "192.0.2.11", data: reply({ service_id: "something-else", http_port: "1" }) },
+        ];
+      },
+      ["192.0.2.10", "192.0.2.11"],
+    );
+    expect(found).toEqual([{ host: "192.0.2.10", port: 9330, name: "Example Core", uniqueId: "u1" }]);
+    expect(asked!.port).toBe(9003);
+    expect(decodePacket(asked!.data)).toMatchObject({ type: "Q", props: { query_service_id: ROON_CORE_SERVICE } });
+    expect(await sweepForCores(async () => [{ host: "x", data: core }], [])).toEqual([]);
+  });
+
+  it("the app's Find asks the host's finder; without one, it finds nothing", async () => {
+    const service = new Service(
+      { instances: [] },
+      { net: { connect: () => Promise.reject(new Error("no")), discover: async () => [] } },
+    );
+    cleanup.push(() => service.close());
+    const core = { host: "192.0.2.10", port: 9330 };
+    expect(await localRoonApi(link(), service, { findCores: async () => [core] }).discoverRoon()).toEqual([core]);
+    expect(await localRoonApi(link(), service).discoverRoon()).toEqual([]);
+  });
+
   it("ignores packets that aren't SOOD v2", () => {
     expect(decodePacket(Buffer.from("HELLO"))).toBeNull();
     expect(decodePacket(Buffer.from("SOOD\x01Q"))).toBeNull();

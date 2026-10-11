@@ -3,6 +3,7 @@
 // bridge as base64; each connection has an id, and its data and close come as events.
 import { registerPlugin } from "@capacitor/core";
 import type { Connect, ConnectionEvents } from "@app/protocol";
+import type { UdpPlugin } from "./udp.ts";
 
 export interface TcpPlugin {
   connect(o: { host: string; port: number; timeoutMs: number }): Promise<{ id: string; localAddress?: string }>;
@@ -60,4 +61,6 @@ export function tcpConnectVia(Tcp: TcpPlugin): Connect {
   };
 }
 
-export const tcpConnect: Connect = tcpConnectVia(registerPlugin<TcpPlugin>("Tcp"));
+/** The native plugin: TCP here, and UDP for finding things (udp.ts). */
+export const nativeSockets = registerPlugin<TcpPlugin & UdpPlugin>("Tcp");
+export const tcpConnect: Connect = tcpConnectVia(nativeSockets);

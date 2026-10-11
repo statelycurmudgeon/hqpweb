@@ -91,7 +91,7 @@ describe("the API over HTTP", () => {
 
 describe("the host", () => {
   it("is the server unless a host says otherwise: HTTP, and everything on offer", () => {
-    expect(can).toEqual({ restartCap: true, calibrate: true, roon: true, discover: true });
+    expect(can).toEqual({ restartCap: true, calibrate: true, roon: true, discover: "segment" });
     expect(can).toBe(SERVER_CAN);
   });
   it("a host's API and abilities reach every module that imported them (live bindings)", async () => {

@@ -99,7 +99,7 @@ export function httpApi(opts: HttpApiOptions = {}): Api {
 }
 
 /** Everything, as the self-hosted server offers it. */
-export const SERVER_CAN: HostCan = { restartCap: true, calibrate: true, roon: true, discover: true };
+export const SERVER_CAN: HostCan = { restartCap: true, calibrate: true, roon: true, discover: "segment" };
 
 /** The page's API, and what its host can do: its own server, unless a host says otherwise. */
 export let api: Api = httpApi();

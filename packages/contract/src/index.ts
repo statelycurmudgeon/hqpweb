@@ -329,8 +329,12 @@ export interface HostCan {
   calibrate: boolean;
   /** Roon, linked by the host. */
   roon: boolean;
-  /** Find HQPlayers on the network (multicast discovery). */
-  discover: boolean;
+  /**
+   * Find HQPlayer and Roon on the network, and how: "segment", by multicast, which stays on the
+   * host's own network segment (the server); "subnets", by asking each address on the device's
+   * subnet and those of instances already added, which crosses VLANs (the phone app); false, not at all.
+   */
+  discover: "segment" | "subnets" | false;
 }
 
 /** Where the page runs: the API it talks to, and what that host can do. */

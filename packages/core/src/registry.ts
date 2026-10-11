@@ -64,6 +64,8 @@ export interface RegistryOptions {
   /** false disables discovery. */
   discovery?: DiscoverOptions | false;
   scanEveryMs?: number;
+  /** false: scan only when asked (scan()), never at start or on a timer. The phone app's sweep. */
+  autoScan?: boolean;
   healthTtlMs?: number;
   healthTimeoutMs?: number;
   /** Control port assumed for discovered instances (replies don't carry one). Tests override it. */
@@ -82,7 +84,7 @@ const discoveredId = (address: string) => `d-${address.replace(/[^a-z0-9]+/gi, "
 
 export class Registry {
   private config: AppConfig;
-  private readonly opts: Required<Omit<RegistryOptions, "discovery" | "resolve">> &
+  private readonly opts: Required<Omit<RegistryOptions, "discovery" | "resolve" | "autoScan">> &
     Pick<RegistryOptions, "resolve"> & { discovery: DiscoverOptions | false };
   private live = new Map<string, Instance>();
   private seen = new Map<string, { d: Discovered; at: number }>();
@@ -104,7 +106,7 @@ export class Registry {
       ...opts,
       discovery: opts.discovery ?? {},
     };
-    if (this.opts.discovery !== false) {
+    if (this.opts.discovery !== false && opts.autoScan !== false) {
       void this.scan();
       this.timer = unref(setInterval(() => void this.scan(), this.opts.scanEveryMs));
     }

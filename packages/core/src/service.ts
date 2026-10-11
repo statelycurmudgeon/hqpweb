@@ -41,6 +41,8 @@ export interface ServiceOptions {
   history?: HistoryStore;
   /** Discovery settings; false disables it. */
   discovery?: DiscoverOptions | false;
+  /** false: discover only when asked (discover()), not at start or every minute. */
+  autoScan?: boolean;
   /** Control port assumed for discovered instances (default 4321). */
   discoveredPort?: number;
   /** Roon's transport for an instance's zone, when the host links one (change-engine.ts). */
@@ -76,6 +78,7 @@ export class Service {
       ...opts.net,
       docs: opts.docs ?? null,
       discovery: opts.discovery ?? false,
+      ...(opts.autoScan === false ? { autoScan: false } : {}),
       ...(opts.discoveredPort ? { discoveredPort: opts.discoveredPort } : {}),
       makeInstance: (cfg) =>
         new Instance(cfg, {
