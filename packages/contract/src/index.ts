@@ -93,8 +93,8 @@ export type Failure = {
   first?: string;
   /** Source sample rates it failed with; absent in older records. */
   sourceRates?: number[];
-  /** The matrix profile in use when it happened; absent: none. */
-  matrix?: string;
+  /** HQPlayer's DAC correction was running (Status `correction`); absent: not known, applies either way. */
+  correction?: boolean;
 };
 /** A combination that kept up here once settled (server: kept-up.ts), per source rate. */
 export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
@@ -115,8 +115,8 @@ export type SlowSwitch = {
   busyMs: number;
   at: string;
   count: number;
-  /** The matrix profile in use; absent: none. */
-  matrix?: string;
+  /** HQPlayer's DAC correction was running; absent: not known, applies either way. */
+  correction?: boolean;
 };
 /** One entry of an instance's change history (server: history.ts), newest first from the API. */
 export type HistoryEntry = {
@@ -148,8 +148,8 @@ export type Capabilities = {
   rates: { index: number; rate: number; allowed: boolean; note?: string }[];
   rateSettable: boolean;
   matrixProfiles: string[];
-  /** The matrix profile in use ("" none): knownBad, keptUp and slowSwitches are what was learned under it. */
-  matrixProfile: string;
+  /** HQPlayer's DAC correction is running: knownBad, keptUp and slowSwitches are what applies in that state. */
+  correction: boolean;
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
   keptUp: KeptUp[];
@@ -239,7 +239,7 @@ export type ApplyResult = {
 };
 
 /** Fields that make up a combination that can fail. */
-export type Combo = Pick<Failure, "mode" | "rateHz" | "filterNx" | "filter1x" | "shaper">;
+export type Combo = Pick<Failure, "mode" | "rateHz" | "filterNx" | "filter1x" | "shaper" | "correction">;
 
 // ---- the API itself ------------------------------------------------------------------
 

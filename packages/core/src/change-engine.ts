@@ -436,10 +436,10 @@ export class ChangeEngine {
 
   /** The filter in use now, at this rate and source: HQPlayer was busy `busyMs` switching to it. */
   private async recordSlow(busyMs: number, scope: string) {
-    const [caps, state, status] = await Promise.all([this.capabilities(), this.client.state(), this.client.status()]);
+    const [caps, status] = await Promise.all([this.capabilities(), this.client.status()]);
     if (!status.activeFilter || !status.source?.sampleRate) return;
     this.learned.recordSlow({
-      ...(state.matrixProfile ? { matrix: state.matrixProfile } : {}),
+      correction: status.correction,
       instance: scope,
       engine: caps.engine,
       mode: caps.mode.name,
@@ -460,7 +460,7 @@ export class ChangeEngine {
       filterNx: s.filterNx,
       filter1x: s.filter1x,
       shaper: s.shaper,
-      ...(state.matrixProfile ? { matrix: state.matrixProfile } : {}),
+      correction: status.correction,
     };
     // A stopped track has no source in Status (measured): use the queued one, as explain() does.
     const source =

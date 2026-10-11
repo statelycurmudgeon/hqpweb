@@ -16,4 +16,13 @@ export const flows: Flows = {
     speed: ({ filterName, rateHz }) => (filterName === "sinc-Lh" && rateHz >= 11_289_600 ? 0.5 : 1),
     options: { matrixProfiles: ["Correction On", "No Pipeline"], correctingProfiles: ["", "Correction On"] },
   },
+  // A profile name too long for the row beside its label (invented, 41 characters).
+  matrixlong: {
+    name: "Matrix long",
+    profile: "desktop5-mac-sdm",
+    setup: (f) => (f.matrixProfile = "Example DAC correction with a long name"),
+    options: { matrixProfiles: ["Example DAC correction with a long name", "Short"] },
+  },
+  // No matrix profiles set up: the row says so, and its sheet says where.
+  matrixnone: { name: "Matrix none", profile: "desktop5-mac-sdm" },
 };

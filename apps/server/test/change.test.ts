@@ -160,7 +160,7 @@ describe("rollback when playback fails", () => {
     expect(JSON.parse(readFileSync(learnedPath, "utf8")).failures).toEqual([]);
   });
 
-  it("learns a failure under the matrix profile in use, and shows it only under that profile", async () => {
+  it("learns a failure with DAC correction running or not, and shows it only in that state", async () => {
     const profiles = ["Correction On", "No Pipeline"];
     await setup({
       matrixProfiles: profiles,
@@ -170,17 +170,18 @@ describe("rollback when playback fails", () => {
     fake.matrixProfile = "Correction On";
     await change({ filter1x: "poly-sinc-gauss-long" });
     const under = await caps();
-    expect(under.matrixProfile).toBe("Correction On");
-    expect(under.knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", matrix: "Correction On" })]);
-    // Another profile, or none: what was learned under this one doesn't apply.
+    expect(under.correction).toBe(true);
+    expect(under.knownBad).toEqual([expect.objectContaining({ filter1x: "poly-sinc-gauss-long", correction: true })]);
+    // A profile without correction: what was learned with it doesn't apply.
     fake.matrixProfile = "No Pipeline";
     expect((await caps()).knownBad).toEqual([]);
+    // No profile, whose base setup corrects here: the same state, so it does.
     fake.matrixProfile = "";
-    expect((await caps()).knownBad).toEqual([]);
+    expect((await caps()).knownBad).toHaveLength(1);
     // And Status says whether correction runs, as HQPlayer reports it.
     const now = (await req("GET", "/api/instances/mac/now")).json();
     expect(now.status.correction).toBe(true);
-    // Forgetting happens under the profile in use: only its record goes.
+    // Forgetting acts on the state in use: its record goes.
     fake.matrixProfile = "Correction On";
     const [{ mode, rateHz, filter1x, filterNx, shaper }] = (await caps()).knownBad;
     const forget = (b: object) => req("POST", "/api/instances/mac/forget", { body: b });

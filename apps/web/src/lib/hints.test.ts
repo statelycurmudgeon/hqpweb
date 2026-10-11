@@ -30,7 +30,7 @@ const pcm = (knownBad: Failure[] = []): Capabilities => ({
   rates: RATES,
   rateSettable: true,
   matrixProfiles: [],
-  matrixProfile: "",
+  correction: false,
   volumeRange: { min: -60, max: 0, enabled: true },
   knownBad,
   keptUp: [],

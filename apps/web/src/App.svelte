@@ -163,13 +163,13 @@
     });
   });
 
-  // Lists depend on the mode, and what's been learned on the matrix profile: (re)load when
-  // either differs from what we hold.
+  // Lists depend on the mode, and what's been learned on whether DAC correction runs: (re)load
+  // when either differs from what we hold.
   $effect(() => {
     const id = selected;
     const mode = snap?.state.mode;
-    const matrix = snap?.state.matrixProfile;
-    if (!id || mode === undefined || (caps?.mode.index === mode && caps.matrixProfile === matrix)) return;
+    const correction = snap?.status.correction ?? false;
+    if (!id || mode === undefined || (caps?.mode.index === mode && caps.correction === correction)) return;
     api
       .capabilities(id)
       .then((c) => (caps = c))
@@ -433,7 +433,7 @@
           At a fixed {formatRate(outRate, caps.mode.name)}: {otherSourceNotes.join("; ")}. Auto avoids this.
         </p>
       {/if}
-      <Advanced {caps} {snap} {busy} {apply} bind:open={advancedOpen} />
+      <Advanced {snap} {busy} {apply} bind:open={advancedOpen} />
     {/if}
   {/snippet}
 
@@ -451,6 +451,7 @@
           {source}
           {outRate}
           dacName={selInst && hasDacs(selInst) ? dacName(selInst) : undefined}
+          product={selInst?.product}
           resume={snap.status.state !== 2 ? "stopped" : roonZone ? "roon-linked" : fromRoon ? "roon" : "hqplayer"}
           {speedClass}
           {speedText}
