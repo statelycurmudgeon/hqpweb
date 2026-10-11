@@ -42,6 +42,8 @@ export interface Capabilities {
   volumeRange: VolumeRange;
   /** Matrix profiles set up in HQPlayer (may be empty). */
   matrixProfiles: string[];
+  /** The matrix profile in use ("" none): knownBad, keptUp and slowSwitches are what was learned under it. */
+  matrixProfile: string;
   /** Combinations that failed here before, for this engine and mode. */
   knownBad: Failure[];
   /** Combinations that kept up here, settled, with how fast (kept-up.ts). */

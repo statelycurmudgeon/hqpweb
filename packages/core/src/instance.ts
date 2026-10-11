@@ -128,6 +128,8 @@ export class Instance {
         filterNx: s.filterNx,
         filter1x: s.filter1x,
         shaper: s.shaper,
+        // A profile switch is another combination: it ends the session (correction is heavy).
+        ...(state.matrixProfile ? { matrix: state.matrixProfile } : {}),
       };
       result = this.kept.feed({ t, key: JSON.stringify(sample), speed: status.processSpeed });
     }
@@ -244,13 +246,16 @@ export class Instance {
   async capabilities(fresh = false): Promise<Capabilities> {
     const [info, state] = await Promise.all([this.client.info(), this.client.state()]);
     const key = `${info.engine}|${state.mode}`;
+    // What's been learned applies under the matrix profile in use now (learned.ts).
+    const matrix = state.matrixProfile;
     if (!fresh && this.caps?.key === key) {
-      // Learned failures can change without a mode change.
+      // Learned failures can change without a mode change, and so can the profile.
       return {
         ...this.caps.value,
-        knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name),
-        keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name),
-        slowSwitches: this.learned.slowFor(this.scope(), info.engine, this.caps.value.mode.name),
+        matrixProfile: matrix,
+        knownBad: this.learned.forInstance(this.scope(), info.engine, this.caps.value.mode.name, matrix),
+        keptUp: this.learned.keptFor(this.scope(), info.engine, this.caps.value.mode.name, matrix),
+        slowSwitches: this.learned.slowFor(this.scope(), info.engine, this.caps.value.mode.name, matrix),
         lastSeen: this.history.lastSeen(this.scope()),
         modeLists: this.modeLists(info.engine),
       };
@@ -290,9 +295,10 @@ export class Instance {
       rateSettable: mode.value !== -1,
       volumeRange,
       matrixProfiles,
-      knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name),
-      keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name),
-      slowSwitches: this.learned.slowFor(this.scope(), info.engine, mode.name),
+      matrixProfile: matrix,
+      knownBad: this.learned.forInstance(this.scope(), info.engine, mode.name, matrix),
+      keptUp: this.learned.keptFor(this.scope(), info.engine, mode.name, matrix),
+      slowSwitches: this.learned.slowFor(this.scope(), info.engine, mode.name, matrix),
       lastSeen: this.history.lastSeen(this.scope()),
       modeLists: this.modeLists(info.engine),
     };
@@ -424,9 +430,10 @@ export class Instance {
     return this.learned.all(this.cfg.id);
   }
 
-  /** Everything learned here, or one combination (its failures and slow runs). */
-  forgetFailures(combo?: Combo): { forgotten: number } {
-    const n = combo ? this.learned.forgetCombo(this.cfg.id, combo) : this.learned.all(this.cfg.id).length;
+  /** Everything learned here, or one combination under the matrix profile in use (its failures and slow runs). */
+  async forgetFailures(combo?: Combo): Promise<{ forgotten: number }> {
+    const matrix = combo ? (await this.client.state()).matrixProfile : "";
+    const n = combo ? this.learned.forgetCombo(this.cfg.id, { ...combo, matrix }) : this.learned.all(this.cfg.id).length;
     if (!combo) this.learned.forget(this.cfg.id);
     this.caps = null;
     return { forgotten: n };

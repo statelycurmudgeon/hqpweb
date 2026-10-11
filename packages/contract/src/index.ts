@@ -67,6 +67,8 @@ export type Status = {
   /** HQPlayer's apodization and clip counters (0 when not reported). */
   apod?: number;
   clips?: number;
+  /** DAC correction is running (it lives in the matrix profile in use); false when not reported. */
+  correction?: boolean;
 };
 export type Snapshot = {
   status: Status;
@@ -91,6 +93,8 @@ export type Failure = {
   first?: string;
   /** Source sample rates it failed with; absent in older records. */
   sourceRates?: number[];
+  /** The matrix profile in use when it happened; absent: none. */
+  matrix?: string;
 };
 /** A combination that kept up here once settled (server: kept-up.ts), per source rate. */
 export type KeptUp = Omit<Failure, "reason" | "count" | "sourceRates"> & {
@@ -111,6 +115,8 @@ export type SlowSwitch = {
   busyMs: number;
   at: string;
   count: number;
+  /** The matrix profile in use; absent: none. */
+  matrix?: string;
 };
 /** One entry of an instance's change history (server: history.ts), newest first from the API. */
 export type HistoryEntry = {
@@ -142,6 +148,8 @@ export type Capabilities = {
   rates: { index: number; rate: number; allowed: boolean; note?: string }[];
   rateSettable: boolean;
   matrixProfiles: string[];
+  /** The matrix profile in use ("" none): knownBad, keptUp and slowSwitches are what was learned under it. */
+  matrixProfile: string;
   volumeRange: { min: number; max: number; enabled: boolean };
   knownBad: Failure[];
   keptUp: KeptUp[];

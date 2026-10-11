@@ -163,11 +163,13 @@
     });
   });
 
-  // Lists depend on the mode: (re)load when the mode differs from what we hold.
+  // Lists depend on the mode, and what's been learned on the matrix profile: (re)load when
+  // either differs from what we hold.
   $effect(() => {
     const id = selected;
     const mode = snap?.state.mode;
-    if (!id || mode === undefined || caps?.mode.index === mode) return;
+    const matrix = snap?.state.matrixProfile;
+    if (!id || mode === undefined || (caps?.mode.index === mode && caps.matrixProfile === matrix)) return;
     api
       .capabilities(id)
       .then((c) => (caps = c))

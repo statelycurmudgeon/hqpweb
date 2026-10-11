@@ -18,6 +18,9 @@
     open: boolean;
   } = $props();
 
+  /** The picker's row for "": HQPlayer's default profile (its matrix settings as last saved; v6 manual §7). */
+  const NO_PROFILE = "Default";
+
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
   const toggle = async (el: HTMLInputElement, key: "invert" | "filter20k" | "adaptive" | "convolution") => {
     await apply({ [key]: el.checked });
@@ -44,16 +47,17 @@
     {#if caps.matrixProfiles.length}
       <Picker
         label="Matrix profile"
-        items={caps.matrixProfiles.map((name, index) => ({ index, name }))}
-        current={snap.state.matrixProfile}
+        items={[{ index: -1, name: NO_PROFILE }, ...caps.matrixProfiles.map((name, index) => ({ index, name }))]}
+        current={snap.state.matrixProfile || NO_PROFILE}
         disabled={busy}
-        onpick={(i) => apply({ matrixProfile: i.name })}
+        onpick={(i) => apply({ matrixProfile: i.index === -1 ? "" : i.name })}
       />
     {/if}
   </section>
   <p class="help">
     Impulse responses and matrix profiles are set up in HQPlayer itself (its Convolution and Matrix menus); the control API can
-    only switch them.
+    only switch them. A profile can change how heavy processing is, so what's been learned here (what kept up, what fell behind)
+    is kept per profile.
     {#if !caps.matrixProfiles.length}No matrix profiles are set up on this instance.{/if}
   </p>
 

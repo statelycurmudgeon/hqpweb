@@ -1,6 +1,7 @@
 // Combinations that failed on an instance, learned from rollbacks (design §4.4), and
-// ones that kept up, with how fast (kept-up.ts). Kept per instance (or named DAC) and
-// engine version, because both change what works.
+// ones that kept up, with how fast (kept-up.ts). Kept per instance (or named DAC), engine
+// version and matrix profile, because all three change what works: DAC correction lives in
+// a matrix profile, and it's heavy.
 import { DocWriter, listOf, loadDoc, type DocStore } from "./docs.ts";
 import { SETTINGS_FORMAT } from "./format.ts";
 
@@ -13,6 +14,8 @@ export interface Combo {
   filterNx: string;
   filter1x: string;
   shaper: string;
+  /** The matrix profile in use (HQPlayer's State); absent: none, as in records from before 0.1.0-beta.7. */
+  matrix?: string;
 }
 
 export interface Failure extends Combo {
@@ -60,10 +63,20 @@ export interface SlowSwitch {
   at: string;
   /** How many times it's been seen. */
   count: number;
+  /** The matrix profile in use; absent: none (Combo.matrix). */
+  matrix?: string;
 }
 
+/** The same matrix profile: a record without one was made with none in use. */
+const sameMatrix = (a: { matrix?: string }, matrix: string | undefined) => (a.matrix ?? "") === (matrix ?? "");
+
 const sameCombo = (a: Combo, b: Combo) =>
-  a.mode === b.mode && a.rateHz === b.rateHz && a.filterNx === b.filterNx && a.filter1x === b.filter1x && a.shaper === b.shaper;
+  a.mode === b.mode &&
+  a.rateHz === b.rateHz &&
+  a.filterNx === b.filterNx &&
+  a.filter1x === b.filter1x &&
+  a.shaper === b.shaper &&
+  sameMatrix(a, b.matrix);
 
 /** A failure's scope belongs to an instance: its own id, or `id#dac` for one of its named DACs. */
 const ofInstance = (scope: string, instance: string) => scope === instance || scope.startsWith(`${instance}#`);
@@ -134,22 +147,26 @@ export class LearnedStore {
       x.mode === s.mode &&
       x.rateHz === s.rateHz &&
       x.filter === s.filter &&
-      x.sourceRate === s.sourceRate;
+      x.sourceRate === s.sourceRate &&
+      sameMatrix(x, s.matrix);
     const prev = this.slow.find(same);
     this.slow = [...this.slow.filter((x) => !same(x)), { ...s, count: (prev?.count ?? 0) + 1 }];
     this.save();
   }
 
-  slowFor(instance: string, engine: string, mode: string): SlowSwitch[] {
-    return this.slow.filter((x) => x.instance === instance && x.engine === engine && x.mode === mode);
+  // What applies now: this instance, engine and mode, under the matrix profile in use ("" none).
+  slowFor(instance: string, engine: string, mode: string, matrix: string): SlowSwitch[] {
+    return this.slow.filter((x) => x.instance === instance && x.engine === engine && x.mode === mode && sameMatrix(x, matrix));
   }
 
-  keptFor(instance: string, engine: string, mode: string): KeptUp[] {
-    return this.kept.filter((k) => k.instance === instance && k.engine === engine && k.mode === mode);
+  keptFor(instance: string, engine: string, mode: string, matrix: string): KeptUp[] {
+    return this.kept.filter((k) => k.instance === instance && k.engine === engine && k.mode === mode && sameMatrix(k, matrix));
   }
 
-  forInstance(instance: string, engine: string, mode: string): Failure[] {
-    return this.failures.filter((f) => f.instance === instance && f.engine === engine && f.mode === mode);
+  forInstance(instance: string, engine: string, mode: string, matrix: string): Failure[] {
+    return this.failures.filter(
+      (f) => f.instance === instance && f.engine === engine && f.mode === mode && sameMatrix(f, matrix),
+    );
   }
 
   /** An instance's failures, for all its DACs (kept under `id` and `id#dac`, dac-scope.ts). */
@@ -158,8 +175,9 @@ export class LearnedStore {
   }
 
   /**
-   * Forget one combination here, for every DAC and engine: its failures and its runs that
-   * didn't keep up (below 1x; the web's KEPT_UP). Runs that kept up stay. How many went.
+   * Forget one combination here (under its matrix profile), for every DAC and engine: its
+   * failures and its runs that didn't keep up (below 1x; the web's KEPT_UP). Runs that kept
+   * up stay. How many went.
    */
   forgetCombo(instance: string, c: Combo): number {
     const before = this.failures.length + this.kept.length;

@@ -39,6 +39,7 @@ const caps = (knownBad: Failure[] = [], keptUp: KeptUp[] = [], o: Partial<Capabi
   rates: RATES,
   rateSettable: true,
   matrixProfiles: [],
+  matrixProfile: "",
   volumeRange: { min: -60, max: 0, enabled: true },
   knownBad,
   keptUp,
