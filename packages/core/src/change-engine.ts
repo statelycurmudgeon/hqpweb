@@ -248,7 +248,8 @@ export class ChangeEngine {
     const x1 = resolve(caps.filters, "filter1x", change.filter1x);
     const shaper = resolve(caps.shapers, "shaper", change.shaper);
     // HQPlayer accepts unknown profile names with OK (reported), so only send listed ones, or ""
-    // (its default profile, v6 manual §7; measured on Desktop 5.35.10, 2026-10-11). Undo and
+    // (no profile: HQPlayer's base matrix settings; measured on Desktop 5.35.10 and Embedded 6.2.5,
+    // 2026-10-11). Undo and
     // rollback may restore "" anywhere; read-back verifies it took.
     const none = change.matrixProfile === "" && (isUndo || caps.matrixProfiles.length > 0);
     if (change.matrixProfile !== undefined && !none && !caps.matrixProfiles.includes(change.matrixProfile))

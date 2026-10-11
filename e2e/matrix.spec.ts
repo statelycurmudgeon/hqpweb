@@ -29,7 +29,7 @@ async function useProfile(page: Page, label: string) {
 
 const profileRow = (page: Page) => advanced(page).getByRole("button", { name: /^Matrix profile/ });
 
-test("matrix: what fell behind under one profile is flagged only under it; Default is a choice too", async ({ page }) => {
+test("matrix: what fell behind under one profile is flagged only under it; no profile is a choice too", async ({ page }) => {
   await openV2(page, "matrix");
   await advanced(page).locator("summary").click();
   await expect(profileRow(page)).toContainText("Correction On");
@@ -52,9 +52,9 @@ test("matrix: what fell behind under one profile is flagged only under it; Defau
   await sheet(page).getByRole("button", { name: "Done" }).click();
   await page.screenshot({ path: shotPath("matrix-1-advanced"), fullPage: true });
 
-  // Default (HQPlayer's default profile) is a choice too, and back under the first profile, it's flagged again.
-  await useProfile(page, "Default");
-  await expect(profileRow(page)).toContainText("Default");
+  // No profile (HQPlayer's base settings) is a choice too; back under the first profile, it's flagged again.
+  await useProfile(page, "No profile");
+  await expect(profileRow(page)).toContainText("No profile");
   await useProfile(page, "Correction On");
   await open1x(page);
   await expect(sincLh(page)).toContainText(/failed here/i);

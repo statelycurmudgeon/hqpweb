@@ -18,8 +18,11 @@
     open: boolean;
   } = $props();
 
-  /** The picker's row for "": HQPlayer's default profile (its matrix settings as last saved; v6 manual §7). */
-  const NO_PROFILE = "Default";
+  /**
+   * The picker's row for "": no profile chosen, HQPlayer's base matrix settings. Not "Default": a
+   * profile can be named that, and on Embedded 6.2.5 one was, with different settings (measured).
+   */
+  const NO_PROFILE = "No profile";
 
   /** Apply a switch, then show what HQPlayer actually reports (it can say OK and not change). */
   const toggle = async (el: HTMLInputElement, key: "invert" | "filter20k" | "adaptive" | "convolution") => {

@@ -16,7 +16,7 @@ const FIELDS: Record<keyof Change, "name" | "profile" | "number" | "rate" | "boo
   filter20k: "boolean",
   adaptive: "boolean",
   convolution: "boolean",
-  // "" is HQPlayer's default profile (v6 manual §7; measured: MatrixSetProfile "" returns to it).
+  // "" is no profile: HQPlayer's base matrix settings (measured: MatrixSetProfile "" returns to them).
   matrixProfile: "profile",
 };
 

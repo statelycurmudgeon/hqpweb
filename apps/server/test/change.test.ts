@@ -188,7 +188,7 @@ describe("rollback when playback fails", () => {
     expect((await caps()).knownBad).toEqual([]);
   });
 
-  it('chooses the default matrix profile ("") where profiles exist, and refuses it where none do', async () => {
+  it('chooses no matrix profile ("") where profiles exist, and refuses it where none do', async () => {
     await setup({ matrixProfiles: ["Correction On"], correctingProfiles: [""] });
     fake.matrixProfile = "Correction On";
     const r = (await change({ matrixProfile: "" })).json();
