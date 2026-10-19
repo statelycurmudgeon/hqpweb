@@ -3,8 +3,24 @@
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/tools/quality/edit-hook.ts\"", "timeout": 10 }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/quality/edit-hook.ts\"",
+            "timeout": 10
+          }
+        ]
       }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "mcp__claude_ai_Gmail",
+      "mcp__claude_ai_Google_Drive",
+      "mcp__claude_ai_Claude_Docs",
+      "RemoteTrigger",
+      "CronCreate",
+      "CronDelete"
     ]
   }
 }
